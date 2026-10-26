@@ -14,7 +14,6 @@ import hashlib
 import importlib
 import json
 import os
-import socket
 import ssl
 import struct
 import sys
@@ -60,14 +59,6 @@ WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 
 _log_lock = threading.Lock()
 _log_file = None
-_started_at = ""
-
-
-def _mtime(path):
-    try:
-        return os.path.getmtime(path)
-    except OSError:
-        return 0
 
 
 def log(msg):
@@ -81,7 +72,6 @@ def log(msg):
 
 class Server(ThreadingHTTPServer):
     daemon_threads = True
-    allow_reuse_address = True
 
     def handle_error(self, request, client_address):
         # The client drops keep-alive connections abruptly; that is not an error.
@@ -90,24 +80,6 @@ class Server(ThreadingHTTPServer):
             return
         log("!! handler error from %s: %r" % (client_address, exc))
         log(traceback.format_exc())
-
-
-class Server6(Server):
-    """The same server on ::, also accepting IPv4 connections.
-
-    The client resolves "localhost", and Windows answers ::1 at least as often as
-    127.0.0.1. An IPv4-only listener refuses those attempts, and a client that cannot
-    reach the backend at startup just exits - it looks exactly like a crash on launch.
-    IPV6_V6ONLY=0 makes one socket answer both families.
-    """
-    address_family = socket.AF_INET6
-
-    def server_bind(self):
-        try:
-            self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
-        except OSError:
-            pass
-        super().server_bind()
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -150,23 +122,6 @@ class Handler(BaseHTTPRequestHandler):
 
         # session endpoints, regardless of which service prefix they sit under
         tail = "/".join(parts)
-        if tail == "__local/info":
-            # Used by launch.py: says *which* build is answering, so a server left over
-            # from an older zip can be replaced instead of being played against.
-            return self._send(200, {
-                "pid": os.getpid(),
-                "started": _started_at,
-                "port": self.server.server_address[1],
-                "python": sys.version.split()[0],
-                "log": os.path.basename(getattr(_log_file, "name", "")),
-                "code": {"server": _mtime(os.path.join(HERE, "server.py")),
-                         "state": _mtime(getattr(state, "__file__", "")),
-                         "handlers": _mtime(getattr(handlers, "__file__", ""))},
-                "features": {"jobs": state.FEATURE_JOBS,
-                             "challenges": state.FEATURE_CHALLENGES,
-                             "exports": state.FEATURE_EXPORTS,
-                             "production": state.FEATURE_PRODUCTION},
-            })
         if tail == "acceptcredentials":
             return self._send(200, {}, headers=[
                 ("Set-Cookie", "connect.sid=%s; Path=/; HttpOnly" % SESSION_ID)])
@@ -180,20 +135,8 @@ class Handler(BaseHTTPRequestHandler):
         if fn is None:
             log("    !! UNHANDLED %s %s/%s" % (self.command, service, tail))
             return self._send(200, {"mReturnCode": 0, "mMessage": ""})
-        # A handler that raises used to drop the connection, and the client can treat
-        # that as a fatal error in the middle of a screen transition. Answer with the
-        # neutral reply the client already handles for endpoints we do not implement.
-        try:
-            result = fn(self, self.command, parts, body, parse_qs(url.query))
-        except Exception:
-            log("    !! handler error for %s/%s" % (service, tail))
-            log(traceback.format_exc())
-            return self._send(200, {"mReturnCode": 0, "mMessage": ""})
-        try:
-            log("    -> %s" % json.dumps(result)[:300])
-        except (TypeError, ValueError):
-            log("    -> <reply that cannot be serialised>")
-            return self._send(200, {"mReturnCode": 0, "mMessage": ""})
+        result = fn(self, self.command, parts, body, parse_qs(url.query))
+        log("    -> %s" % json.dumps(result)[:300])
         status = 200
         if isinstance(result, tuple):
             status, result = result
@@ -238,13 +181,11 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
-    global _log_file, _started_at
+    global _log_file
     ap = argparse.ArgumentParser()
-    ap.add_argument("--host", default="auto",
-                    help="'auto' listens on IPv4 and IPv6; or give an address to bind")
+    ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=443)
     args = ap.parse_args()
-    _started_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     os.makedirs(LOG_DIR, exist_ok=True)
     _log_file = open(os.path.join(
@@ -259,22 +200,9 @@ def main():
         pass
     ctx.load_cert_chain(os.path.join(HERE, "cert.pem"), os.path.join(HERE, "key.pem"))
 
-    if args.host == "auto":
-        try:
-            httpd = Server6(("::", args.port), Handler)
-            where = "::"
-        except OSError as e:
-            log("!! could not listen on :: (%s); falling back to IPv4 only" % e)
-            httpd = Server(("127.0.0.1", args.port), Handler)
-            where = "127.0.0.1"
-    else:
-        family = Server6 if ":" in args.host else Server
-        httpd = family((args.host, args.port), Handler)
-        where = args.host
+    httpd = Server((args.host, args.port), Handler)
     httpd.socket = ctx.wrap_socket(httpd.socket, server_side=True)
-    shown = "[%s]" % where if ":" in where else where
-    log("Triad Wars local server listening on https://%s:%d (pid %d)"
-        % (shown, args.port, os.getpid()))
+    log("Triad Wars local server listening on https://%s:%d" % (args.host, args.port))
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

@@ -166,15 +166,11 @@ def triad_members(req, method, parts, body, query):
 
 @route("game", "errands")
 def errands(req, method, parts, body, query):
-    if not state.FEATURE_JOBS:
-        return {"mErrands": [], "mSecondsToRefresh": 86400}
     return _errand_board()
 
 
 @route("game", "completederrands")
 def completed_errands(req, method, parts, body, query):
-    if not state.FEATURE_JOBS:
-        return {"mReturnCode": 0, "mMessage": ""}
     return _errand_history()
 
 
@@ -612,7 +608,7 @@ def _all_rackets(turf):
 
 
 def _settle_turf(turf=None):
-    """Finish any construction or upgrade whose timer has run out, then let rackets produce."""
+    """Finish any construction or upgrade whose timer has run out."""
     turf = turf or _player()["TurfBag"]
     now = time.time()
     changed = False
@@ -625,10 +621,6 @@ def _settle_turf(turf=None):
             del r["_ready_at"]
             r.pop("_total", None)
             changed = True
-    # Rackets also fill up with production over time (see state.settle_production); the
-    # warehouse screen and the export missions read CurrentProduction.
-    if state.settle_production(_player(), now):
-        changed = True
     return changed
 
 
@@ -818,42 +810,7 @@ def turf_temple_info(req, method, parts, body, query):
 
 @route("game", "turf/movetowarehouse")
 def turf_move_to_warehouse(req, method, parts, body, query):
-    # turf/movetowarehouse/<racket type uid>/<units>: collect a racket's production into
-    # the warehouse. Whatever does not fit is sold on the black market, which is what
-    # mCommoditySold / mCommoditySoldEarnings report. A unit count of 0 means "all of it".
-    type_uid = parts[2] if len(parts) > 2 else "0"
-    amount = _int(parts[3] if len(parts) > 3 else None, 0)
-    with STATE.lock:
-        player = _player()
-        racket = None
-        for candidate in player["TurfBag"].get("Rackets") or []:
-            if str(candidate.get("RacketTypeUID")) == str(type_uid):
-                racket = candidate
-                break
-        if racket is None:
-            # The path is two u64s and the client's request has no callback, so it may
-            # well name the commodity instead of the racket. Match either, and if
-            # neither matches answer "nothing moved" rather than an error: this used to
-            # be a no-op, and the warehouse screen must not start failing.
-            for candidate in player["TurfBag"].get("Rackets") or []:
-                commodity = state.commodity_of_racket(player, candidate.get("RacketTypeUID"))
-                if commodity and str(commodity["uid"]) == str(type_uid):
-                    racket = candidate
-                    break
-        if racket is None:
-            out = _turf_action(None, ACTION_MOVE_TO_WAREHOUSE)
-            out["mCommodityMoved"] = 0
-            out["mCommoditySold"] = 0
-            out["mCommoditySoldEarnings"] = 0
-            return out
-        moved, sold, earnings = state.move_to_warehouse(
-            player, racket["RacketTypeUID"], amount or None)
-    STATE.save()
-    out = _turf_action(racket, ACTION_MOVE_TO_WAREHOUSE)
-    out["mCommodityMoved"] = moved
-    out["mCommoditySold"] = sold
-    out["mCommoditySoldEarnings"] = earnings
-    return out
+    return _turf_action(action=ACTION_MOVE_TO_WAREHOUSE)
 
 
 # ---- game service: single opponent / profiles -----------------------------------
@@ -1151,54 +1108,20 @@ def end_operation(req, method, parts, body, query):
     return _ok_bags(mRewardType=0, mReward="0")
 
 
-def _export_bags():
-    return _bags(ALL_OWN | state.BAG_EXPORT_REWARDS)
-
-
-def _export_payload(mission):
-    """The mission as an ExportRewardsBag record (the client's own member names first)."""
-    return schema.conform(mission, "GameService ExportMissionData")
-
-
 @route("game", "export/startmission")
 def export_start(req, method, parts, body, query):
-    # export/startmission/<mission uid>: the client has picked an export off the map.
-    if not state.FEATURE_EXPORTS:
-        return _ok_bags()
-    uid = parts[2] if len(parts) > 2 else "0"
-    with STATE.lock:
-        mission = state.start_export(_player(), uid)
-        bags = _export_bags()
-    STATE.save()
-    if mission is None:
-        return ok(mReturnCode=1, mMessage="There is no export mission available.",
-                  mDataBags=bags)
-    return ok(mDataBags=bags, mExportMissionUID=str(mission.get("ExportMissionUID")),
-              mCommodity1UID=str(mission.get("mCommodity1UID")),
-              mCommodity1Amount=int(mission.get("mCommodity1Amount") or 0),
-              mMoneyReward=int(mission.get("mMoneyReward") or 0),
-              mFaceReward=int(mission.get("mFaceReward") or 0))
+    return _ok_bags()
 
 
 @route("game", "export/endmission")
 def export_end(req, method, parts, body, query):
-    # export/endmission/<mission uid>/<result>: 0 = failed, anything else = a clean run.
-    if not state.FEATURE_EXPORTS:
-        return _ok_bags(mFaceReward=0, mMoneyReward=0)
-    uid = parts[2] if len(parts) > 2 else "0"
-    success = _int(parts[3] if len(parts) > 3 else None, 1) != 0
+    # export/endmission/<mission uid>/<result>
+    success = _int(parts[3] if len(parts) > 3 else None) != 0
+    money = 2500 if success else 0
     with STATE.lock:
-        mission, money, face = state.end_export(_player(), uid, success)
-        bags = _export_bags()
+        _money("DirtyMoney", money)
     STATE.save()
-    if mission is None:
-        return ok(mFaceReward=0, mMoneyReward=0, mDataBags=bags)
-    print("export: %s %s -> %d money, %d face"
-          % (mission.get("mCommodityTitle"), "ok" if success else "failed", money, face),
-          flush=True)
-    return ok(mReward="0", mRewardType=state.JOB_REWARD_CASH,
-              mFaceReward=face, mMoneyReward=money, mSucceeded=bool(success),
-              mExportMissionUID=str(mission.get("ExportMissionUID")), mDataBags=bags)
+    return _ok_bags(mFaceReward=0, mMoneyReward=money)
 
 
 @route("game", "worldencounter/endencounter")
@@ -1403,22 +1326,16 @@ def _trial_report(value=None):
 
 @route("game", "errands/end")
 def errand_end(req, method, parts, body, query):
-    if not state.FEATURE_JOBS:
-        return ok(mSlotIndex=_int(parts[2] if len(parts) > 2 else None))
     return _errand_end(_int(parts[2] if len(parts) > 2 else None, -1))
 
 
 @route("game", "errands/claimreward")
 def errand_claim(req, method, parts, body, query):
-    if not state.FEATURE_JOBS:
-        return _ok_bags(mFavourCortexUIDs=[], mFavourPackCortexUID="0", mRewardType=0)
     return _errand_claim(_int(parts[2] if len(parts) > 2 else None, -1))
 
 
 @route("game", "errands/change")
 def errand_change(req, method, parts, body, query):
-    if not state.FEATURE_JOBS:
-        return ok()
     return _errand_change(_int(parts[2] if len(parts) > 2 else None, -1))
 
 
@@ -1426,15 +1343,11 @@ def errand_change(req, method, parts, body, query):
 def trial_progress(req, method, parts, body, query):
     # trial/reportprogress/<value>: the client reports its own challenge progress here
     # and expects the same report trialsscreenvisits gets back.
-    if not state.FEATURE_CHALLENGES:
-        return _ok_bags(mRewardList=[])
     return _trial_report(_int(parts[2] if len(parts) > 2 else None, None))
 
 
 @route("game", "trialinstance")
 def trial_instance(req, method, parts, body, query):
-    if not state.FEATURE_CHALLENGES:
-        return ok()
     return _trial_report()
 
 
@@ -1444,8 +1357,6 @@ def trial_optin(req, method, parts, body, query):
     # by the trial's own name, so the reply carries "<name>": true.
     ident = parts[2] if len(parts) > 2 else ""
     name = parts[3] if len(parts) > 3 else ""
-    if not state.FEATURE_CHALLENGES:
-        return ok()
     with STATE.lock:
         bag = state.trials(_player())
         bag["OptedIn"] = state.TRIAL_OPT_IN
@@ -1460,8 +1371,6 @@ def trial_optin(req, method, parts, body, query):
 
 @route("game", "trialsscreenvisits")
 def trials_screen_visits(req, method, parts, body, query):
-    if not state.FEATURE_CHALLENGES:
-        return _ok_bags(mRewardList=[])
     return _trial_report()
 
 

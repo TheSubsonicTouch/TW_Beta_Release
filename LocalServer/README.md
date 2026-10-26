@@ -6,82 +6,16 @@ A stand-in for the Triad Wars online services so the 1.6.0.0 client
 ## Running
 
 Double-click `Play-TriadWars.bat` in the game folder. It starts this server
-if it is not already running, then starts the game and watches it for 25
-seconds. If the game closes in that window, the console stays open and
-`LocalServer\last-launch.txt` says what happened.
-
-    Play-TriadWars.bat              normal launch
-    Play-TriadWars.bat safe         the new screens switched off (see below)
-    Play-TriadWars.bat diagnose     a setup report; starts neither server nor game
+if it is not already running, then starts the game.
 
 To run the pieces by hand:
 
     cd LocalServer
-    python launch.py               # server + game, with the report
-    python launch.py server        # just the server
-    python server.py               # the server, without the checks
+    python server.py            # listens on https://127.0.0.1:443
     ..\TriadWars.exe
-
-`server.py` listens on IPv4 *and* IPv6 by default (`--host auto`). The client
-resolves `localhost`, and Windows answers `::1` about as often as `127.0.0.1`;
-an IPv4-only listener refuses half those attempts, which the client reports as
-a crash on the loading screen.
 
 Requirements: Python 3.9 or newer on `PATH` (standard library only), and
 port 443 free.
-
-### If `TriadWars.exe` is not next to this folder
-
-This zip is the server only - about 2 MB. The game is a separate folder with
-`TriadWars.exe` (roughly 1.5 GB) in it, and the server has to know where that
-is: `UserOptions.dat`, the crash patch and the game itself all live there.
-
-Extracting the zip *inside* the game folder keeps everything in one place and
-is what the instructions assume. If it ends up somewhere else, the launcher
-looks for the game by itself - this folder, its parent, the Desktop, Downloads,
-Documents, `C:\Games`, Program Files, the Steam libraries, and the
-"Triad Wars" entry in Windows' installed-programs list - and uses the first
-copy it finds, printing which one.
-
-When that is not enough, point it at the folder once:
-
-    Play-TriadWars.bat "D:\Games\TriadWars"
-    python LocalServer\launch.py --root "D:\Games\TriadWars"
-
-or drag the game folder onto `Play-TriadWars.bat`. The folder is remembered in
-`LocalServer\game-folder.txt`, which `tools\patch_exe.py` reads as well, so
-every later run is a plain double-click. Delete that file to make the launcher
-search again.
-
-## When the game crashes on launch
-
-A crash on launch used to leave nothing behind: the console closed, the server
-kept running, and every attempt looked the same. Now `launch.py` writes
-`LocalServer\last-launch.txt` and keeps the window open. The first nine lines
-are the summary; the rest is evidence.
-
-What the report tells you, in order of usefulness:
-
-| In the report | What it means | What to try |
-| --- | --- | --- |
-| `0 request(s) this run` | The client died before it ever contacted the server. No reply shape can be at fault. | The Windows entry below names the module. If it is the game or a graphics DLL, check the crash patch (next section) and re-extract the game files; if it is `python.exe`, read `logs\console.log`. |
-| Requests, then an exit | It died on a screen. The last request line names it. | `Play-TriadWars.bat safe` first - that turns off jobs, challenges, exports and production. If the game survives, one reply is the cause and the `!!` lines in the log say which. |
-| `Port 443: closed (IPv4), closed (IPv6)` | Nothing is listening: the client had no backend to talk to. | The server did not start; its output is in the same report. |
-| `Port 443 ... another program holds the port` | The launcher refused to start because something else owns 443. | The report names the process. Close it, or stop it listening there. |
-| `code: ... (different from this copy)` | A server from an older zip was still running. The launcher replaces it and says so. | Nothing - but restart the game so it talks to the new one. |
-| `Answers game: NO` | Something is listening on 443 but it does not answer the game's own `storeaccess` request. | The server is up with broken handlers; `logs\console.log` holds the traceback. |
-| `UserOptions.dat: Environment = (file not found)` | The client has no environment set, so it will look for the real (dead) service. | Run the game once so it writes the file, then `Play-TriadWars.bat` again. The launcher sets it to `localhost` every run. |
-| `This folder holds the local server, not the game` | The zip was extracted somewhere without `TriadWars.exe`. | Extract it inside the game folder, or drop that folder onto `Play-TriadWars.bat` once (see "If `TriadWars.exe` is not next to this folder"). |
-
-`Play-TriadWars.bat diagnose` runs the same checks without starting anything and
-prints the report to the console, which is the quickest way to see what the
-machine thinks is installed.
-
-The Windows application log entry is the important part when the client dies
-early. `Get-WinEvent` reads it; the report quotes the last 15 minutes of entries
-that mention `TriadWars`, including `Faulting module name` and `Exception offset`.
-A crash at `TriadWars.exe+0x1b81b7` is the known shadow-map race, and the patch
-below fixes it.
 
 ## What was changed in the game folder
 
@@ -116,8 +50,7 @@ on the next launch).
 
 | File | Purpose |
 | --- | --- |
-| `launch.py` | What `Play-TriadWars.bat` runs: starts the server, starts the game, and writes `last-launch.txt` when the game exits during launch. |
-| `server.py` | HTTPS + WebSocket plumbing (IPv4 and IPv6), request log, routing, `/__local/info` for the launcher. |
+| `server.py` | HTTPS + WebSocket plumbing, request log, routing. |
 | `handlers.py` | One function per API endpoint. Edits are picked up without restarting. |
 | `state.py` | Player/world model, the job board and challenge progress, and the JSON encodings the client expects. |
 | `schema.py` | Reads the game's own `Reflection.rdb` (next to `TriadWars.exe`) and shapes replies to the type the client declares. Optional; without the file every helper is a no-op. |
@@ -126,14 +59,11 @@ on the next launch).
 | `data/store_items.json` | What the clothing, outfit, favour-pack and pack-bundle stores sell (see `tools/store_items.py`). |
 | `data/errands.json` | Every job (`UFG::ErrandTypeMetadata`) with its reward, requirements, prerequisites and completion conditions, plus the `UFG::ErrandRewards` tables (see `tools/errands.py`). |
 | `data/challenges.json` | The rotating challenges (`JiangShiTrial`, `HappyCatTrial`, `EliteGhoulTrial`), their progress tiers and the `UFG::GameRewardTuner` each tier pays (see `tools/challenges.py`). |
-| `data/exports.json` | The export catalogue: the eight physical commodities with their prices and per-level export amounts, the racket that produces each one, the face/markup tables and the three mission kinds (see `tools/exports.py`). |
 | `data/favour_upgrades.json` | Every favour that grants an enforcer upgrade, with the rarity/tags/level job and challenge rewards filter on (see `tools/favour_rewards.py`). |
 | `useroptions.py` | Reads/edits the obfuscated `UserOptions.dat`. |
 | `cert.pem`, `key.pem` | Self-signed certificate for `localhost` (the client does not verify it). |
-| `logs/` | One request log per server run, plus `console.log` with whatever the server printed (a Python traceback ends up here). Lines marked `UNHANDLED` are endpoints with no handler yet. |
-| `last-launch.txt` | Written when the game exits during launch: what is listening, whether the client reached it, the exit code, the Windows application-log entry with faulting module and offset, and the last requests. Safe to send. |
-| `game-folder.txt` | Only when the game is not next to this folder: remembers where `TriadWars.exe` was found or pointed at. Delete it to search again. |
-| `tools/` | The scripts used to unpack the game data and decode its schema, crash-analysis helpers, `smoke_test.py`, `test_jobs.py`, `test_exports.py`, `test_crash.py`, `test_launch.py`, `storyline.py`, `unlock.py`, `schema_dump.py`, `patch_exe.py` (see above), `make_bundle.py` and the data builders (`errands.py`, `challenges.py`, `exports.py`, `favour_rewards.py`). |
+| `logs/` | One request log per server run. Lines marked `UNHANDLED` are endpoints with no handler yet. |
+| `tools/` | The scripts used to unpack the game data and decode its schema, crash-analysis helpers, `smoke_test.py`, `schema_dump.py`, `patch_exe.py` (see above), `make_bundle.py` and the data builders (`errands.py`, `challenges.py`, `favour_rewards.py`). |
 | `devdata/` | Reference data for extending the server: the full object-database export and the client's endpoint and key lists. Not needed to play. |
 
 ## How it works
@@ -244,13 +174,9 @@ and only calls `game/errands/end/<slot>` when a job is done. The server owns the
 board and the payout, not the progress:
 
 1. `game/errands` returns up to three slots, one job each, picked from the jobs
-   whose gates are met and whose prerequisite jobs are all completed. A job the
-   player has never done comes before a repeat, then higher `mPriority` first.
-   A brand-new profile has exactly one eligible job, "Raid A Rival" - the first
-   step of the tutorial ladder the data encodes. Prerequisites the game itself
-   disables are ignored (two enabled jobs hang off the disabled "Finish a raid"),
-   and the four jobs that ask for safehouse 15 are treated as safehouse 10,
-   because the turf cannot be upgraded past 10 - otherwise they could never appear.
+   whose gates are met and whose prerequisite jobs are all completed, highest
+   `mPriority` first. A brand-new profile has exactly one eligible job, "Raid A
+   Rival" - the first step of the tutorial ladder the data encodes.
 2. `game/errands/end/<slot>` marks that job completed.
 3. `game/errands/claimreward/<slot>` pays it and returns the bags:
    `UFG::ErrandRewards` is indexed by XP level (level 1 = index 0), so a level 1
@@ -262,11 +188,8 @@ board and the payout, not the progress:
    read again it refills with the next available job - that is the hub's "Next Job"
    notification - so the chain keeps moving inside one session. `state.py`'s
    `ERRAND_REFILL_COLLECTED = False` makes the three slots fixed for the day instead.
-   The board rolls over at the hour the game data names
-   (`mErrandRefreshHourUTC`, **10:00 UTC** - not midnight), and `mSecondsToRefresh`
-   says how long is left. A repeatable job stays off the board for
-   `mRepeatableErrandCooldownHours` (96 h) after it paid out; with only a few jobs
-   unlocked the cooldown is dropped rather than handing back an empty screen.
+   The board rolls over at UTC midnight (unclaimed rewards survive it), and
+   `mSecondsToRefresh` says how long is left.
 
 Favour rewards are picked from `data/favour_upgrades.json` (every favour that
 grants an enforcer upgrade) by the rarity range and tag list on the errand, and
@@ -316,124 +239,14 @@ server can export: the challenge rotation, tier targets and reward choice above
 are this server's own event design, built to fit the client's screen. They are
 plain JSON - edit them freely.
 
-### Is there more than the tutorials?
-
-Yes - the four tutorial jobs are the first rung of a 116 job ladder (87 of them
-enabled). `python tools/storyline.py` prints it safehouse level by safehouse
-level; `python tools/storyline.py --check` reports anything unreachable. The
-ladder is the game's own progression:
-
-* the tutorial chain (`Raid A Rival` -> `Raid 2 Rivals` -> `Rank Up to "Blue
-  Lantern"` -> `Upgrade Safehouse II` -> `Level Up`), then
-* the upgrade chain (`Safehouse III..VIII`, `Warehouse II..V`, `Racket III..IX`),
-  which is what raises the gates on everything else, then
-* the export chain (`Complete an Export` -> `Complete 3 Exports`), which alone
-  opens **73** of the jobs, and then the raid, combat, shop, favour and faction
-  jobs that fill the rest of the list.
-
-Simulated end to end (every safehouse level, collecting every job the board
-offers) **83 of the 87** enabled jobs come up; the four that do not need an XP
-level the simulation never reaches (3, 10, 12) and are gated on that alone. All
-87 are reachable in play.
-
-### Exports (`export/startmission`, `export/endmission`, `turf/movetowarehouse`)
-
-The warehouse side of the turf is an export chain: a racket produces a
-commodity, the warehouse stores it, and an export mission drives a load of it out
-of town for dirty money and face. Every number is the game's own
-(`data/exports.json`, built by `tools/exports.py`):
-
-| Data | Where it comes from |
-| --- | --- |
-| which commodity a racket makes | `UFG::RacketType.mRacketOutput` |
-| units in a load, per XP level | `UFG::CommodityType.mExportAmounts` |
-| units the warehouse holds, per level | `MetagameInfoWrapper.mWarehouseStorageInfo` |
-| dirty money paid | units x the commodity's price x `mBlackMarketSellMarkupForMoneyReward[level]` |
-| face paid | money x `mFaceRewardPercentageOfMoneyReward[level]` / 100 |
-| how many missions held at once | the warehouse's level (the client's "upgrading your warehouse will increase your export targets") |
-
-The eight physical commodities and the racket that fills them:
-
-| Commodity | Racket | Price | Load at level 1 | Warehouse at level 1 |
-| --- | --- | --- | --- | --- |
-| Rebuilt Cars | Auto Shop | 1800 | 5 | 5 |
-| Hot Cars | Repo | 1105 | 3 | 3 |
-| Apothecary Goods | Exotic Animal Goods | 777.50 | 3 | 3 |
-| Stolen Designs | Hackers | 250 | 15 | 15 |
-| Knock-Off Electronics | Electronics | 150 | 25 | 20 |
-| Seafood | Fish Market | 125 | 40 | 30 |
-| Car Parts | Chop Shop | 31.50 | - (level 3) | 175 |
-| Knock-Off Fashion | Sweat Shop | 25 | 200 | 180 |
-
-Only loads that fit the warehouse are offered, which at level 1 means the first
-four - the same rule the client's "You don't have room in your warehouse for this
-commodity" message comes from.
-
-How it runs:
-
-* **Production.** An idle racket makes `mOutput1Amount` units every
-  `mProdTimeSeconds` (both from its own type and level). `CurrentProduction` is
-  what has piled up; two cycles' worth is the cap. `Production1..10` on the racket
-  record is that per-level table, so the turf screen can show it.
-* **Collecting.** `turf/movetowarehouse/<racket type uid>/<units>` moves units
-  into the warehouse and answers with `mCommodityMoved`, `mCommoditySold` and
-  `mCommoditySoldEarnings`; whatever does not fit the warehouse is sold on the
-  black market at the commodity's price. `<units>` of 0 means "all of it".
-* **The board.** The missions travel in the player's `ExportRewardsBag`
-  (`playerdata/serializedplayerdata/2048`, and it rides along with the turf bags
-  too, since which mask the warehouse screen asks for is not pinned down). Each
-  new mission puts its load in the warehouse - that is the "N exports currently
-  ready" the hub reports - and the list is topped back up to the warehouse's slot
-  count as missions are paid.
-* **Running one.** `export/startmission/<mission uid>` marks it started and
-  `export/endmission/<mission uid>/<result>` pays it: 0 means the run failed and
-  nothing is paid (the load stays in the warehouse, so it can be retried), any
-  other value pays `mMoneyReward` / `mFaceReward` and empties the load.
-
-A mission record looks like this (the `mCommodity1UID`/`mCommodity1Amount` names
-are the client's own, from its `OperationManager::PopulateFromExportRewardsBag`
-strings):
-
-```json
-{"ExportMissionUID": "900000000000000001",
- "mCommodity1UID": "12899405313262884080", "mCommodity1Amount": 5,
- "mCommodity2UID": "0", "mCommodity2Amount": 0,
- "mCommodityName": "COMMODITY_REBUILT_CARS", "mCommodityTitle": "Rebuilt Cars",
- "mCommodityIconName": "RebuiltCars",
- "mMoneyReward": 13500, "mFaceReward": 405, "mLevel": 1,
- "mOperationType": "ExportGunner", "mRacketTypeUID": "<auto shop>",
- "mDurationSeconds": 360, "mStartSeconds": 1793050000, "mStarted": 0}
-```
-
-A load may be paid only once: paid mission ids are remembered, so a repeated
-`endmission` cannot pay whichever mission replaced it.
-
-Two things about the export data worth knowing:
-
-* `UFG::CommodityType.mDisplayName` is the client's localisation key
-  (`COMMODITY_KNOCK_OFF_FASHION`); `mCommodityTitle` is a plain-English version
-  for anything that wants it.
-* The object database has no export mission list and no operation instances - the
-  client builds missions from the bag and its own tuning - so the mission *record*
-  is our shape, built from the game's numbers. Everything in the table above is
-  exact.
-
 ### Trying it without the game
 
     python tools/test_jobs.py      # handlers directly: board, claim, history, change,
                                    # rollover, trial report/opt-in/tiers, restart
-    python tools/test_exports.py   # production, warehouse, export missions, and a walk
-                                   # through the whole 87 job ladder
-    python tools/test_crash.py     # the crash rules: every bag mask, every route with a
-                                   # nonsense id, the feature switches
-    python tools/test_launch.py    # the launcher's decisions: whose server is on 443,
-                                   # what the report says when the game dies
-    python tools/storyline.py      # print the job ladder; --check for unreachable jobs
 
-The three test scripts build a throw-away profile in a temp folder, so they never touch
-`state.json`. `tools/smoke_test.py` runs the same screens over HTTPS against a running
-server (start it with `--port 8443` and pass `--port 8443`); it now covers the jobs board,
-the completed list, the challenge report and the export board.
+`tools/test_jobs.py` builds a throw-away profile in a temp folder, so it never touches
+`state.json`. `tools/smoke_test.py` runs the same two screens over HTTPS against a
+running server (start it with `--port 8443` and pass `--port 8443`).
 
 ### What is a guess, and how to check it
 
@@ -448,10 +261,6 @@ values are inferred, and these are the ones to look at if a screen misbehaves:
 | `mRewardType` 0/1/2/3 = gold/cash/face/favour | the `JOB_REWARD_GOLD`..`JOB_REWARD_FAVOUR` strings | only the reward card's art is wrong |
 | `mServerUTC`, `mTimeBegun`, `mLastUpdated` are `"%Y-%m-%d %H:%M:%S"` UTC strings | that is the client's own date format string (`019cf4570`) and its `getDateTimeFromUTC` | timers show nonsense; `handlers._utc_string` is the one place to change |
 | `mGameRewardTunerName` is the tuner's UID as a string | the field is a string and `UFG::GameRewardTuner` has no name field | the Challenges screen may show no reward name |
-| `ExportRewardsBag` is a bare array of missions | the other list bags (`FavoursBag`, `InventoryBag`) are arrays, and the client's symbol table has `ExportMissionSlots` next to the mission members | the export screen stays empty: set `state.EXPORT_BAG_MEMBER = "ExportMissionSlots"` and the same records go under that member instead |
-| `export/endmission/<uid>` sends the *mission* id (a commodity id is accepted too) | both are u64s in the request path and the reply has no id of its own | the payout falls to 0; `state._find_export` is where the lookup is |
-| warehouse records use `CommodityUID` + `mAmount` | `mAmount` is the client's own key; the uid spelling is shared with the black market | the warehouse shows 0 of everything; `state.warehouse_set` is the one place |
-| `turf/movetowarehouse/<uid>/<n>` counts units, 0 = everything | the request has no callback, so the client does not read the reply for meaning | collection moves the wrong amount; clamp logic is in `state.move_to_warehouse` |
 
 The challenge rotation (which three trials, tier targets, which tuner each tier pays) is
 this server's own design - the object database has no trial objects at all, and the
@@ -473,62 +282,6 @@ and challenge replies; `... show "UFG::TrialContainer"`, `... list`, and
 `... find "GameService ErrandSlotData"` are the rest of the interface. Without
 the file the server answers exactly as before and the tool says so.
 
-## Turning content off (if a screen still crashes)
-
-Everything the newer builds added can be switched off one screen at a time, without
-touching any other feature. Open `state.py`, edit the four flags near the top, save -
-`handlers.py` and `state.py` are re-read on the next request, so the server does not need
-restarting - and go back to the screen that misbehaved.
-
-| Flag | Default | What it turns off |
-| --- | --- | --- |
-| `FEATURE_JOBS` | `True` | The job board and its endpoints (`errands`, `completederrands`, `errands/end`, `/claimreward`, `/change`). Off: the board comes back empty and the rest of the game is untouched. |
-| `FEATURE_CHALLENGES` | `True` | The challenge screens (`trialsscreenvisits`, `trial/reportprogress`, `trialinstance/*`). Off: an empty progress reply, which the client already handles. |
-| `FEATURE_EXPORTS` | `True` | The export board and `export/startmission` / `export/endmission`. Off: the bag is still answered, but empty. |
-| `FEATURE_PRODUCTION` | `True` | Rackets filling `CurrentProduction` and the `Production1..10` tables. Off: they stay at 0, as in the earlier builds. |
-
-Two related switches, both off by default:
-
-* `EXPORT_BAG_WITH_TURF` - lets the export board ride along with a turf bag. A turf bag
-  the client did not ask an export question for is exactly the shape that crashes it, so
-  this is only for trying something out.
-* `EXPORT_BAG_MEMBER` - the member name the board is wrapped in. Empty means "the bag is
-  the array" (what the shipped client is believed to read). If the export screen comes up
-  empty but `python tools/smoke_test.py` shows missions, set it to
-  `"ExportMissionSlots"`; that is the other plausible reading of the same struct.
-
-### The three rules that keep it from crashing
-
-The client parses data bags eagerly, with its own compiled-in struct, so these three are
-not style choices. `tools/test_crash.py` asserts all of them:
-
-1. **A bag is sent only if its bit was requested.** `State.bags(player, mask)` walks the
-   8192 possible masks and never answers a bit the client did not ask for, and never
-   leaves out one it did.
-2. **Only members the client declared are sent.** Server bookkeeping is stored under
-   names starting with `_` (`_ready_at`, `_prod_at`, `_total`) and stripped by
-   `_for_client()` before the bag leaves. `TurfBag` carries exactly `Turf`, `Rackets` and
-   `Commodities`; `ExportMissionSlots` used to be glued into the turf record and was
-   removed for this reason.
-3. **Every request gets an answer.** A handler that raises, or a reply that cannot be
-   serialised, is answered with `{"mReturnCode": 0, "mMessage": ""}` and logged with
-   `!!` - never by dropping the connection, which the client treats as fatal in the
-   middle of a screen transition. `turf/movetowarehouse` answers "nothing moved" for an
-   id it does not recognise instead of failing.
-
-If the game still crashes, the log line just before it is the useful part. Send it with
-the last `!!` or `->` line: that names the route and the reply that was on the wire.
-
-## Unlocking everything at once
-
-    python tools/unlock.py            # with the server stopped
-
-Gives the profile 2 500 000 dirty money, 500 000 clean money and 5 000 gold, puts the
-safehouse and warehouse at level 10, and clears the job and export boards so the new
-content appears immediately. It does not mark jobs complete (the job chain is the story),
-does not add rackets or favours, and never touches `data/`. The turf is still built in
-the turf screen, where the game expects it.
-
 ## What is emulated
 
 Working, and exercised in play (intro, tutorials, first open-world raids, turf
@@ -548,17 +301,14 @@ Implemented from the client's response parsers but not yet exercised in play
 (values are simple approximations of the original server's rules):
 
 * death penalty, money laundering, racket removal, warehouse/temple upgrades
-* world encounters, crime scenes
+* export missions, world encounters, crime scenes
 
-Added on top of the original server (see "Jobs and challenges" and "Exports" below):
+Added on top of the original server (see "Jobs and challenges" below):
 
 * the Jobs screen: three daily jobs from the game's own errand list, with the
   prerequisites, level and safehouse gates the original data describes
 * the Challenges screen: a rotating community trial with progress, opt-in and
   tier rewards
-* the Export side of the warehouse: rackets produce commodities, the warehouse
-  holds them (real capacities from the game data), and export missions pay dirty
-  money and face
 
 Details that matter (each one was a hang or a crash before it was right):
 
@@ -644,12 +394,6 @@ All fixed in the current server. Listed so the family is recognisable.
 | Favour shop crashed (`+0x72240f`) | Pack store was empty. |
 | Selecting a pack crashed (`+0x6a34ec`) | The pack's 1x bundle was missing from the paired bundle store. |
 | Game vanished mid-play with no crash dump | A debugging script force-closed it on a timeout. Not a game fault; never `taskkill` the game. |
-| Game exits on the loading screen, server log has no requests | The client resolved `localhost` to `::1` while the server listened on `127.0.0.1` only. The server now binds both families on one socket (`--host auto`). |
-| Nothing happens on a newly extracted zip | An older server was still listening on 443, so the new files were never used. `launch.py` now detects the other build through `/__local/info` and replaces it. |
-| Crash right after a screen opens (jobs, exports, turf) | The reply carried a data bag the client had not asked for. `State.bags` now answers exactly the requested bits; see the three rules above. |
-| Crash after leaving the turf screen | Server bookkeeping (`_ready_at`, `_prod_at`, ...) leaked into the turf bag. Any member the client has not declared can do this; `_for_client()` strips them. |
-| Crash on a transition, with the request logged but no reply | The handler raised and the connection was dropped. It is now answered neutrally and the traceback goes to the log with `!!`. |
-| Exports or jobs screen crashes on a build that used to be stable | Turn the matching `FEATURE_*` flag off in `state.py` - that restores the previous reply for that screen only, so the rest can be narrowed down. |
 
 ## Filling another store
 
@@ -677,13 +421,3 @@ Play with the server window visible and watch for `UNHANDLED` lines; each one
 names an endpoint that needs a handler in `handlers.py`. Request and response
 bodies are in `logs/`. `tools/keys.py` lists the JSON keys (and their types) a
 given endpoint's client-side parser reads.
-
-The three catalogues are generated, not hand-written - re-run the builder after
-changing anything under `devdata/`:
-
-    python tools\errands.py          -> data\errands.json    (116 jobs, reward tables)
-    python tools\exports.py          -> data\exports.json    (commodities, prices, racks)
-    python tools\challenges.py       -> data\challenges.json (trials, tiers, tuners)
-
-`data/exports.json` and `data/challenges.json` are also safe to hand-edit: the
-server reads them as plain JSON at start-up.
