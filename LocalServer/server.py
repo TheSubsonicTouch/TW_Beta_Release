@@ -135,8 +135,20 @@ class Handler(BaseHTTPRequestHandler):
         if fn is None:
             log("    !! UNHANDLED %s %s/%s" % (self.command, service, tail))
             return self._send(200, {"mReturnCode": 0, "mMessage": ""})
-        result = fn(self, self.command, parts, body, parse_qs(url.query))
-        log("    -> %s" % json.dumps(result)[:300])
+        # A handler that raises used to drop the connection, and the client can treat
+        # that as a fatal error in the middle of a screen transition. Answer with the
+        # neutral reply the client already handles for endpoints we do not implement.
+        try:
+            result = fn(self, self.command, parts, body, parse_qs(url.query))
+        except Exception:
+            log("    !! handler error for %s/%s" % (service, tail))
+            log(traceback.format_exc())
+            return self._send(200, {"mReturnCode": 0, "mMessage": ""})
+        try:
+            log("    -> %s" % json.dumps(result)[:300])
+        except (TypeError, ValueError):
+            log("    -> <reply that cannot be serialised>")
+            return self._send(200, {"mReturnCode": 0, "mMessage": ""})
         status = 200
         if isinstance(result, tuple):
             status, result = result

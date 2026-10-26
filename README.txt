@@ -101,5 +101,10 @@ side of the warehouse are emulated too.
   stores them (the game's own capacities), and export missions pay dirty money
   and face at the game's own rates.
 
+If a screen ever crashes the game, LocalServer\state.py has one switch per
+feature (FEATURE_JOBS, FEATURE_CHALLENGES, FEATURE_EXPORTS, FEATURE_PRODUCTION).
+Turn the one that matches the screen off and save - the server picks it up on the
+next request, so the rest of the game keeps working while you report it.
+
 LocalServer\README.md explains how each one works, what is exact and what is
 this server's own design, and how to change it.

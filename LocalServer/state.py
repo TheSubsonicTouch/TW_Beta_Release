@@ -16,6 +16,20 @@ import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 STATE_PATH = os.path.join(HERE, "state.json")
 
+# ---- feature switches --------------------------------------------------------
+# Each emulated screen can be turned off on its own. Off means "answer exactly the
+# way the original emulation did": an empty but valid reply, and nothing added to
+# any data bag. If a screen ever crashes the game, switch that one off, restart,
+# and the rest of the game still runs - that also tells you where the problem is.
+FEATURE_JOBS = True          # game/errands, completederrands, errands/*
+FEATURE_CHALLENGES = True    # trialsscreenvisits, trial/reportprogress, trialinstance/*
+FEATURE_EXPORTS = True       # export/startmission, export/endmission, export board
+FEATURE_PRODUCTION = True    # rackets fill CurrentProduction / Production1..10
+# The export board travels in its own data bag. The client asks for it with mask
+# 0x800; this also adds it to every reply that carries the turf bag, which is a
+# guess - turn it on only if the export screen is empty.
+EXPORT_BAG_WITH_TURF = False
+
 with open(os.path.join(HERE, "data", "gamedb_min.json"), encoding="utf-8") as f:
     DB = json.load(f)
 
@@ -117,8 +131,9 @@ def racket_instance(type_uid, level=1, block=0, slot=0, state=0, staff=0):
         },
     }
     # Production1..10 is the racket type's per-level output table; CurrentProduction is
-    # what has piled up since the last collection (see settle_production).
-    outputs = racket_outputs(type_uid)
+    # what has piled up since the last collection (see settle_production). With
+    # FEATURE_PRODUCTION off both stay at 0, which is what the earlier builds sent.
+    outputs = racket_outputs(type_uid) if FEATURE_PRODUCTION else []
     for n in range(1, 11):
         r["Production%d" % n] = outputs[n - 1] if n - 1 < len(outputs) else 0
     return r
@@ -599,6 +614,20 @@ def completed_errands(player):
     return out
 
 
+def _for_client(value):
+    """Drop the server's private bookkeeping (keys starting with "_") from a bag.
+
+    Rackets carry "_ready_at"/"_total"/"_prod_at" while a build, an upgrade or a
+    production cycle is running; the client never reads them, and the fewer members a
+    reply has that the client's own classes do not declare, the safer it is.
+    """
+    if isinstance(value, dict):
+        return {k: _for_client(v) for k, v in value.items() if not str(k).startswith("_")}
+    if isinstance(value, list):
+        return [_for_client(v) for v in value]
+    return value
+
+
 # ---- "Exports" ------------------------------------------------------------------
 # The warehouse screen (and the map's export markers) run on export missions. The client
 # keeps them in a data bag called ExportRewardsBag - OperationManager::PopulateFromExport
@@ -868,6 +897,8 @@ def settle_production(player, now=None):
     to an unlimited pile.
     """
     now = time.time() if now is None else now
+    if not FEATURE_PRODUCTION:
+        return False
     changed = False
     for racket in player["TurfBag"].get("Rackets") or []:
         type_uid = racket.get("RacketTypeUID")
@@ -929,22 +960,13 @@ def move_to_warehouse(player, type_uid, amount=None, now=None):
 
 
 def sync_export_slots(player):
-    """Keep the warehouse's export slot count where the client looks for it.
+    """The number of exports currently ready, for the export bag and for tooling.
 
-    "You have %d exports currently ready. Upgrading your warehouse will increase your
-    export targets." - the number follows the warehouse level. Which class holds the
-    member is not in the client's string table, so it is set on the turf record, the turf
-    object and the warehouse racket; unknown members are ignored by the bag parsers.
+    It is NOT written into the turf bag: earlier builds of this server added an
+    ExportMissionSlots member to the turf/warehouse records, and a member the client's
+    own class does not declare is exactly the kind of thing that can upset its parser.
     """
-    slots = export_slots(player)
-    turf_bag = player.get("TurfBag") or {}
-    turf_bag["ExportMissionSlots"] = slots
-    turf = turf_bag.get("Turf") or {}
-    turf["ExportMissionSlots"] = slots
-    warehouse = turf.get("Warehouse")
-    if isinstance(warehouse, dict):
-        warehouse["ExportMissionSlots"] = slots
-    return slots
+    return export_slots(player)
 
 
 # ---- "Challenges" (community trials) -------------------------------------------
@@ -1185,16 +1207,19 @@ class State:
                          (BAG_TURF, "TurfBag"), (BAG_INVENTORY, "InventoryBag"),
                          (BAG_ENFORCER_UPGRADES, "EnforcerUpgradesBag")):
             if mask & bit and key in player:
-                if key == "TurfBag":
-                    sync_export_slots(player)      # "N exports currently ready"
                 out[key] = copy.deepcopy(player[key])
                 have |= bit
+        if "TurfBag" in out:
+            out["TurfBag"] = _for_client(out["TurfBag"])
         # The export board is generated, not stored: the client's ExportRewardsBag is a
-        # list of missions (see new_export_mission). It rides along with the turf bags too,
-        # because the warehouse screen and the map's export markers are turf screens and
-        # which masks the client asks for there is not pinned down.
-        if mask & (BAG_EXPORT_REWARDS | BAG_TURF):
-            missions = copy.deepcopy(export_missions(player))
+        # list of missions (see new_export_mission). It is only sent when the client asks
+        # for that bag, because every reply that carries it is one the client parses
+        # eagerly - a bag it does not expect is the one thing here that could upset it.
+        # A bag the client asked for is always answered - an absent one is exactly the
+        # shape that makes the parser read past the end. With FEATURE_EXPORTS off the
+        # board is simply empty.
+        if mask & BAG_EXPORT_REWARDS or (EXPORT_BAG_WITH_TURF and mask & BAG_TURF):
+            missions = copy.deepcopy(export_missions(player)) if FEATURE_EXPORTS else []
             out["ExportRewardsBag"] = ({EXPORT_BAG_MEMBER: missions}
                                        if EXPORT_BAG_MEMBER else missions)
             have |= BAG_EXPORT_REWARDS

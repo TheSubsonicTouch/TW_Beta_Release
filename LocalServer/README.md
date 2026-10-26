@@ -64,7 +64,7 @@ on the next launch).
 | `useroptions.py` | Reads/edits the obfuscated `UserOptions.dat`. |
 | `cert.pem`, `key.pem` | Self-signed certificate for `localhost` (the client does not verify it). |
 | `logs/` | One request log per server run. Lines marked `UNHANDLED` are endpoints with no handler yet. |
-| `tools/` | The scripts used to unpack the game data and decode its schema, crash-analysis helpers, `smoke_test.py`, `test_jobs.py`, `test_exports.py`, `storyline.py`, `schema_dump.py`, `patch_exe.py` (see above), `make_bundle.py` and the data builders (`errands.py`, `challenges.py`, `exports.py`, `favour_rewards.py`). |
+| `tools/` | The scripts used to unpack the game data and decode its schema, crash-analysis helpers, `smoke_test.py`, `test_jobs.py`, `test_exports.py`, `test_crash.py`, `storyline.py`, `unlock.py`, `schema_dump.py`, `patch_exe.py` (see above), `make_bundle.py` and the data builders (`errands.py`, `challenges.py`, `exports.py`, `favour_rewards.py`). |
 | `devdata/` | Reference data for extending the server: the full object-database export and the client's endpoint and key lists. Not needed to play. |
 
 ## How it works
@@ -355,9 +355,11 @@ Two things about the export data worth knowing:
                                    # rollover, trial report/opt-in/tiers, restart
     python tools/test_exports.py   # production, warehouse, export missions, and a walk
                                    # through the whole 87 job ladder
+    python tools/test_crash.py     # the crash rules: every bag mask, every route with a
+                                   # nonsense id, the feature switches
     python tools/storyline.py      # print the job ladder; --check for unreachable jobs
 
-Both test scripts build a throw-away profile in a temp folder, so they never touch
+The three test scripts build a throw-away profile in a temp folder, so they never touch
 `state.json`. `tools/smoke_test.py` runs the same screens over HTTPS against a running
 server (start it with `--port 8443` and pass `--port 8443`); it now covers the jobs board,
 the completed list, the challenge report and the export board.
@@ -399,6 +401,62 @@ replies with. `schema.py` reads it when it is present and:
 and challenge replies; `... show "UFG::TrialContainer"`, `... list`, and
 `... find "GameService ErrandSlotData"` are the rest of the interface. Without
 the file the server answers exactly as before and the tool says so.
+
+## Turning content off (if a screen still crashes)
+
+Everything the newer builds added can be switched off one screen at a time, without
+touching any other feature. Open `state.py`, edit the four flags near the top, save -
+`handlers.py` and `state.py` are re-read on the next request, so the server does not need
+restarting - and go back to the screen that misbehaved.
+
+| Flag | Default | What it turns off |
+| --- | --- | --- |
+| `FEATURE_JOBS` | `True` | The job board and its endpoints (`errands`, `completederrands`, `errands/end`, `/claimreward`, `/change`). Off: the board comes back empty and the rest of the game is untouched. |
+| `FEATURE_CHALLENGES` | `True` | The challenge screens (`trialsscreenvisits`, `trial/reportprogress`, `trialinstance/*`). Off: an empty progress reply, which the client already handles. |
+| `FEATURE_EXPORTS` | `True` | The export board and `export/startmission` / `export/endmission`. Off: the bag is still answered, but empty. |
+| `FEATURE_PRODUCTION` | `True` | Rackets filling `CurrentProduction` and the `Production1..10` tables. Off: they stay at 0, as in the earlier builds. |
+
+Two related switches, both off by default:
+
+* `EXPORT_BAG_WITH_TURF` - lets the export board ride along with a turf bag. A turf bag
+  the client did not ask an export question for is exactly the shape that crashes it, so
+  this is only for trying something out.
+* `EXPORT_BAG_MEMBER` - the member name the board is wrapped in. Empty means "the bag is
+  the array" (what the shipped client is believed to read). If the export screen comes up
+  empty but `python tools/smoke_test.py` shows missions, set it to
+  `"ExportMissionSlots"`; that is the other plausible reading of the same struct.
+
+### The three rules that keep it from crashing
+
+The client parses data bags eagerly, with its own compiled-in struct, so these three are
+not style choices. `tools/test_crash.py` asserts all of them:
+
+1. **A bag is sent only if its bit was requested.** `State.bags(player, mask)` walks the
+   8192 possible masks and never answers a bit the client did not ask for, and never
+   leaves out one it did.
+2. **Only members the client declared are sent.** Server bookkeeping is stored under
+   names starting with `_` (`_ready_at`, `_prod_at`, `_total`) and stripped by
+   `_for_client()` before the bag leaves. `TurfBag` carries exactly `Turf`, `Rackets` and
+   `Commodities`; `ExportMissionSlots` used to be glued into the turf record and was
+   removed for this reason.
+3. **Every request gets an answer.** A handler that raises, or a reply that cannot be
+   serialised, is answered with `{"mReturnCode": 0, "mMessage": ""}` and logged with
+   `!!` - never by dropping the connection, which the client treats as fatal in the
+   middle of a screen transition. `turf/movetowarehouse` answers "nothing moved" for an
+   id it does not recognise instead of failing.
+
+If the game still crashes, the log line just before it is the useful part. Send it with
+the last `!!` or `->` line: that names the route and the reply that was on the wire.
+
+## Unlocking everything at once
+
+    python tools/unlock.py            # with the server stopped
+
+Gives the profile 2 500 000 dirty money, 500 000 clean money and 5 000 gold, puts the
+safehouse and warehouse at level 10, and clears the job and export boards so the new
+content appears immediately. It does not mark jobs complete (the job chain is the story),
+does not add rackets or favours, and never touches `data/`. The turf is still built in
+the turf screen, where the game expects it.
 
 ## What is emulated
 
@@ -515,6 +573,10 @@ All fixed in the current server. Listed so the family is recognisable.
 | Favour shop crashed (`+0x72240f`) | Pack store was empty. |
 | Selecting a pack crashed (`+0x6a34ec`) | The pack's 1x bundle was missing from the paired bundle store. |
 | Game vanished mid-play with no crash dump | A debugging script force-closed it on a timeout. Not a game fault; never `taskkill` the game. |
+| Crash right after a screen opens (jobs, exports, turf) | The reply carried a data bag the client had not asked for. `State.bags` now answers exactly the requested bits; see the three rules above. |
+| Crash after leaving the turf screen | Server bookkeeping (`_ready_at`, `_prod_at`, ...) leaked into the turf bag. Any member the client has not declared can do this; `_for_client()` strips them. |
+| Crash on a transition, with the request logged but no reply | The handler raised and the connection was dropped. It is now answered neutrally and the traceback goes to the log with `!!`. |
+| Exports or jobs screen crashes on a build that used to be stable | Turn the matching `FEATURE_*` flag off in `state.py` - that restores the previous reply for that screen only, so the rest can be narrowed down. |
 
 ## Filling another store
 
