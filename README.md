@@ -44,6 +44,12 @@ side of the warehouse are emulated too.
   stores them (the game's own capacities), and export missions pay dirty money
   and face at the game's own rates.
 
+To find out why the game closed on launch, run Play-TriadWars.bat again: it
+keeps the window open and writes LocalServer\last-launch.txt (what is listening,
+whether the game reached the server, its exit code, and the Windows error entry
+with the faulting module). Play-TriadWars.bat safe launches with the new screens
+switched off, and Play-TriadWars.bat diagnose only prints the setup report.
+
 If a screen ever crashes the game, LocalServer\state.py has one switch per
 feature (FEATURE_JOBS, FEATURE_CHALLENGES, FEATURE_EXPORTS, FEATURE_PRODUCTION).
 Turn the one that matches the screen off and save - the server picks it up on the

@@ -21,10 +21,15 @@ STATE_PATH = os.path.join(HERE, "state.json")
 # way the original emulation did": an empty but valid reply, and nothing added to
 # any data bag. If a screen ever crashes the game, switch that one off, restart,
 # and the rest of the game still runs - that also tells you where the problem is.
-FEATURE_JOBS = True          # game/errands, completederrands, errands/*
-FEATURE_CHALLENGES = True    # trialsscreenvisits, trial/reportprogress, trialinstance/*
-FEATURE_EXPORTS = True       # export/startmission, export/endmission, export board
-FEATURE_PRODUCTION = True    # rackets fill CurrentProduction / Production1..10
+# Play-TriadWars.bat safe sets TW_SAFE_MODE=1 in the server's environment: everything
+# below starts switched off, which is the quickest way to tell a bad reply from a bad
+# install. Nothing else reads this variable.
+_SAFE_MODE = os.environ.get("TW_SAFE_MODE", "").strip().lower() in ("1", "true", "yes")
+
+FEATURE_JOBS = not _SAFE_MODE          # game/errands, completederrands, errands/*
+FEATURE_CHALLENGES = not _SAFE_MODE    # trialsscreenvisits, trial/reportprogress, trialinstance/*
+FEATURE_EXPORTS = not _SAFE_MODE       # export/startmission, export/endmission, export board
+FEATURE_PRODUCTION = not _SAFE_MODE    # rackets fill CurrentProduction / Production1..10
 # The export board travels in its own data bag. The client asks for it with mask
 # 0x800; this also adds it to every reply that carries the turf bag, which is a
 # guess - turn it on only if the export screen is empty.

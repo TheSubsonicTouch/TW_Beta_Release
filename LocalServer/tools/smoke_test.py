@@ -119,7 +119,15 @@ def main():
                 assert [pack] in singles, "pack %s has no 1x bundle in store %s" % (pack, bundle_store)
         return "%d stores filled, every pack has its 1x bundle" % len(served)
 
+    def local_info():
+        r = get("__local/info")
+        assert isinstance(r.get("pid"), int) and r["pid"] > 0, r
+        assert r.get("log", "").startswith("server-"), r
+        assert set(r["features"]) == {"jobs", "challenges", "exports", "production"}, r
+        return "pid %s, port %s" % (r["pid"], r.get("port"))
+
     check("server answers", store_access)
+    check("launch info", local_info)
     check("player data", player)
     check("rivals", rivals)
     check("face tiers", face_tiers)

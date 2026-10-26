@@ -18,6 +18,7 @@ INCLUDE = [
     "LocalServer/README.md",
     "LocalServer/cert.pem",
     "LocalServer/key.pem",
+    "LocalServer/launch.py",
     "LocalServer/server.py",
     "LocalServer/handlers.py",
     "LocalServer/state.py",
@@ -28,8 +29,8 @@ INCLUDE = [
     "LocalServer/tools/*.py",
     "LocalServer/devdata/*",
 ]
-# Never ship a profile, a log or a crash dump.
-SKIP = {"state.json"}
+# Never ship a profile, a log, a launch report or a crash dump.
+SKIP = {"state.json", "last-launch.txt"}
 
 
 def main(out=DEFAULT_OUT):

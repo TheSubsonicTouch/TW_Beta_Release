@@ -1,21 +1,8 @@
-# Ensures the local Triad Wars server is listening on https://localhost:443.
-# Exits 0 when the server is up, 1 otherwise.
-$ErrorActionPreference = 'Stop'
+# Starts just the local server and exits - kept for shortcuts made before launch.py.
+# Play-TriadWars.bat is the normal entry point: it starts the server *and* the game,
+# and writes a report if the game dies on launch.
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
-
-function Test-Server {
-    try {
-        $c = New-Object System.Net.Sockets.TcpClient
-        $c.Connect('127.0.0.1', 443)
-        $c.Close()
-        return $true
-    } catch { return $false }
-}
-
-if (Test-Server) {
-    Write-Host 'Local server already running.'
-    exit 0
-}
+$root = Split-Path -Parent $here
 
 $python = (Get-Command python -ErrorAction SilentlyContinue)
 if (-not $python) {
@@ -23,17 +10,5 @@ if (-not $python) {
     exit 1
 }
 
-# The client must point at localhost; UserOptions.dat.orig keeps the original.
-& $python.Source (Join-Path $here 'useroptions.py') set Environment localhost | Out-Null
-
-Start-Process -FilePath $python.Source -ArgumentList 'server.py' -WorkingDirectory $here -WindowStyle Minimized
-
-foreach ($i in 1..20) {
-    Start-Sleep -Milliseconds 500
-    if (Test-Server) {
-        Write-Host 'Local server started.'
-        exit 0
-    }
-}
-Write-Host 'The server did not start listening on port 443. Is another program using that port?'
-exit 1
+& $python.Source (Join-Path $here 'launch.py') server --root $root
+exit $LASTEXITCODE

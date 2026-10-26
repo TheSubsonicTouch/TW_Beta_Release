@@ -6,16 +6,58 @@ A stand-in for the Triad Wars online services so the 1.6.0.0 client
 ## Running
 
 Double-click `Play-TriadWars.bat` in the game folder. It starts this server
-if it is not already running, then starts the game.
+if it is not already running, then starts the game and watches it for 25
+seconds. If the game closes in that window, the console stays open and
+`LocalServer\last-launch.txt` says what happened.
+
+    Play-TriadWars.bat              normal launch
+    Play-TriadWars.bat safe         the new screens switched off (see below)
+    Play-TriadWars.bat diagnose     a setup report; starts neither server nor game
 
 To run the pieces by hand:
 
     cd LocalServer
-    python server.py            # listens on https://127.0.0.1:443
+    python launch.py               # server + game, with the report
+    python launch.py server        # just the server
+    python server.py               # the server, without the checks
     ..\TriadWars.exe
+
+`server.py` listens on IPv4 *and* IPv6 by default (`--host auto`). The client
+resolves `localhost`, and Windows answers `::1` about as often as `127.0.0.1`;
+an IPv4-only listener refuses half those attempts, which the client reports as
+a crash on the loading screen.
 
 Requirements: Python 3.9 or newer on `PATH` (standard library only), and
 port 443 free.
+
+## When the game crashes on launch
+
+A crash on launch used to leave nothing behind: the console closed, the server
+kept running, and every attempt looked the same. Now `launch.py` writes
+`LocalServer\last-launch.txt` and keeps the window open. The first nine lines
+are the summary; the rest is evidence.
+
+What the report tells you, in order of usefulness:
+
+| In the report | What it means | What to try |
+| --- | --- | --- |
+| `0 request(s) this run` | The client died before it ever contacted the server. No reply shape can be at fault. | The Windows entry below names the module. If it is the game or a graphics DLL, check the crash patch (next section) and re-extract the game files; if it is `python.exe`, read `logs\console.log`. |
+| Requests, then an exit | It died on a screen. The last request line names it. | `Play-TriadWars.bat safe` first - that turns off jobs, challenges, exports and production. If the game survives, one reply is the cause and the `!!` lines in the log say which. |
+| `Port 443: closed (IPv4), closed (IPv6)` | Nothing is listening: the client had no backend to talk to. | The server did not start; its output is in the same report. |
+| `Port 443 ... another program holds the port` | The launcher refused to start because something else owns 443. | The report names the process. Close it, or stop it listening there. |
+| `code: ... (different from this copy)` | A server from an older zip was still running. The launcher replaces it and says so. | Nothing - but restart the game so it talks to the new one. |
+| `Answers game: NO` | Something is listening on 443 but it does not answer the game's own `storeaccess` request. | The server is up with broken handlers; `logs\console.log` holds the traceback. |
+| `UserOptions.dat: Environment = (file not found)` | The client has no environment set, so it will look for the real (dead) service. | Run the game once so it writes the file, then `Play-TriadWars.bat` again. The launcher sets it to `localhost` every run. |
+
+`Play-TriadWars.bat diagnose` runs the same checks without starting anything and
+prints the report to the console, which is the quickest way to see what the
+machine thinks is installed.
+
+The Windows application log entry is the important part when the client dies
+early. `Get-WinEvent` reads it; the report quotes the last 15 minutes of entries
+that mention `TriadWars`, including `Faulting module name` and `Exception offset`.
+A crash at `TriadWars.exe+0x1b81b7` is the known shadow-map race, and the patch
+below fixes it.
 
 ## What was changed in the game folder
 
@@ -50,7 +92,8 @@ on the next launch).
 
 | File | Purpose |
 | --- | --- |
-| `server.py` | HTTPS + WebSocket plumbing, request log, routing. |
+| `launch.py` | What `Play-TriadWars.bat` runs: starts the server, starts the game, and writes `last-launch.txt` when the game exits during launch. |
+| `server.py` | HTTPS + WebSocket plumbing (IPv4 and IPv6), request log, routing, `/__local/info` for the launcher. |
 | `handlers.py` | One function per API endpoint. Edits are picked up without restarting. |
 | `state.py` | Player/world model, the job board and challenge progress, and the JSON encodings the client expects. |
 | `schema.py` | Reads the game's own `Reflection.rdb` (next to `TriadWars.exe`) and shapes replies to the type the client declares. Optional; without the file every helper is a no-op. |
@@ -63,8 +106,9 @@ on the next launch).
 | `data/favour_upgrades.json` | Every favour that grants an enforcer upgrade, with the rarity/tags/level job and challenge rewards filter on (see `tools/favour_rewards.py`). |
 | `useroptions.py` | Reads/edits the obfuscated `UserOptions.dat`. |
 | `cert.pem`, `key.pem` | Self-signed certificate for `localhost` (the client does not verify it). |
-| `logs/` | One request log per server run. Lines marked `UNHANDLED` are endpoints with no handler yet. |
-| `tools/` | The scripts used to unpack the game data and decode its schema, crash-analysis helpers, `smoke_test.py`, `test_jobs.py`, `test_exports.py`, `test_crash.py`, `storyline.py`, `unlock.py`, `schema_dump.py`, `patch_exe.py` (see above), `make_bundle.py` and the data builders (`errands.py`, `challenges.py`, `exports.py`, `favour_rewards.py`). |
+| `logs/` | One request log per server run, plus `console.log` with whatever the server printed (a Python traceback ends up here). Lines marked `UNHANDLED` are endpoints with no handler yet. |
+| `last-launch.txt` | Written when the game exits during launch: what is listening, whether the client reached it, the exit code, the Windows application-log entry with faulting module and offset, and the last requests. Safe to send. |
+| `tools/` | The scripts used to unpack the game data and decode its schema, crash-analysis helpers, `smoke_test.py`, `test_jobs.py`, `test_exports.py`, `test_crash.py`, `test_launch.py`, `storyline.py`, `unlock.py`, `schema_dump.py`, `patch_exe.py` (see above), `make_bundle.py` and the data builders (`errands.py`, `challenges.py`, `exports.py`, `favour_rewards.py`). |
 | `devdata/` | Reference data for extending the server: the full object-database export and the client's endpoint and key lists. Not needed to play. |
 
 ## How it works
@@ -357,6 +401,8 @@ Two things about the export data worth knowing:
                                    # through the whole 87 job ladder
     python tools/test_crash.py     # the crash rules: every bag mask, every route with a
                                    # nonsense id, the feature switches
+    python tools/test_launch.py    # the launcher's decisions: whose server is on 443,
+                                   # what the report says when the game dies
     python tools/storyline.py      # print the job ladder; --check for unreachable jobs
 
 The three test scripts build a throw-away profile in a temp folder, so they never touch
@@ -573,6 +619,8 @@ All fixed in the current server. Listed so the family is recognisable.
 | Favour shop crashed (`+0x72240f`) | Pack store was empty. |
 | Selecting a pack crashed (`+0x6a34ec`) | The pack's 1x bundle was missing from the paired bundle store. |
 | Game vanished mid-play with no crash dump | A debugging script force-closed it on a timeout. Not a game fault; never `taskkill` the game. |
+| Game exits on the loading screen, server log has no requests | The client resolved `localhost` to `::1` while the server listened on `127.0.0.1` only. The server now binds both families on one socket (`--host auto`). |
+| Nothing happens on a newly extracted zip | An older server was still listening on 443, so the new files were never used. `launch.py` now detects the other build through `/__local/info` and replaces it. |
 | Crash right after a screen opens (jobs, exports, turf) | The reply carried a data bag the client had not asked for. `State.bags` now answers exactly the requested bits; see the three rules above. |
 | Crash after leaving the turf screen | Server bookkeeping (`_ready_at`, `_prod_at`, ...) leaked into the turf bag. Any member the client has not declared can do this; `_for_client()` strips them. |
 | Crash on a transition, with the request logged but no reply | The handler raised and the connection was dropped. It is now answered neutrally and the traceback goes to the log with `!!`. |
