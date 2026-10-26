@@ -1,0 +1,267 @@
+{
+ "version": 1,
+ "rotationDays": 7,
+ "tuners": {
+  "15327428390534967028": {
+   "mGameRewardType": "RewardType_CleanMoney",
+   "mRewardValues": [
+    {
+     "mMinReward": 50,
+     "mMaxReward": 50
+    },
+    {
+     "mMinReward": 75,
+     "mMaxReward": 75
+    },
+    {
+     "mMinReward": 100,
+     "mMaxReward": 100
+    },
+    {
+     "mMinReward": 100,
+     "mMaxReward": 100
+    },
+    {
+     "mMinReward": 100,
+     "mMaxReward": 100
+    },
+    {
+     "mMinReward": 100,
+     "mMaxReward": 100
+    },
+    {
+     "mMinReward": 100,
+     "mMaxReward": 100
+    },
+    {
+     "mMinReward": 100,
+     "mMaxReward": 100
+    },
+    {
+     "mMinReward": 100,
+     "mMaxReward": 100
+    },
+    {
+     "mMinReward": 100,
+     "mMaxReward": 100
+    }
+   ],
+   "mFavourTypes": [],
+   "mStoreItem": null
+  },
+  "7298147056930626086": {
+   "mGameRewardType": "RewardType_DirtyMoney",
+   "mRewardValues": [
+    {
+     "mMinReward": 500,
+     "mMaxReward": 500
+    },
+    {
+     "mMinReward": 2000,
+     "mMaxReward": 2000
+    },
+    {
+     "mMinReward": 4000,
+     "mMaxReward": 4000
+    },
+    {
+     "mMinReward": 8000,
+     "mMaxReward": 8000
+    },
+    {
+     "mMinReward": 20000,
+     "mMaxReward": 20000
+    },
+    {
+     "mMinReward": 30000,
+     "mMaxReward": 30000
+    },
+    {
+     "mMinReward": 60000,
+     "mMaxReward": 60000
+    },
+    {
+     "mMinReward": 80000,
+     "mMaxReward": 80000
+    },
+    {
+     "mMinReward": 120000,
+     "mMaxReward": 120000
+    },
+    {
+     "mMinReward": 160000,
+     "mMaxReward": 160000
+    }
+   ],
+   "mFavourTypes": [],
+   "mStoreItem": null
+  },
+  "8467621010084497927": {
+   "mGameRewardType": "RewardType_Face",
+   "mRewardValues": [
+    {
+     "mMinReward": 100,
+     "mMaxReward": 125
+    },
+    {
+     "mMinReward": 150,
+     "mMaxReward": 200
+    },
+    {
+     "mMinReward": 175,
+     "mMaxReward": 225
+    },
+    {
+     "mMinReward": 250,
+     "mMaxReward": 350
+    },
+    {
+     "mMinReward": 400,
+     "mMaxReward": 600
+    },
+    {
+     "mMinReward": 800,
+     "mMaxReward": 1000
+    },
+    {
+     "mMinReward": 1800,
+     "mMaxReward": 2500
+    },
+    {
+     "mMinReward": 4500,
+     "mMaxReward": 6000
+    },
+    {
+     "mMinReward": 6500,
+     "mMaxReward": 8000
+    },
+    {
+     "mMinReward": 10000,
+     "mMaxReward": 12000
+    }
+   ],
+   "mFavourTypes": [],
+   "mStoreItem": null
+  },
+  "10422962267467488290": {
+   "mGameRewardType": "RewardType_Favours_All",
+   "mRewardValues": [
+    {
+     "mMinReward": 85,
+     "mMaxReward": 115
+    },
+    {
+     "mMinReward": 150,
+     "mMaxReward": 190
+    },
+    {
+     "mMinReward": 160,
+     "mMaxReward": 200
+    },
+    {
+     "mMinReward": 200,
+     "mMaxReward": 280
+    },
+    {
+     "mMinReward": 410,
+     "mMaxReward": 500
+    },
+    {
+     "mMinReward": 800,
+     "mMaxReward": 1000
+    },
+    {
+     "mMinReward": 1700,
+     "mMaxReward": 2300
+    },
+    {
+     "mMinReward": 4500,
+     "mMaxReward": 5500
+    },
+    {
+     "mMinReward": 6600,
+     "mMaxReward": 7700
+    },
+    {
+     "mMinReward": 9600,
+     "mMaxReward": 11000
+    }
+   ],
+   "mFavourTypes": [
+    {
+     "minRarity": "Common",
+     "maxRarity": "Epic",
+     "favourTags": [
+      {
+       "$handle": "1992909778961203978",
+       "$type": "UFG::FavourTypeTag"
+      }
+     ]
+    }
+   ],
+   "mStoreItem": null
+  }
+ },
+ "challenges": [
+  {
+   "name": "JiangShiTrial",
+   "title": "Jiang Shi",
+   "description": "The hopping dead are loose in the streets. Put them back in the ground.",
+   "image": "http://tw.cdn.sqexeu.com/images/Trials/challenge_screen_jiang_shi-02.png",
+   "tiers": [
+    {
+     "target": 10,
+     "tuner": "7298147056930626086"
+    },
+    {
+     "target": 25,
+     "tuner": "8467621010084497927"
+    },
+    {
+     "target": 50,
+     "tuner": "10422962267467488290"
+    }
+   ]
+  },
+  {
+   "name": "HappyCatTrial",
+   "title": "Smiley Cat",
+   "description": "A lucky cat has taken a liking to your turf. Keep it smiling.",
+   "image": "http://tw.cdn.sqexeu.com/images/Trials/challenge_screen_smileycat-02.png",
+   "tiers": [
+    {
+     "target": 5,
+     "tuner": "15327428390534967028"
+    },
+    {
+     "target": 15,
+     "tuner": "7298147056930626086"
+    },
+    {
+     "target": 30,
+     "tuner": "10422962267467488290"
+    }
+   ]
+  },
+  {
+   "name": "EliteGhoulTrial",
+   "title": "Yao Guai",
+   "description": "Something older than the triads has woken up. Hunt it down.",
+   "image": "http://tw.cdn.sqexeu.com/images/Trials/challenge_screen_yaoguai-02.png",
+   "tiers": [
+    {
+     "target": 10,
+     "tuner": "8467621010084497927"
+    },
+    {
+     "target": 25,
+     "tuner": "15327428390534967028"
+    },
+    {
+     "target": 50,
+     "tuner": "10422962267467488290"
+    }
+   ]
+  }
+ ]
+}

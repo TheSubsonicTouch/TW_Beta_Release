@@ -1,0 +1,3724 @@
+{
+ "version": 1,
+ "source": "gamedb.json",
+ "rewards": {
+  "mRewardFaceHigh": [
+   75,
+   100,
+   200,
+   250,
+   375,
+   550,
+   750,
+   1000,
+   1650,
+   1700
+  ],
+  "mRewardFaceMedium": [
+   40,
+   50,
+   100,
+   125,
+   180,
+   275,
+   375,
+   500,
+   825,
+   850
+  ],
+  "mRewardFaceLow": [
+   20,
+   25,
+   50,
+   65,
+   90,
+   140,
+   190,
+   250,
+   400,
+   425
+  ],
+  "mRewardDirtyMoneyHigh": [
+   125,
+   750,
+   2500,
+   10000,
+   50000,
+   100000,
+   200000,
+   300000,
+   400000,
+   425000
+  ],
+  "mRewardDirtyMoneyMedium": [
+   65,
+   375,
+   1250,
+   5000,
+   25000,
+   50000,
+   100000,
+   150000,
+   200000,
+   210000
+  ],
+  "mRewardDirtyMoneyLow": [
+   35,
+   200,
+   625,
+   2500,
+   12500,
+   25000,
+   50000,
+   75000,
+   100000,
+   105000
+  ],
+  "mRewardGoldHigh": [
+   100
+  ],
+  "mRewardGoldMedium": [
+   50
+  ],
+  "mRewardGoldLow": [
+   25
+  ],
+  "mRewardGoldTutorial1": 129,
+  "mRewardGoldTutorial2": 199,
+  "mRewardGoldTutorial3": 299
+ },
+ "errands": [
+  {
+   "uid": "165701615963828379",
+   "name": "Warehouse V",
+   "description": "Have your warehouse at level 5",
+   "reward": "REWARD_MONEY_MID",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 19000,
+   "xpLevel": 0,
+   "safehouseLevel": 5,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "WarehouseLevel",
+     "kind": "int",
+     "op": "gte",
+     "value": 5
+    }
+   ],
+   "links": [
+    "13401017040480475796"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   },
+   "icon": "SDTW_Errands_Turf"
+  },
+  {
+   "uid": "17797484425003460980",
+   "name": "Complete 3 Exports",
+   "description": "Export any 3 shipments of goods",
+   "reward": "REWARD_CLEAN_MONEY_LOW",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 17000,
+   "xpLevel": 0,
+   "safehouseLevel": 3,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "ExportsCompleted",
+     "kind": "int",
+     "op": "gte",
+     "value": 3,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "3262002507522071106"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   },
+   "icon": "SDTW_Errands_OpenWorld"
+  },
+  {
+   "uid": "3262002507522071106",
+   "name": "Complete an Export",
+   "description": "Export any shipment of goods",
+   "reward": "REWARD_CLEAN_MONEY_LOW",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 17000,
+   "xpLevel": 0,
+   "safehouseLevel": 0,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "ExportsCompleted",
+     "kind": "int",
+     "op": "gte",
+     "value": 1,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "13533136121453022785"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "VeryRare",
+    "tags": []
+   },
+   "icon": "SDTW_Errands_OpenWorld"
+  },
+  {
+   "uid": "14119037922014204363",
+   "name": "Take Down 3 Enforcers",
+   "description": "Complete 3 raids and take down the enforcers along the way",
+   "reward": "REWARD_CLEAN_MONEY_LOW",
+   "repeatable": true,
+   "enabled": true,
+   "priority": 16000,
+   "xpLevel": 0,
+   "safehouseLevel": 2,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "RaidEnforcersKilled",
+     "kind": "int",
+     "op": "gte",
+     "value": 3,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   },
+   "icon": "SDTW_Errands_EnemyTurf"
+  },
+  {
+   "uid": "4660263853431746934",
+   "name": "Take Down 3 Enforcers",
+   "description": "Complete 3 raids and take down the enforcers along the way",
+   "reward": "REWARD_CLEAN_MONEY_LOW",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 16000,
+   "xpLevel": 0,
+   "safehouseLevel": 2,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "RaidEnforcersKilled",
+     "kind": "int",
+     "op": "gte",
+     "value": 3,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "7692538983302549397"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   },
+   "icon": "SDTW_Errands_EnemyTurf"
+  },
+  {
+   "uid": "3134427736900531570",
+   "name": "Raid 3 Rivals",
+   "description": "Complete 3 more raids",
+   "reward": "REWARD_CLEAN_MONEY_LOW",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 15000,
+   "xpLevel": 0,
+   "safehouseLevel": 1,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "RaidsCompleted",
+     "kind": "int",
+     "op": "gte",
+     "value": 3,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "4838707314544871735"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   },
+   "icon": "SDTW_Errands_EnemyTurf"
+  },
+  {
+   "uid": "2353029531759739686",
+   "name": "Industrial Sabotage",
+   "description": "Kill 5 staff members",
+   "reward": "REWARD_FACE_MID",
+   "repeatable": true,
+   "enabled": true,
+   "priority": 13000,
+   "xpLevel": 0,
+   "safehouseLevel": 5,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "RaidStaffKilled",
+     "kind": "int",
+     "op": "gte",
+     "value": 5,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "8877738436261916316",
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   },
+   "icon": "SDTW_Errands_EnemyTurf"
+  },
+  {
+   "uid": "14137839605858964094",
+   "name": "Stay Low",
+   "description": "Don't allow any alarms to go off",
+   "reward": "REWARD_FACE_MID",
+   "repeatable": true,
+   "enabled": true,
+   "priority": 12000,
+   "xpLevel": 0,
+   "safehouseLevel": 3,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "RaidNoAlarms",
+     "kind": "bool",
+     "op": "eq",
+     "value": true,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   },
+   "icon": "SDTW_Errands_EnemyTurf"
+  },
+  {
+   "uid": "4864441477209824538",
+   "name": "Thorough",
+   "description": "Get all 3 Triad Marks in a raid",
+   "reward": "REWARD_MONEY_MID",
+   "repeatable": true,
+   "enabled": true,
+   "priority": 11000,
+   "xpLevel": 0,
+   "safehouseLevel": 3,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "TriadMarksOneRaid",
+     "kind": "int",
+     "op": "gte",
+     "value": 3,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "8877738436261916316",
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   },
+   "icon": "SDTW_Errands_EnemyTurf"
+  },
+  {
+   "uid": "8877738436261916316",
+   "name": "Finish a raid",
+   "description": "Finish a raid",
+   "reward": "REWARD_FACE_HIGH",
+   "repeatable": false,
+   "enabled": false,
+   "priority": 10000,
+   "xpLevel": 0,
+   "safehouseLevel": 2,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "RaidsCompleted",
+     "kind": "int",
+     "op": "gte",
+     "value": 1,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   },
+   "icon": "SDTW_Errands_EnemyTurf"
+  },
+  {
+   "uid": "726902321891037803",
+   "name": "Attack An Operation",
+   "description": "Distract the cops by attacking an operation",
+   "reward": "REWARD_CLEAN_MONEY_LOW",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 8000,
+   "xpLevel": 0,
+   "safehouseLevel": 1,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "OperationsCompleted",
+     "kind": "int",
+     "op": "gte",
+     "value": 1,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "6002850353329125207"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   },
+   "icon": "SDTW_Errands_EnemyTurf"
+  },
+  {
+   "uid": "17074486086986970277",
+   "name": "Safehouse V",
+   "description": "Have your safehouse at level 5",
+   "reward": "REWARD_FACE_LOW",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 7000,
+   "xpLevel": 0,
+   "safehouseLevel": 4,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "SafehouseLevel",
+     "kind": "int",
+     "op": "gte",
+     "value": 5
+    }
+   ],
+   "links": [
+    "16269995246481999480"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   },
+   "icon": "SDTW_Errands_Turf"
+  },
+  {
+   "uid": "7692538983302549397",
+   "name": "Upgrade Safehouse II",
+   "description": "Upgrade your safehouse to level 2",
+   "reward": "REWARD_CLEAN_MONEY_TUTORIAL2",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 6000,
+   "xpLevel": 0,
+   "safehouseLevel": 1,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "SafehouseLevel",
+     "kind": "int",
+     "op": "gte",
+     "value": 2
+    }
+   ],
+   "links": [
+    "4838707314544871735"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   },
+   "icon": "SDTW_Errands_Turf"
+  },
+  {
+   "uid": "13533136121453022785",
+   "name": "Upgrade Safehouse III",
+   "description": "Upgrade your safehouse to level 3",
+   "reward": "REWARD_CLEAN_MONEY_LOW",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 6000,
+   "xpLevel": 0,
+   "safehouseLevel": 2,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "SafehouseLevel",
+     "kind": "int",
+     "op": "gte",
+     "value": 3
+    }
+   ],
+   "links": [
+    "7692538983302549397"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   },
+   "icon": "SDTW_Errands_Turf"
+  },
+  {
+   "uid": "6002850353329125207",
+   "name": "Raid A Rival",
+   "description": "Complete a single raid",
+   "reward": "REWARD_CLEAN_MONEY_TUTORIAL1",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 5000,
+   "xpLevel": 0,
+   "safehouseLevel": 1,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "RaidsCompleted",
+     "kind": "int",
+     "op": "gte",
+     "value": 1,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   },
+   "icon": "SDTW_Errands_EnemyTurf"
+  },
+  {
+   "uid": "9270151654999849073",
+   "name": "Action Hero",
+   "description": "Kill 20 enemies using action dismounts (Drive fast in a vehicle + Y, RT)",
+   "reward": "REWARD_MONEY_LOW",
+   "repeatable": true,
+   "enabled": false,
+   "priority": 0,
+   "xpLevel": 4,
+   "safehouseLevel": 3,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "ActionDismountKills",
+     "kind": "int",
+     "op": "eq",
+     "value": 10,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "393312617609532618",
+   "name": "Almost Caught",
+   "description": "Escape a raid with less than 5 seconds on the clock",
+   "reward": "REWARD_FACE_LOW",
+   "repeatable": true,
+   "enabled": false,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 5,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "RaidCompletedSecondsRemaining",
+     "kind": "int",
+     "op": "lt",
+     "value": 5
+    },
+    {
+     "stat": "RaidsEscaped",
+     "kind": "int",
+     "op": "gte",
+     "value": 1,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "9426770097349161672",
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "7617592323567021152",
+   "name": "Apothecary Goods Collector",
+   "description": "Obtain 25 Apothecary Goods Parts during Raids",
+   "reward": "REWARD_FACE_MID",
+   "repeatable": true,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 5,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "RaidRewardsApothecaryGoods",
+     "kind": "int",
+     "op": "gte",
+     "value": 25,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "9426770097349161672",
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "3048277898705028579",
+   "name": "Attack 5 Operations",
+   "description": "Distract the cops by attacking 5 operations",
+   "reward": "REWARD_CLEAN_MONEY_LOW",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 1,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "OperationsCompleted",
+     "kind": "int",
+     "op": "gte",
+     "value": 5,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "4838707314544871735"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "17771866944830141359",
+   "name": "Broken Arms",
+   "description": "Break 10 arms - Grapple, Tap <img src='img://BUTTON_BUTTON1' height='35' width='35' vspace='-22'>, Tap <img src='img://BUTTON_BUTTON1' height='35' width='35' vspace='-22'>, Hold <img src='img://BUTTON_BUTTON1' height='35' width='35' vspace='-22'>",
+   "reward": "REWARD_MONEY_LOW",
+   "repeatable": true,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 12,
+   "safehouseLevel": 3,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "BrokenArms",
+     "kind": "int",
+     "op": "gte",
+     "value": 10,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "5191940287385928115",
+   "name": "Broken Legs",
+   "description": "Use the Bone Breaker upgrade to cripple 10 enemies",
+   "reward": "REWARD_MONEY_LOW",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 12,
+   "safehouseLevel": 3,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "BrokenLegs",
+     "kind": "int",
+     "op": "gte",
+     "value": 10,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "17325204327884358735",
+   "name": "Buy A Favor Pack",
+   "description": "Purchase a favor pack from the favor store",
+   "reward": "REWARD_CLEAN_MONEY_MID",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 2,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "FavourPacksPurchased",
+     "kind": "int",
+     "op": "gte",
+     "value": 1,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "13533136121453022785"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "9083548742909469966",
+   "name": "Car Parts Collector",
+   "description": "Obtain 1120 Car Parts during Raids",
+   "reward": "REWARD_FACE_MID",
+   "repeatable": true,
+   "enabled": false,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 5,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "RaidRewardsCarParts",
+     "kind": "int",
+     "op": "gte",
+     "value": 1120,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "2365331197383816874",
+   "name": "Charge Kick Followups",
+   "description": "Equip the Charge Kick Follow Up upgrade and give 10 enemies the boot",
+   "reward": "REWARD_MONEY_LOW",
+   "repeatable": true,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 4,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "ChargeKickFollowups",
+     "kind": "int",
+     "op": "gte",
+     "value": 10,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "18414153939993416167",
+   "name": "Charge Knee Stuns",
+   "description": "Perform 10 Charge Knee Stuns.  X, X, Hold X",
+   "reward": "REWARD_MONEY_LOW",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 3,
+   "safehouseLevel": 2,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "ChargeKneeStuns",
+     "kind": "int",
+     "op": "gte",
+     "value": 10
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "16875997004734490819",
+   "name": "Climbing Elbow Strikes",
+   "description": "Perform 10 Climbing Elbow Strikes. When facing an opponent, press and hold B",
+   "reward": "REWARD_MONEY_LOW",
+   "repeatable": false,
+   "enabled": false,
+   "priority": 0,
+   "xpLevel": 3,
+   "safehouseLevel": 2,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "ClimbingElbowStrikes",
+     "kind": "int",
+     "op": "gte",
+     "value": 10,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "8841972451374815421",
+   "name": "Close Cut",
+   "description": "Kill the enforcer with less than 5 seconds on the clock",
+   "reward": "REWARD_FACE_LOW",
+   "repeatable": true,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 5,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "RaidCompletedSecondsRemaining",
+     "kind": "int",
+     "op": "lt",
+     "value": 5
+    },
+    {
+     "stat": "RaidCompletedEnforcerKilled",
+     "kind": "bool",
+     "op": "eq",
+     "value": true
+    }
+   ],
+   "links": [
+    "9426770097349161672",
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "17890198098853802867",
+   "name": "Combat Master",
+   "description": "Activate the combat meter 5 times in one raid",
+   "reward": "REWARD_FACE_MID",
+   "repeatable": true,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 3,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "TimesCombatMeterActivatedOneRaid",
+     "kind": "int",
+     "op": "gte",
+     "value": 5,
+     "reset": [
+      "errand_start",
+      "raid_start"
+     ]
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "17299775331420101291",
+   "name": "Dirty Money Collector",
+   "description": "Obtain HK $100,000 during Raids",
+   "reward": "REWARD_FACE_MID",
+   "repeatable": true,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 5,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "RaidRewardsDirtyMoney",
+     "kind": "int",
+     "op": "gte",
+     "value": 100000,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "9426770097349161672",
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "13208072368721185521",
+   "name": "Disarm Tackles",
+   "description": "Perform 10 Disarm Tackle while sprinting towards an on foot target press B",
+   "reward": "REWARD_MONEY_LOW",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 2,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "DisarmTackles",
+     "kind": "int",
+     "op": "gte",
+     "value": 10,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "3895813808748978984",
+   "name": "Double Jump Kicks",
+   "description": "Perform 10 Double Jump Kicks by attacking enemies while sprinting",
+   "reward": "REWARD_MONEY_LOW",
+   "repeatable": true,
+   "enabled": false,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 2,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "DoubleJumpKicks",
+     "kind": "int",
+     "op": "gte",
+     "value": 10,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "9426770097349161672",
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "11505819071979708174",
+   "name": "Efficient Raider",
+   "description": "Finish a 3 mark raid with more than 2 minutes on the clock",
+   "reward": "REWARD_FACE_LOW",
+   "repeatable": true,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 7,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "RaidCompletedSecondsRemaining",
+     "kind": "int",
+     "op": "gte",
+     "value": 120
+    },
+    {
+     "stat": "RaidsCompleted",
+     "kind": "int",
+     "op": "gte",
+     "value": 1,
+     "reset": [
+      "errand_start"
+     ]
+    },
+    {
+     "stat": "TriadMarksOneRaid",
+     "kind": "int",
+     "op": "gte",
+     "value": 3,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "5696091160946916123",
+   "name": "Environmental Damage",
+   "description": "Kill 10 enemies using combat props",
+   "reward": "REWARD_MONEY_LOW",
+   "repeatable": true,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 2,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "CombatPropKills",
+     "kind": "int",
+     "op": "gte",
+     "value": 10,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "4185669906493857025",
+   "name": "Excellent Management",
+   "description": "Have 5 rackets with racket bosses active",
+   "reward": "REWARD_FAVOUR",
+   "repeatable": true,
+   "enabled": false,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 7,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "RacketsWithBossesActive",
+     "kind": "int",
+     "op": "gte",
+     "value": 5
+    }
+   ],
+   "links": [
+    "9426770097349161672",
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": [
+     "2041080915360381683",
+     "1992909778961203978"
+    ]
+   }
+  },
+  {
+   "uid": "14216977132774281709",
+   "name": "Fashion Sense",
+   "description": "Change all your clothes",
+   "reward": "REWARD_MONEY_HIGH",
+   "repeatable": true,
+   "enabled": false,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 3,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "ChangeEquippedTorso",
+     "kind": "bool",
+     "op": "eq",
+     "value": true,
+     "reset": [
+      "errand_start"
+     ]
+    },
+    {
+     "stat": "ChangeEquippedPants",
+     "kind": "bool",
+     "op": "eq",
+     "value": true,
+     "reset": [
+      "errand_start"
+     ]
+    },
+    {
+     "stat": "ChangeEquippedShoes",
+     "kind": "bool",
+     "op": "eq",
+     "value": true,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "1947511899063761662",
+   "name": "Fast Break Ins",
+   "description": "Perform 10 Fast Break-ins",
+   "reward": "REWARD_MONEY_LOW",
+   "repeatable": true,
+   "enabled": false,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 15,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "FastBreakIns",
+     "kind": "int",
+     "op": "gte",
+     "value": 10,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "17371046294040190537",
+   "name": "Favor Reimbursement",
+   "description": "Use 20 favors",
+   "reward": "REWARD_FACE_MID",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 6,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "FavoursUsedCount",
+     "kind": "int",
+     "op": "gte",
+     "value": 20,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "4159361181448630704",
+   "name": "Favor Reimbursement",
+   "description": "Use 10 favors",
+   "reward": "REWARD_FACE_MID",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 4,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "FavoursUsedCount",
+     "kind": "int",
+     "op": "gte",
+     "value": 10,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "110624962204148299",
+   "name": "Fish Collector",
+   "description": "Obtain 175 fish during Raids",
+   "reward": "REWARD_FACE_MID",
+   "repeatable": true,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 5,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "RaidRewardsFakeFish",
+     "kind": "int",
+     "op": "gte",
+     "value": 175,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "12135026967159630509",
+   "name": "Flying Kicks",
+   "description": "Kill 10 enemies using the flying kick - Hold A, X",
+   "reward": "REWARD_MONEY_LOW",
+   "repeatable": true,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 15,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "FlyingKickKills",
+     "kind": "int",
+     "op": "gte",
+     "value": 10,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "9426770097349161672",
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "9717440998123988302",
+   "name": "Flying Tackles",
+   "description": "$Errand_FlyingTackles",
+   "reward": "REWARD_MONEY_LOW",
+   "repeatable": true,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 2,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "FlyingTackles",
+     "kind": "int",
+     "op": "gte",
+     "value": 10,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "6328253168503051576",
+    "9426770097349161672",
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "12020041609259508142",
+   "name": "Friendly Competition",
+   "description": "Raid a friend and win with all 3 Triad Marks",
+   "reward": "REWARD_MONEY_LOW",
+   "repeatable": true,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 3,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "RaidCompletedFriendRival",
+     "kind": "bool",
+     "op": "eq",
+     "value": true
+    },
+    {
+     "stat": "TriadMarksOneRaid",
+     "kind": "int",
+     "op": "gte",
+     "value": 3,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "8813955175172452318",
+   "name": "Friendly Thug",
+   "description": "Have 5 friends in your list",
+   "reward": "REWARD_FACE_MID",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 4,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "SocialFriendsAdded",
+     "kind": "int",
+     "op": "gte",
+     "value": 5
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "1691762078100972362",
+   "name": "Grappled the Grappler",
+   "description": "Eliminate a grappler using a combat prop",
+   "reward": "REWARD_FACE_LOW",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 10,
+   "safehouseLevel": 5,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "GrapplerCombatPropKills",
+     "kind": "int",
+     "op": "gte",
+     "value": 1,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "10468489042791378768",
+   "name": "Heavy Kicks",
+   "description": "Kill 10 enemies with a heavy kick - Hold X ",
+   "reward": "REWARD_MONEY_LOW",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 15,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "HeavyKickKills",
+     "kind": "int",
+     "op": "gte",
+     "value": 10,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "9426770097349161672",
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "11209776670675301992",
+   "name": "Hot Cars Collector",
+   "description": "Obtain 25 Hot Cars during Raids",
+   "reward": "REWARD_FACE_MID",
+   "repeatable": true,
+   "enabled": false,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 5,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "RaidRewardsHotCars",
+     "kind": "int",
+     "op": "gte",
+     "value": 25,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "16032025730725461373",
+   "name": "Industrial Park",
+   "description": "Have a full turf",
+   "reward": "REWARD_FACE_MID",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 6,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "TurfIsFull",
+     "kind": "bool",
+     "op": "eq",
+     "value": true
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "9843331962281723188",
+   "name": "Invulnerable",
+   "description": "Finish a 3 mark raid without taking any damage",
+   "reward": "REWARD_FACE_HIGH",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 6,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "RaidCompletedNoDamage",
+     "kind": "bool",
+     "op": "eq",
+     "value": true
+    },
+    {
+     "stat": "RaidsCompleted",
+     "kind": "int",
+     "op": "gte",
+     "value": 1,
+     "reset": [
+      "errand_start"
+     ]
+    },
+    {
+     "stat": "TriadMarksOneRaid",
+     "kind": "int",
+     "op": "gte",
+     "value": 3,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "11692565014296259517",
+   "name": "Jumping Power Kicks",
+   "description": "Perform 10 Jumping Roundhouse Kicks. X, X, X, X, Hold X",
+   "reward": "REWARD_MONEY_LOW",
+   "repeatable": true,
+   "enabled": false,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 1,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "ChargeKickFollowups",
+     "kind": "int",
+     "op": "gte",
+     "value": 10,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "9426770097349161672",
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "17513278086096300346",
+   "name": "Knee Strikes",
+   "description": "Kill 10 enemies with a knee strike - X, X, Hold X ",
+   "reward": "REWARD_MONEY_LOW",
+   "repeatable": true,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 15,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "KneeStrikeKills",
+     "kind": "int",
+     "op": "gte",
+     "value": 10,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "9426770097349161672",
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "16653231857243734118",
+   "name": "Knock off Electronics Collector",
+   "description": "Obtain 250 Knock off electronics during Raids",
+   "reward": "REWARD_FACE_MID",
+   "repeatable": true,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 5,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "RaidRewardsKnockOffElectronics",
+     "kind": "int",
+     "op": "gte",
+     "value": 250,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "17741855881443638051",
+   "name": "Knock off Fashions Collector",
+   "description": "Obtain 600 knock off fashions during Raids",
+   "reward": "REWARD_FACE_MID",
+   "repeatable": true,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 5,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "RaidRewardsKnockOffFashions",
+     "kind": "int",
+     "op": "gte",
+     "value": 600,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "1789680098261488832",
+   "name": "Level Up",
+   "description": "Earn enough XP to level up.",
+   "reward": "REWARD_CLEAN_MONEY_TUTORIAL3",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 1,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "NumTimesReachNewXPLevel",
+     "kind": "int",
+     "op": "gte",
+     "value": 1,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "2116841554080689634"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "4099375518106932942",
+   "name": "Leveraging the Enemy",
+   "description": "Collect 10 Favors from defeating enemy contacts in Hong Kong. Look for the red markers in the minimap. ",
+   "reward": "REWARD_MONEY_MID",
+   "repeatable": true,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 3,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "ContactFavorsCollected",
+     "kind": "int",
+     "op": "gte",
+     "value": 10,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "1330170898804983761",
+   "name": "Martial Artist",
+   "description": "Finish a 3 mark raid without using a gun",
+   "reward": "REWARD_FACE_HIGH",
+   "repeatable": false,
+   "enabled": false,
+   "priority": 0,
+   "xpLevel": 15,
+   "safehouseLevel": 6,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "RaidCompletedNoGun",
+     "kind": "bool",
+     "op": "eq",
+     "value": true
+    },
+    {
+     "stat": "RaidsCompleted",
+     "kind": "int",
+     "op": "gte",
+     "value": 1,
+     "reset": [
+      "errand_start"
+     ]
+    },
+    {
+     "stat": "TriadMarksOneRaid",
+     "kind": "int",
+     "op": "gte",
+     "value": 3,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "7248803030859912658",
+   "name": "New Looks",
+   "description": "Purchase your first clothing item",
+   "reward": "REWARD_CLEAN_MONEY_LOW",
+   "repeatable": true,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 2,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "ClothingItemsPurchased",
+     "kind": "int",
+     "op": "gte",
+     "value": 1,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "16816818988681988494",
+   "name": "New Wheels",
+   "description": "Purchase a new vehicle",
+   "reward": "REWARD_CLEAN_MONEY_LOW",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 2,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "VehiclesPurchased",
+     "kind": "int",
+     "op": "gte",
+     "value": 1,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "6328253168503051576",
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "11579051227037841747",
+   "name": "No Cop Can Take Me",
+   "description": "Escape a level 5 cop chase in open world",
+   "reward": "REWARD_MONEY_HIGH",
+   "repeatable": true,
+   "enabled": false,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 4,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "CopChaseLevelEscape",
+     "kind": "int",
+     "op": "gte",
+     "value": 5,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "4942334883192633672",
+   "name": "Nothing Left Behind",
+   "description": "Get all Triad Marks in three sequential raids",
+   "reward": "REWARD_MONEY_HIGH",
+   "repeatable": true,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 5,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "ConsecutiveRaidsAllMarks",
+     "kind": "int",
+     "op": "gte",
+     "value": 3,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "15774917007619105255",
+   "name": "Operation Blast",
+   "description": "Complete an operation in 60 seconds or less",
+   "reward": "REWARD_MONEY_LOW",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 4,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "OperationCompletedSeconds",
+     "kind": "int",
+     "op": "lte",
+     "value": 60
+    },
+    {
+     "stat": "OperationsCompleted",
+     "kind": "int",
+     "op": "gte",
+     "value": 1,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "9426770097349161672",
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "5639168277215281321",
+   "name": "Pay Back",
+   "description": "Raid a rival who raided you",
+   "reward": "REWARD_MONEY_MID",
+   "repeatable": true,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 3,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "RaidCompletedRevengeRival",
+     "kind": "bool",
+     "op": "eq",
+     "value": true
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "12992770598226664758",
+   "name": "Paying Respects",
+   "description": "Collect 6 crime scenes",
+   "reward": "REWARD_FACE_MID",
+   "repeatable": false,
+   "enabled": false,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 3,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "CrimeScenesCollected",
+     "kind": "int",
+     "op": "gte",
+     "value": 6,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "8678539870531129712",
+   "name": "Paying Respects",
+   "description": "Collect 6 crime scenes",
+   "reward": "REWARD_FACE_LOW",
+   "repeatable": true,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 4,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "CrimeScenesCollected",
+     "kind": "int",
+     "op": "gte",
+     "value": 6,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "1865818322902189900",
+   "name": "Pistol Expert",
+   "description": "Complete an export only with a pistol",
+   "reward": "REWARD_MONEY_MID",
+   "repeatable": false,
+   "enabled": false,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 7,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "ExportCompletedPistolOnly",
+     "kind": "bool",
+     "op": "eq",
+     "value": true,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "8961087799917271726",
+   "name": "Racket III",
+   "description": "Upgrade a racket to level 3",
+   "reward": "REWARD_FACE_LOW",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 3,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "HighestRacketLevel",
+     "kind": "int",
+     "op": "gte",
+     "value": 3
+    }
+   ],
+   "links": [
+    "17797484425003460980",
+    "9426770097349161672"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   },
+   "icon": "SDTW_Errands_Turf"
+  },
+  {
+   "uid": "6849332074002370226",
+   "name": "Racket IV",
+   "description": "Upgrade a racket to level 4",
+   "reward": "REWARD_FACE_LOW",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 4,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "HighestRacketLevel",
+     "kind": "int",
+     "op": "gte",
+     "value": 4
+    }
+   ],
+   "links": [
+    "8961087799917271726"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   },
+   "icon": "SDTW_Errands_Turf"
+  },
+  {
+   "uid": "13048283302816983043",
+   "name": "Racket IX",
+   "description": "Upgrade a racket to level 9",
+   "reward": "REWARD_FACE_HIGH",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 9,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "HighestRacketLevel",
+     "kind": "int",
+     "op": "gte",
+     "value": 9
+    }
+   ],
+   "links": [
+    "15427292794836330698"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   },
+   "icon": "SDTW_Errands_Turf"
+  },
+  {
+   "uid": "17084160157631099617",
+   "name": "Racket V",
+   "description": "Upgrade a racket to level 5",
+   "reward": "REWARD_FACE_MID",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 5,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "HighestRacketLevel",
+     "kind": "int",
+     "op": "gte",
+     "value": 5
+    }
+   ],
+   "links": [
+    "6849332074002370226"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   },
+   "icon": "SDTW_Errands_Turf"
+  },
+  {
+   "uid": "4533801444909835282",
+   "name": "Racket VI",
+   "description": "Upgrade a racket to level 6",
+   "reward": "REWARD_FACE_MID",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 6,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "HighestRacketLevel",
+     "kind": "int",
+     "op": "gte",
+     "value": 6
+    }
+   ],
+   "links": [
+    "17084160157631099617"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   },
+   "icon": "SDTW_Errands_Turf"
+  },
+  {
+   "uid": "2896696751733372417",
+   "name": "Racket VII",
+   "description": "Upgrade a racket to level 7",
+   "reward": "REWARD_FACE_MID",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 7,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "HighestRacketLevel",
+     "kind": "int",
+     "op": "gte",
+     "value": 7
+    }
+   ],
+   "links": [
+    "4533801444909835282"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   },
+   "icon": "SDTW_Errands_Turf"
+  },
+  {
+   "uid": "15427292794836330698",
+   "name": "Racket VIII",
+   "description": "Upgrade a racket to level 8",
+   "reward": "REWARD_FACE_HIGH",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 8,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "HighestRacketLevel",
+     "kind": "int",
+     "op": "gte",
+     "value": 8
+    }
+   ],
+   "links": [
+    "2896696751733372417"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   },
+   "icon": "SDTW_Errands_Turf"
+  },
+  {
+   "uid": "17216099574968130670",
+   "name": "Racket X",
+   "description": "Upgrade a racket to level 10",
+   "reward": "REWARD_CLEAN_MONEY_LOW",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 10,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "HighestRacketLevel",
+     "kind": "int",
+     "op": "gte",
+     "value": 10
+    }
+   ],
+   "links": [
+    "13048283302816983043"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   },
+   "icon": "SDTW_Errands_Turf"
+  },
+  {
+   "uid": "6328253168503051576",
+   "name": "Raid 2 Rivals",
+   "description": "Complete 2 more raids",
+   "reward": "REWARD_CLEAN_MONEY_TUTORIAL2",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 1,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "RaidsCompleted",
+     "kind": "int",
+     "op": "gte",
+     "value": 2,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "6002850353329125207"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   },
+   "icon": "SDTW_Errands_EnemyTurf"
+  },
+  {
+   "uid": "2116841554080689634",
+   "name": "Rank Up To \"49'er\"",
+   "description": "Earn enough face to move up the ranks",
+   "reward": "REWARD_CLEAN_MONEY_HIGH",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 1,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "CurrentTriadRank",
+     "kind": "int",
+     "op": "gte",
+     "value": 3
+    }
+   ],
+   "links": [
+    "4838707314544871735"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "4838707314544871735",
+   "name": "Rank Up to \"Blue Lantern\"",
+   "description": "Earn enough face to move up the ranks",
+   "reward": "REWARD_CLEAN_MONEY_HIGH",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 1,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "CurrentTriadRank",
+     "kind": "int",
+     "op": "gte",
+     "value": 2
+    }
+   ],
+   "links": [
+    "6002850353329125207"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "5086435390067946163",
+   "name": "Rebuilt Cars Collector",
+   "description": "Obtain 30 rebuilt cars during Raids",
+   "reward": "REWARD_FACE_MID",
+   "repeatable": true,
+   "enabled": false,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 5,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "RaidRewardsRebuiltCars",
+     "kind": "int",
+     "op": "gte",
+     "value": 30,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "5651287906983631116",
+   "name": "Reckless",
+   "description": "Kill 5 enemies during a single slo-mo sequence",
+   "reward": "REWARD_FACE_LOW",
+   "repeatable": true,
+   "enabled": false,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 2,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "EnemiesKilledOneSlowMo",
+     "kind": "int",
+     "op": "gte",
+     "value": 5,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "12947347582487028183",
+   "name": "Reloaded",
+   "description": "Equip Melee, Ranged, and Two-Handed weapons in your Loadout",
+   "reward": "REWARD_FAVOUR",
+   "repeatable": true,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 4,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "HaveEquippedMelee",
+     "kind": "bool",
+     "op": "eq",
+     "value": true
+    },
+    {
+     "stat": "HaveEquippedRanged",
+     "kind": "bool",
+     "op": "eq",
+     "value": true
+    },
+    {
+     "stat": "HaveEquippedRanged2H",
+     "kind": "bool",
+     "op": "eq",
+     "value": true
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Rare",
+    "tags": [
+     "16633533207225170676"
+    ]
+   }
+  },
+  {
+   "uid": "14853585772974326044",
+   "name": "Roundhouse Kicks",
+   "description": "Kill 10 enemies with a roundhouse kick - X, X, X, Hold X ",
+   "reward": "REWARD_MONEY_LOW",
+   "repeatable": true,
+   "enabled": false,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 1,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "RoundhouseKickKills",
+     "kind": "int",
+     "op": "gte",
+     "value": 10,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "12025935648668164134",
+   "name": "Safe from Harm",
+   "description": "Kill 10 enemies from cover",
+   "reward": "REWARD_MONEY_LOW",
+   "repeatable": true,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 3,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "KillsFromCover",
+     "kind": "int",
+     "op": "gte",
+     "value": 10,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "9426770097349161672",
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "11995953927461589456",
+   "name": "Safehouse IX",
+   "description": "Have your safehouse at level 9",
+   "reward": "REWARD_FACE_HIGH",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 8,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "SafehouseLevel",
+     "kind": "int",
+     "op": "gte",
+     "value": 9
+    }
+   ],
+   "links": [
+    "5909927619873633051"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   },
+   "icon": "SDTW_Errands_Turf"
+  },
+  {
+   "uid": "5094055285378919427",
+   "name": "Safehouse VI",
+   "description": "Have your safehouse at level 6",
+   "reward": "REWARD_FACE_MID",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 6,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "SafehouseLevel",
+     "kind": "int",
+     "op": "gte",
+     "value": 6
+    }
+   ],
+   "links": [
+    "17074486086986970277"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   },
+   "icon": "SDTW_Errands_Turf"
+  },
+  {
+   "uid": "3484068720243982148",
+   "name": "Safehouse VII",
+   "description": "Have your safehouse at level 7",
+   "reward": "REWARD_FACE_MID",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 6,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "SafehouseLevel",
+     "kind": "int",
+     "op": "gte",
+     "value": 7
+    }
+   ],
+   "links": [
+    "5094055285378919427"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   },
+   "icon": "SDTW_Errands_Turf"
+  },
+  {
+   "uid": "5909927619873633051",
+   "name": "Safehouse VIII",
+   "description": "Have your safehouse at level 8",
+   "reward": "REWARD_FACE_MID",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 7,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "SafehouseLevel",
+     "kind": "int",
+     "op": "gte",
+     "value": 8
+    }
+   ],
+   "links": [
+    "3484068720243982148"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   },
+   "icon": "SDTW_Errands_Turf"
+  },
+  {
+   "uid": "3404834728049342074",
+   "name": "Safehouse X",
+   "description": "Have your safehouse at level 10",
+   "reward": "REWARD_MONEY_HIGH",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 9,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "SafehouseLevel",
+     "kind": "int",
+     "op": "gte",
+     "value": 10
+    }
+   ],
+   "links": [
+    "11995953927461589456"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   },
+   "icon": "SDTW_Errands_Turf"
+  },
+  {
+   "uid": "7122793652709297122",
+   "name": "Spinning Heel Kicks",
+   "description": "Kill 10 enemies with a spinning heel kick - X, X, X, X, Hold X ",
+   "reward": "REWARD_MONEY_LOW",
+   "repeatable": true,
+   "enabled": false,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 1,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "SpinningHeelKills",
+     "kind": "int",
+     "op": "gte",
+     "value": 10,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "11495814586653028834",
+   "name": "Sprinting Weapon Attacks",
+   "description": "Perform 10 sprinting weapon attacks (Hold A + X)",
+   "reward": "REWARD_MONEY_LOW",
+   "repeatable": true,
+   "enabled": false,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 2,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "SprintingWeaponAttacks",
+     "kind": "int",
+     "op": "gte",
+     "value": 10,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "11812395070504543988",
+   "name": "Staffed",
+   "description": "Activate all 5 staff slots in a single racket",
+   "reward": "REWARD_FAVOUR",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 4,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "RacketsMaxStaffActive",
+     "kind": "int",
+     "op": "gte",
+     "value": 5
+    }
+   ],
+   "links": [
+    "9426770097349161672",
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Rare",
+    "tags": [
+     "16633533207225170676"
+    ]
+   }
+  },
+  {
+   "uid": "1799762375524390716",
+   "name": "Stolen Designs",
+   "description": "Obtain 70 Stolen Designs during Raids",
+   "reward": "REWARD_FACE_MID",
+   "repeatable": true,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 5,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "RaidRewardsStolenDesigns",
+     "kind": "int",
+     "op": "gte",
+     "value": 70,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "6391178167960945737",
+   "name": "Strong Defense",
+   "description": "Spend 10 points in Defensive Upgrades",
+   "reward": "REWARD_FACE_HIGH",
+   "repeatable": false,
+   "enabled": false,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 4,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "DefensiveUpgradePointsSpent",
+     "kind": "int",
+     "op": "gte",
+     "value": 10
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "10395930210134334156",
+   "name": "Stun Strike Followups",
+   "description": "Perform 10 Stun Strike Follow up Press and Hold B or tap X while facing a stunned opponent",
+   "reward": "REWARD_MONEY_LOW",
+   "repeatable": true,
+   "enabled": false,
+   "priority": 0,
+   "xpLevel": 3,
+   "safehouseLevel": 2,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "StunStrikeFollowUps",
+     "kind": "int",
+     "op": "gte",
+     "value": 10,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "9426770097349161672",
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "449826135082235484",
+   "name": "Surprise Exchanges",
+   "description": "Perform 10 Surprise Exchanges",
+   "reward": "REWARD_MONEY_LOW",
+   "repeatable": true,
+   "enabled": false,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 3,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "SurpriseExchanges",
+     "kind": "int",
+     "op": "gte",
+     "value": 10,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "1938790845315877961",
+   "name": "Sweep Kicks",
+   "description": "Kill 10 enemies with a sweep kick - X, Hold X ",
+   "reward": "REWARD_MONEY_LOW",
+   "repeatable": true,
+   "enabled": false,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 1,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "SweepKickKills",
+     "kind": "int",
+     "op": "gte",
+     "value": 10,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "13420280038886958883",
+   "name": "Tackle Strikes",
+   "description": "Perform 10 Tackle Strikes",
+   "reward": "REWARD_MONEY_LOW",
+   "repeatable": true,
+   "enabled": false,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 2,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "TackleStrikes",
+     "kind": "int",
+     "op": "gte",
+     "value": 10,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "13227527398263225747",
+   "name": "That Car is Mine",
+   "description": "Action hijack 5 vehicles (Hold A while driving behind another vehicle)",
+   "reward": "REWARD_FACE_LOW",
+   "repeatable": true,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 2,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "VehiclesActionHijacked",
+     "kind": "int",
+     "op": "gte",
+     "value": 5,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "10815357855733968599",
+   "name": "The Leader",
+   "description": "Be the top contender in a friends leaderboard",
+   "reward": "REWARD_MONEY_HIGH",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 6,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "TopOfFriendsLeaderboard",
+     "kind": "bool",
+     "op": "eq",
+     "value": true
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "12404706134608552315",
+   "name": "They Didn't See it Coming ",
+   "description": "Kill 10 enemies during a single slo-mo sequence",
+   "reward": "REWARD_FACE_MID",
+   "repeatable": true,
+   "enabled": false,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 4,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "EnemiesKilledOneSlowMo",
+     "kind": "int",
+     "op": "gte",
+     "value": 10,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "8979205940903733069",
+   "name": "Time to Spare",
+   "description": "Have more than five bonus minutes added to a raid",
+   "reward": "REWARD_CLEAN_MONEY_LOW",
+   "repeatable": true,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 8,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "RaidBonusSecondsAdded",
+     "kind": "int",
+     "op": "gte",
+     "value": 300,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "9426770097349161672",
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "2490265929332524187",
+   "name": "Tire Damage",
+   "description": "Shoot out 25 tires during an export",
+   "reward": "REWARD_MONEY_MID",
+   "repeatable": true,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 7,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "TiresShotSingleExport",
+     "kind": "int",
+     "op": "gte",
+     "value": 25,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "15036418962579771492",
+   "name": "Trunked",
+   "description": "Place 10 enemies in trunks",
+   "reward": "REWARD_MONEY_LOW",
+   "repeatable": true,
+   "enabled": false,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 2,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "VehiclesRammed",
+     "kind": "int",
+     "op": "gte",
+     "value": 10,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "9426770097349161672",
+   "name": "Upgrade A Racket II",
+   "description": "Upgrade a racket to level 2",
+   "reward": "REWARD_CLEAN_MONEY_LOW",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 2,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "HighestRacketLevel",
+     "kind": "int",
+     "op": "gte",
+     "value": 2
+    }
+   ],
+   "links": [
+    "13533136121453022785"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   },
+   "icon": "SDTW_Errands_Turf"
+  },
+  {
+   "uid": "16269995246481999480",
+   "name": "Upgrade Safehouse IV",
+   "description": "Upgrade your safehouse to level 4",
+   "reward": "REWARD_CLEAN_MONEY_LOW",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 3,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "SafehouseLevel",
+     "kind": "int",
+     "op": "gte",
+     "value": 4
+    }
+   ],
+   "links": [
+    "13533136121453022785"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   },
+   "icon": "SDTW_Errands_Turf"
+  },
+  {
+   "uid": "14180353433135976460",
+   "name": "Upgrade Warehouse II",
+   "description": "Upgrade your warehouse to level 2",
+   "reward": "REWARD_CLEAN_MONEY_LOW",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 2,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "WarehouseLevel",
+     "kind": "int",
+     "op": "gte",
+     "value": 2
+    }
+   ],
+   "links": [
+    "7692538983302549397"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   },
+   "icon": "SDTW_Errands_Turf"
+  },
+  {
+   "uid": "14813840667246452406",
+   "name": "Vault Shooting Graduate",
+   "description": "Complete all rounds of the Vault-Shooting tutorial located in your Turf's Warehouse",
+   "reward": "REWARD_MONEY_LOW",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 2,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "VaultTutorialCompleted",
+     "kind": "bool",
+     "op": "eq",
+     "value": true,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   },
+   "icon": "SDTW_Errands_Turf"
+  },
+  {
+   "uid": "3098449332626978185",
+   "name": "Vehicle Rammer",
+   "description": "Ram 10 vehicles (X + LS while driving)",
+   "reward": "REWARD_FACE_LOW",
+   "repeatable": true,
+   "enabled": false,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 2,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "VehiclesRammed",
+     "kind": "int",
+     "op": "gte",
+     "value": 10,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "15934951952810103360",
+   "name": "Warehouse III",
+   "description": "Have your warehouse at level 3",
+   "reward": "REWARD_MONEY_LOW",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 3,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "WarehouseLevel",
+     "kind": "int",
+     "op": "gte",
+     "value": 3
+    }
+   ],
+   "links": [
+    "14180353433135976460"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   },
+   "icon": "SDTW_Errands_Turf"
+  },
+  {
+   "uid": "13401017040480475796",
+   "name": "Warehouse IV",
+   "description": "Have your warehouse at level 4",
+   "reward": "REWARD_MONEY_LOW",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 4,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "WarehouseLevel",
+     "kind": "int",
+     "op": "gte",
+     "value": 4
+    }
+   ],
+   "links": [
+    "15934951952810103360"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   },
+   "icon": "SDTW_Errands_Turf"
+  },
+  {
+   "uid": "11401275314236585462",
+   "name": "Warehouse IX",
+   "description": "Have your warehouse at level 9",
+   "reward": "REWARD_MONEY_HIGH",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 9,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "WarehouseLevel",
+     "kind": "int",
+     "op": "gte",
+     "value": 9
+    }
+   ],
+   "links": [
+    "14496665940505772195"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   },
+   "icon": "SDTW_Errands_Turf"
+  },
+  {
+   "uid": "3909205429961262443",
+   "name": "Warehouse VI",
+   "description": "Have your warehouse at level 6",
+   "reward": "REWARD_MONEY_MID",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 6,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "WarehouseLevel",
+     "kind": "int",
+     "op": "gte",
+     "value": 6
+    }
+   ],
+   "links": [
+    "165701615963828379"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   },
+   "icon": "SDTW_Errands_Turf"
+  },
+  {
+   "uid": "5294316401828828614",
+   "name": "Warehouse VII",
+   "description": "Have your warehouse at level 7",
+   "reward": "REWARD_MONEY_MID",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 7,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "WarehouseLevel",
+     "kind": "int",
+     "op": "gte",
+     "value": 7
+    }
+   ],
+   "links": [
+    "3909205429961262443"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   },
+   "icon": "SDTW_Errands_Turf"
+  },
+  {
+   "uid": "14496665940505772195",
+   "name": "Warehouse VIII",
+   "description": "Have your warehouse at level 8",
+   "reward": "REWARD_MONEY_HIGH",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 8,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "WarehouseLevel",
+     "kind": "int",
+     "op": "gte",
+     "value": 8
+    }
+   ],
+   "links": [
+    "5294316401828828614"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   },
+   "icon": "SDTW_Errands_Turf"
+  },
+  {
+   "uid": "16652349099717315613",
+   "name": "Warehouse X",
+   "description": "Have your warehouse at level 10",
+   "reward": "REWARD_FAVOUR",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 10,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "WarehouseLevel",
+     "kind": "int",
+     "op": "gte",
+     "value": 10
+    }
+   ],
+   "links": [
+    "11401275314236585462"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": [
+     "2041080915360381683",
+     "1992909778961203978"
+    ]
+   },
+   "icon": "SDTW_Errands_Turf"
+  },
+  {
+   "uid": "2469603037663905556",
+   "name": "Won't Beat Me",
+   "description": "Survive an ambush",
+   "reward": "REWARD_MONEY_LOW",
+   "repeatable": true,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 15,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "AmbushesSurvived",
+     "kind": "int",
+     "op": "gte",
+     "value": 1,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "14674149056717527687",
+   "name": "Won't Leave My Sight",
+   "description": "Kill 10 enemies while focused on them (Hold L2 while in combat)",
+   "reward": "REWARD_MONEY_LOW",
+   "repeatable": true,
+   "enabled": false,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 2,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "LockOnKills",
+     "kind": "int",
+     "op": "gte",
+     "value": 10,
+     "reset": [
+      "errand_start"
+     ]
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "919935932594635868",
+   "name": "You Show 'Em",
+   "description": "Beat a friend in a leaderboard",
+   "reward": "REWARD_MONEY_MID",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 6,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "BeatFriendOnLeaderboard",
+     "kind": "bool",
+     "op": "eq",
+     "value": true
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  },
+  {
+   "uid": "1584296752294962164",
+   "name": "You're Not Alone",
+   "description": "Add a friend",
+   "reward": "REWARD_FACE_LOW",
+   "repeatable": false,
+   "enabled": true,
+   "priority": 0,
+   "xpLevel": 0,
+   "safehouseLevel": 3,
+   "racketLevel": 0,
+   "conditions": [
+    {
+     "stat": "SocialFriendsAdded",
+     "kind": "int",
+     "op": "gte",
+     "value": 1
+    }
+   ],
+   "links": [
+    "17797484425003460980"
+   ],
+   "favour": {
+    "min": "Common",
+    "max": "Epic",
+    "tags": []
+   }
+  }
+ ]
+}

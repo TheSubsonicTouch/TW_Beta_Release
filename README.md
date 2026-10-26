@@ -24,3 +24,17 @@ while you play. Next time, just double-click Play-TriadWars.bat again.
 
 You start as a brand-new player: create your enforcer, pick a name, choose
 your turf, then play through the tutorials.
+
+WHAT WORKS
+----------
+The local server stands in for every part of the single-player game: the intro
+and tutorials, raids, turf and rackets, the wardrobe and the favour shops, XP
+and ranks.
+
+The hub's Jobs screen and the Challenges (community trial) screen are emulated
+too. Jobs come from the game's own errand data - three daily slots, each with
+the original prerequisites, level and safehouse gates and its own reward
+(gold, dirty money, face or a favour card). The challenge rotates through the
+client's trials with progress, opt-in and tier rewards. LocalServer\README.md
+explains how both work, what is exact and what is this server's own design,
+and how to change it.

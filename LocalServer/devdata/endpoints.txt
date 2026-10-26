@@ -1,0 +1,1950 @@
+#### "achievements/%d64"  request fn 140476950  callbacks []
+#### "achievements/recent/%d64"  request fn 140479de0  callbacks []
+#### "achievements/recent"  request fn 140479de0  callbacks []
+#### "achievements/recent/%d64"  request fn 140479de0  callbacks []
+#### "blackmarket/buy/%u64/%u64"  request fn 14046ae40  callbacks ['14046af80']
+== 14046af80-14046b295
+   14046b061 "mReturnCode"
+   14046b091 "mMessage"
+   14046b0ad "mMessage"
+  == 140455c90-140455cc8
+  == 140460170-140460376
+     1404601bc "ServerState::RequestBlackmarketBuyCommodity_Callback()"
+     140460205 "CommodityName"
+     14046024f "CommodityUID"
+     14046029c "AmountPaid"
+     1404602d2 "AmountBought"
+     1404602db "AmountEarned"
+     140460311 "AmountSold"
+    == 140460f20-140460f9e
+       140460f42 "mDataBags"
+  == 140450390-140450405
+#### "blackmarket/quotes"  request fn 14046b2a0  callbacks ['14046b3b0']
+== 14046b3b0-14046b6c5
+   14046b491 "mReturnCode"
+   14046b4c1 "mMessage"
+   14046b4dd "mMessage"
+  == 140455c90-140455cc8
+  == 14045fe60-140460165
+     14045fefb "ServerState::RequestBlackmarketBuyQuotes_Callback()"
+     14045ff41 "CommodityName"
+     14045ff8a "BuyPrice"
+     14045ffc1 "DiscountedBuyPrice"
+     14045fff8 "SellPrice"
+     14046002f "BonusSellPrice"
+     140460066 "AmountInMarket"
+     1404600a4 "CommodityUID"
+  == 140450390-140450405
+#### "blackmarket/sell/%u64/%u64"  request fn 14046b6d0  callbacks ['14046af80']
+== 14046af80-14046b295
+   14046b061 "mReturnCode"
+   14046b091 "mMessage"
+   14046b0ad "mMessage"
+  == 140455c90-140455cc8
+  == 140460170-140460376
+     1404601bc "ServerState::RequestBlackmarketBuyCommodity_Callback()"
+     140460205 "CommodityName"
+     14046024f "CommodityUID"
+     14046029c "AmountPaid"
+     1404602d2 "AmountBought"
+     1404602db "AmountEarned"
+     140460311 "AmountSold"
+    == 140460f20-140460f9e
+       140460f42 "mDataBags"
+  == 140450390-140450405
+#### "calltoactionclicks"  request fn 14047eac0  callbacks ['14047ed70']
+== 14047ed70-14047f07e
+   14047ee47 "mReturnCode"
+   14047ee7b "mMessage"
+   14047ee97 "mMessage"
+  == 140455c90-140455cc8
+  == 1404652b0-140465986
+     14046532c "mPlayerProgress"
+     14046535d "UFG::TrialPlayerProgress"
+     14046538c "mRewardList"
+     1404653f0 "qArray.Add"
+     1404653ff "mGameRewardTunerName"
+     14046544b "UFG::GameRewardTuner"
+     140465492 "UFG::GameRewardTuner"
+     1404654bb "mReward"
+     140465524 "::PopulateTrialReportProgressResponse()"
+     1404655a2 "UFG::StoreContactBundle"
+     14046563e "FavourDefinitionUIDString"
+     140465659 "FavourDefinitionUIDString"
+     140465680 "::PopulateTrialReportProgressResponse()"
+     14046570a "UFG::StoreBundle"
+     1404657a1 "::PopulateTrialReportProgressResponse()"
+     140465805 "::PopulateTrialReportProgressResponse()"
+     140465863 "::PopulateTrialReportProgressResponse()"
+     1404658be "::PopulateTrialReportProgressResponse()"
+    == 140460f20-140460f9e
+       140460f42 "mDataBags"
+    == 1404844f0-140484659
+#### "channel/notices/%u"  request fn 140471100  callbacks ['140471230']
+== 140471230-14047153c
+   140471302 "mReturnCode"
+   140471337 "mMessage"
+   140471354 "mMessage"
+  == 140455c90-140455cc8
+  == 140461b40-140461f90
+     140461bb1 "qArray.Reallocate(Reserve)"
+     140461be8 "mNoticeID"
+     140461c25 "mNoticeName"
+     140461c77 "mNoticeDestination"
+     140461cc9 "mActiveDateTime"
+     140461d1e "mExpireDateTime"
+     140461d73 "mPriority"
+     140461db3 "mLanguage"
+     140461e08 "mImageLocation"
+     140461e5d "mNoticeContent"
+     140461edb "qArray.Add"
+    == 140466a00-140466afb
+#### "checkoverride"  request fn 14047fd40  callbacks ['14047fea0']
+== 14047fea0-140480169
+   14047ff65 "mReturnCode"
+   14047ff96 "mMessage"
+   14047ffb3 "mMessage"
+  == 140455c90-140455cc8
+  == 140465b40-140465d28
+     140465b96 "mFavourUsageResult"
+     140465bc5 "mUsedFavourUid"
+     140465c22 "UFG::FavourType"
+     140465c79 "UFG::RacketInvoker"
+     140465ca9 "UFG::RacketInvoker"
+    == 140460f20-140460f9e
+       140460f42 "mDataBags"
+    == 1404560b0-1404561e8
+       1404560e5 "UFG::FavourType"
+       140456125 "FavourActionSummary"
+       140456137 "FavourCortexUID"
+       140456166 "FavourTypeTagCortexUID"
+       14045618d "FavourCategoryCortexUID"
+       14045619f "Action"
+       1404561b1 "BundleItemUID"
+    == 1404791d0-14047921a
+       1404791e5 "turf/racketinfo/%u64"
+#### "completederrands"  request fn 140471540  callbacks ['140471670']
+== 140471670-140471964
+   140471742 "mReturnCode"
+   140471777 "mMessage"
+   140471794 "mMessage"
+  == 140455c90-140455cc8
+  == 140460b60-140460e24
+     140460bcf "qArray.Reallocate(Reserve)"
+     140460c1b "CompletedErrandID"
+     140460c56 "PlayerDataID"
+     140460c8a "mErrandUID"
+     140460cd4 "mTimesCompleted"
+     140460d15 "mLastUpdated"
+     140460d97 "GameService CompletedErrandSlotData"
+    == 140466b00-140466bff
+#### "enforcer/customization"  request fn 140485650  callbacks ['140485c40']
+== 140485c40-140485c6d
+#### "enforcer/sellinventoryitem/%d64"  request fn 14047c010  callbacks ['14047c220']
+== 14047c220-14047c4f5
+   14047c2dd "mReturnCode"
+   14047c30e "mMessage"
+   14047c32b "mMessage"
+  == 140455c90-140455cc8
+  == 140460f20-140460f9e
+     140460f42 "mDataBags"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+#### "enforcer/weaponloadout/%u64/%u64/%u64"  request fn 140485980  callbacks ['140485c40']
+== 140485c40-140485c6d
+#### "errands"  request fn 140471d60  callbacks ['140471e90']
+== 140471e90-14047219f
+   140471f62 "mReturnCode"
+   140471f97 "mMessage"
+   140471fb4 "mMessage"
+  == 140455c90-140455cc8
+  == 140461490-140461720
+     1404614d2 "mErrands"
+     1404614ee "mSecondsToRefresh"
+     140461524 "mServerUTC"
+     14046158e "qArray.Reallocate(Reserve)"
+     14046163d "GameService ErrandSlotData"
+    == 140466da0-140466f03
+    == 140461330-140461363
+       140461359 "mState"
+    == 140485c70-140485d1b
+#### "completederrands"  request fn 140471540  callbacks ['140471670']
+== 140471670-140471964
+   140471742 "mReturnCode"
+   140471777 "mMessage"
+   140471794 "mMessage"
+  == 140455c90-140455cc8
+  == 140460b60-140460e24
+     140460bcf "qArray.Reallocate(Reserve)"
+     140460c1b "CompletedErrandID"
+     140460c56 "PlayerDataID"
+     140460c8a "mErrandUID"
+     140460cd4 "mTimesCompleted"
+     140460d15 "mLastUpdated"
+     140460d97 "GameService CompletedErrandSlotData"
+    == 140466b00-140466bff
+#### "errands/end/%u"  request fn 14046f0c0  callbacks ['14046f200']
+== 14046f200-14046f4e3
+   14046f2d3 "mReturnCode"
+   14046f304 "mMessage"
+   14046f321 "mMessage"
+  == 140455c90-140455cc8
+  == 140460fa0-14046108d
+     140460fd0 "mSlotIndex"
+     140461002 "mErrand"
+     14046101f "mErrandUID"
+#### "errands/claimreward/%u"  request fn 14046ca80  callbacks ['14046cbc0']
+== 14046cbc0-14046cee5
+   14046ccaa "mReturnCode"
+   14046ccda "mMessage"
+   14046ccf6 "mMessage"
+  == 140455c90-140455cc8
+  == 140460880-140460a8a
+     1404608e0 "mFavourCortexUIDs"
+     140460901 "mFavourPackCortexUID"
+     14046094a "mFavourCortexUIDs"
+     140460993 "::PopulateClaimErrandResponse()"
+     140460a3a "mRewardType"
+    == 140460f20-140460f9e
+       140460f42 "mDataBags"
+  == 140450140-1404501b5
+#### "errands/change/%u"  request fn 14046c620  callbacks ['14046c760']
+== 14046c760-14046ca78
+   14046c853 "mReturnCode"
+   14046c884 "mMessage"
+   14046c8a1 "mMessage"
+  == 140455c90-140455cc8
+  == 140461230-140461330
+     140461263 "mErrand"
+     14046128b "mServerUTC"
+    == 140461330-140461363
+       140461359 "mState"
+#### "errands/change/%u"  request fn 14046c620  callbacks ['14046c760']
+== 14046c760-14046ca78
+   14046c853 "mReturnCode"
+   14046c884 "mMessage"
+   14046c8a1 "mMessage"
+  == 140455c90-140455cc8
+  == 140461230-140461330
+     140461263 "mErrand"
+     14046128b "mServerUTC"
+    == 140461330-140461363
+       140461359 "mState"
+#### "errands/claimreward/%u"  request fn 14046ca80  callbacks ['14046cbc0']
+== 14046cbc0-14046cee5
+   14046ccaa "mReturnCode"
+   14046ccda "mMessage"
+   14046ccf6 "mMessage"
+  == 140455c90-140455cc8
+  == 140460880-140460a8a
+     1404608e0 "mFavourCortexUIDs"
+     140460901 "mFavourPackCortexUID"
+     14046094a "mFavourCortexUIDs"
+     140460993 "::PopulateClaimErrandResponse()"
+     140460a3a "mRewardType"
+    == 140460f20-140460f9e
+       140460f42 "mDataBags"
+  == 140450140-1404501b5
+#### "errands/end/%u"  request fn 14046f0c0  callbacks ['14046f200']
+== 14046f200-14046f4e3
+   14046f2d3 "mReturnCode"
+   14046f304 "mMessage"
+   14046f321 "mMessage"
+  == 140455c90-140455cc8
+  == 140460fa0-14046108d
+     140460fd0 "mSlotIndex"
+     140461002 "mErrand"
+     14046101f "mErrandUID"
+#### "export/endmission/%u64/%u"  request fn 14046f880  callbacks ['14046f9c0']
+== 14046f9c0-14046fc89
+   14046fa89 "mReturnCode"
+   14046faba "mMessage"
+   14046fad7 "mMessage"
+  == 140455c90-140455cc8
+  == 140461720-14046183b
+     140461764 "mReward"
+     140461793 "mFaceReward"
+     1404617cc "mMoneyReward"
+    == 140460f20-140460f9e
+       140460f42 "mDataBags"
+#### "export/startmission/%u64"  request fn 14046fc90  callbacks ['14046fdd0']
+== 14046fdd0-1404700a6
+   14046fe94 "mReturnCode"
+   14046fec5 "mMessage"
+   14046fee2 "mMessage"
+  == 140455c90-140455cc8
+  == 140460f20-140460f9e
+     140460f42 "mDataBags"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+#### "favours/sellfavours"  request fn 14047ba40  callbacks ['14047bd40']
+== 14047bd40-14047c009
+   14047be05 "mReturnCode"
+   14047be36 "mMessage"
+   14047be53 "mMessage"
+  == 140455c90-140455cc8
+  == 1404648d0-140464a5e
+     1404649e9 "mDataBags"
+    == 1404560b0-1404561e8
+       1404560e5 "UFG::FavourType"
+       140456125 "FavourActionSummary"
+       140456137 "FavourCortexUID"
+       140456166 "FavourTypeTagCortexUID"
+       14045618d "FavourCategoryCortexUID"
+       14045619f "Action"
+       1404561b1 "BundleItemUID"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+#### "favours/usefavour/%u64"  request fn 14047fd40  callbacks ['14047fea0']
+== 14047fea0-140480169
+   14047ff65 "mReturnCode"
+   14047ff96 "mMessage"
+   14047ffb3 "mMessage"
+  == 140455c90-140455cc8
+  == 140465b40-140465d28
+     140465b96 "mFavourUsageResult"
+     140465bc5 "mUsedFavourUid"
+     140465c22 "UFG::FavourType"
+     140465c79 "UFG::RacketInvoker"
+     140465ca9 "UFG::RacketInvoker"
+    == 140460f20-140460f9e
+       140460f42 "mDataBags"
+    == 1404560b0-1404561e8
+       1404560e5 "UFG::FavourType"
+       140456125 "FavourActionSummary"
+       140456137 "FavourCortexUID"
+       140456166 "FavourTypeTagCortexUID"
+       14045618d "FavourCategoryCortexUID"
+       14045619f "Action"
+       1404561b1 "BundleItemUID"
+    == 1404791d0-14047921a
+       1404791e5 "turf/racketinfo/%u64"
+#### "filterpopulation"  request fn 1404750a0  callbacks []
+#### "filterpopulation"  request fn 140475240  callbacks []
+#### "filtertime"  request fn 1404750a0  callbacks []
+#### "filtertime"  request fn 140475240  callbacks []
+#### "friendreferral"  request fn 140470600  callbacks ['140470ad0']
+== 140470ad0-140470da0
+   140470b9c "mReturnCode"
+   140470bcd "mMessage"
+   140470bea "mMessage"
+  == 140455c90-140455cc8
+  == 140461a90-140461b3d
+     140461ab3 "data"
+     140461ad0 "URL"
+#### "friendreferral/infolink"  request fn 140470700  callbacks ['140470800']
+== 140470800-140470ad0
+   1404708cc "mReturnCode"
+   1404708fd "mMessage"
+   14047091a "mMessage"
+  == 140455c90-140455cc8
+  == 140461a90-140461b3d
+     140461ab3 "data"
+     140461ad0 "URL"
+#### "friendreferral/infolink"  request fn 140470700  callbacks ['140470800']
+== 140470800-140470ad0
+   1404708cc "mReturnCode"
+   1404708fd "mMessage"
+   14047091a "mMessage"
+  == 140455c90-140455cc8
+  == 140461a90-140461b3d
+     140461ab3 "data"
+     140461ad0 "URL"
+#### "friends"  request fn 140472520  callbacks ['141955160']
+#### "friends/remove/%i64"  request fn 14047ab40  callbacks []
+#### "friends/inviteresponse/%i64/%d"  request fn 14047c500  callbacks []
+#### "_spawn_friends"  request fn 140559400  callbacks []
+#### "disable_friends_in_game_world"  request fn 140559400  callbacks []
+#### "You are already friends!"  request fn 1406afd80  callbacks []
+#### "You have friend requests pending. Go to your friends list to view them."  request fn 1406bab00  callbacks []
+#### "Add friends to see updates on them in the Newsfeed and follow their progress in Triad Wars."  request fn 140678cf0  callbacks []
+#### "friends/inviteresponse/%i64/%d"  request fn 14047c500  callbacks []
+#### "friends/remove/%i64"  request fn 14047ab40  callbacks []
+#### "informants/buyfrominformanttype/%u64"  request fn 14046b810  callbacks ['14046b950']
+== 14046b950-14046bc19
+   14046ba15 "mReturnCode"
+   14046ba46 "mMessage"
+   14046ba63 "mMessage"
+  == 140455c90-140455cc8
+  == 140460380-14046044b
+     1404603b3 "FavourDefinitionUID"
+    == 1404560b0-1404561e8
+       1404560e5 "UFG::FavourType"
+       140456125 "FavourActionSummary"
+       140456137 "FavourCortexUID"
+       140456166 "FavourTypeTagCortexUID"
+       14045618d "FavourCategoryCortexUID"
+       14045619f "Action"
+       1404561b1 "BundleItemUID"
+    == 140460f20-140460f9e
+       140460f42 "mDataBags"
+#### "informants/claimfrominformant/%i64"  request fn 14046cef0  callbacks ['14046d0d0']
+== 14046d0d0-14046d60d
+   14046d127 "Favor collected successfully."
+   14046d149 "UFG::InformantType"
+   14046d340 "mReturnCode"
+   14046d3a4 "mMessage"
+   14046d3ca "FavourDefinitionUID"
+   14046d409 "UFG::FavourType"
+  == 1404560b0-1404561e8
+     1404560e5 "UFG::FavourType"
+     140456125 "FavourActionSummary"
+     140456137 "FavourCortexUID"
+     140456166 "FavourTypeTagCortexUID"
+     14045618d "FavourCategoryCortexUID"
+     14045619f "Action"
+     1404561b1 "BundleItemUID"
+  == 140453b80-140453bf1
+  == 140460f20-140460f9e
+     140460f42 "mDataBags"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+  == 140455c90-140455cc8
+#### "itemkey/unlock"  request fn 14047a1f0  callbacks ['14047a380']
+== 14047a380-14047a695
+   14047a462 "mReturnCode"
+   14047a492 "mMessage"
+   14047a4ae "mMessage"
+  == 140455c90-140455cc8
+  == 140464370-140464665
+     14046439e "StoreItemIDStr"
+     140464423 "UFG::StoreItemBase"
+     14046444c "ItemContext"
+     140464471 "::PopulateRedeemKeyResponse()"
+     1404644fd "StoreItemIDStr"
+     14046451b "::PopulateRedeemKeyResponse()"
+     14046457c "StoreItemIDStr"
+     14046459a "::PopulateRedeemKeyResponse()"
+     1404645e3 "::PopulateRedeemKeyResponse()"
+    == 140460f20-140460f9e
+       140460f42 "mDataBags"
+  == 140450140-1404501b5
+#### "leaderboards"  request fn 140475430  callbacks ['141954e40']
+#### "leaderboards/playersrankings/%d64"  request fn 1404772e0  callbacks []
+#### "leaderboards/playersrankings"  request fn 1404772e0  callbacks []
+#### "leaderboards/rankings/%d/start/%d/count/%d"  request fn 1404750a0  callbacks []
+#### "leaderboards/rankings/%d/near/%d64"  request fn 140475240  callbacks []
+#### "leaderboards/rankings/%d/near"  request fn 140475240  callbacks []
+#### "root.mcMain.leaderboardsTab.mcCategoryArray.array"  request fn 14070d4b0  callbacks []
+#### "root.mcMain.leaderboardsTab.mcListArray.array"  request fn 14070d4b0  callbacks []
+#### "leaderboardsTab"  request fn 1406c2740  callbacks []
+#### "leaderboards/playersrankings/%d64"  request fn 1404772e0  callbacks []
+#### "leaderboards/playersrankings"  request fn 1404772e0  callbacks []
+#### "leaderboards/playersrankings/%d64"  request fn 1404772e0  callbacks []
+#### "leaderboards/rankings/%d/near/%d64"  request fn 140475240  callbacks []
+#### "leaderboards/rankings/%d/near"  request fn 140475240  callbacks []
+#### "leaderboards/rankings/%d/near/%d64"  request fn 140475240  callbacks []
+#### "leaderboards/rankings/%d/start/%d/count/%d"  request fn 1404750a0  callbacks []
+#### "messaging/private/%i64"  request fn 1404787f0  callbacks []
+#### "messaging/private/%i64"  request fn 14047c5f0  callbacks []
+#### "metagame/buyopponentintel/%d"  request fn 14046c200  callbacks ['14046c340']
+== 14046c340-14046c615
+   14046c3fd "mReturnCode"
+   14046c42e "mMessage"
+   14046c44b "mMessage"
+  == 140455c90-140455cc8
+  == 140460f20-140460f9e
+     140460f42 "mDataBags"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+#### "openworldcrimescene/%u/%u/%u/%u"  request fn 14046a480  callbacks ['14046a5e0']
+== 14046a5e0-14046a8b5
+   14046a69d "mReturnCode"
+   14046a6ce "mMessage"
+   14046a6eb "mMessage"
+  == 140455c90-140455cc8
+  == 140460f20-140460f9e
+     140460f42 "mDataBags"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+#### "openworldcrimescene"  request fn 140472ab0  callbacks ['140472b50']
+== 140472b50-140472e44
+   140472c22 "mReturnCode"
+   140472c57 "mMessage"
+   140472c74 "mMessage"
+  == 140455c90-140455cc8
+  == 140462f30-140463242
+     140462f7a "CrimeScenes"
+     140462feb "OpenWorldCrimeSceneID"
+     140463035 "DeathX"
+     140463068 "DeathY"
+     14046309b "DeathZ"
+     1404630ce "VictimPlayerDataIDString"
+     140463118 "Collected"
+     14046319d "qArray.Add"
+    == 140466f10-14046701b
+#### "openworldcrimescenecollection/%d64"  request fn 14046de40  callbacks ['14046df80']
+== 14046df80-14046e249
+   14046e04a "mReturnCode"
+   14046e07b "mMessage"
+   14046e098 "mMessage"
+  == 140455c90-140455cc8
+  == 140460e30-140460f1f
+     140460e8a "CrimeSceneID"
+     140460ed3 "FaceCollected"
+    == 140460f20-140460f9e
+       140460f42 "mDataBags"
+#### "openworldcrimescene/%u/%u/%u/%u"  request fn 14046a480  callbacks ['14046a5e0']
+== 14046a5e0-14046a8b5
+   14046a69d "mReturnCode"
+   14046a6ce "mMessage"
+   14046a6eb "mMessage"
+  == 140455c90-140455cc8
+  == 140460f20-140460f9e
+     140460f42 "mDataBags"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+#### "openworldcrimescenecollection/%d64"  request fn 14046de40  callbacks ['14046df80']
+== 14046df80-14046e249
+   14046e04a "mReturnCode"
+   14046e07b "mMessage"
+   14046e098 "mMessage"
+  == 140455c90-140455cc8
+  == 140460e30-140460f1f
+     140460e8a "CrimeSceneID"
+     140460ed3 "FaceCollected"
+    == 140460f20-140460f9e
+       140460f42 "mDataBags"
+#### "operation/endoperation/%s/%d/%d"  request fn 140475bf0  callbacks ['140475d40']
+== 140475d40-140476009
+   140475e0a "mReturnCode"
+   140475e3b "mMessage"
+   140475e58 "mMessage"
+  == 140455c90-140455cc8
+  == 140463250-1404633e0
+     14046328e "mReward"
+     1404632bd "mRewardType"
+    == 140460f20-140460f9e
+       140460f42 "mDataBags"
+    == 1404560b0-1404561e8
+       1404560e5 "UFG::FavourType"
+       140456125 "FavourActionSummary"
+       140456137 "FavourCortexUID"
+       140456166 "FavourTypeTagCortexUID"
+       14045618d "FavourCategoryCortexUID"
+       14045619f "Action"
+       1404561b1 "BundleItemUID"
+#### "operation/list"  request fn 140476010  callbacks ['140476140']
+== 140476140-140476430
+   140476210 "mReturnCode"
+   140476245 "mMessage"
+   140476262 "mMessage"
+  == 140455c90-140455cc8
+  == 1404633e0-1404635aa
+     14046342b "mSecondsElapsed"
+     14046345d "mTotalSeconds"
+     14046348f "mOperationInstances"
+     14046354e "qArray.Add"
+#### "playerdata/addfriendbyplayername"  request fn 14046a140  callbacks ['14046a270']
+== 14046a270-14046a477
+   14046a326 "mReturnCode"
+   14046a359 "mMessage"
+  == 140453b80-140453bf1
+#### "playerdata/deathpenalty"  request fn 14046eb70  callbacks ['14046eca0']
+== 14046eca0-14046ee9c
+   14046ed6c "mCurrentFace"
+   14046edc1 "mFacePenalty"
+  == 140460f20-140460f9e
+     140460f42 "mDataBags"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+  == 14046a480-14046a5d3
+     14046a4ba "openworldcrimescene/%u/%u/%u/%u"
+    == 140451c60-140451cb4
+    == 140453b80-140453bf1
+#### "playerdata/defaultinventory/%u64/"  request fn 14046eea0  callbacks ['14046ef80']
+== 14046ef80-14046f0b5
+   14046f018 "mReturnCode"
+#### "playerdata/equipenforcerupgrade/%u/%u64"  request fn 140469cf0  callbacks ['140469e40']
+== 140469e40-14046a13a
+   140469f02 "mReturnCode"
+   140469f33 "mMessage"
+   140469f50 "mMessage"
+  == 140455c90-140455cc8
+  == 140460f20-140460f9e
+     140460f42 "mDataBags"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+  == 1404560b0-1404561e8
+     1404560e5 "UFG::FavourType"
+     140456125 "FavourActionSummary"
+     140456137 "FavourCortexUID"
+     140456166 "FavourTypeTagCortexUID"
+     14045618d "FavourCategoryCortexUID"
+     14045619f "Action"
+     1404561b1 "BundleItemUID"
+#### "playerdata/eventlog/%d/"  request fn 14046f4f0  callbacks ['14046f5d0']
+== 14046f5d0-14046f872
+   14046f68d "mServerUTC"
+   14046f704 "mEventResults"
+   14046f740 "mEventResults"
+  == 14045f110-14045f55d
+     14045f13c "EventInfo"
+     14045f18b "mEventID"
+     14045f1d7 "mEventTime"
+     14045f21a "mAccountID"
+     14045f25f "mEventLogTypeID"
+     14045f2a3 "mEventRawData"
+     14045f2f3 "mParameterizedEventValues"
+     14045f30f "mParameterizedEventText"
+     14045f37e "mParameterizedEventText"
+     14045f3a1 "mParameterizedEventValues"
+     14045f3d5 "GameService::RequestEventLog_Callback"
+     14045f437 "{0}"
+     14045f44e "{1}"
+     14045f4fb "mEventText"
+    == 140455c90-140455cc8
+  == 140471970-140471a90
+     140471985 "coupons"
+    == 140451c60-140451cb4
+    == 140453b80-140453bf1
+#### "playerdata/facetiers"  request fn 1404700b0  callbacks ['1404721a0']
+== 1404721a0-140472515
+   1404722b6 "GameService::mFaceTiers"
+   14047232a "Value"
+   14047237c "Level"
+   1404723bb "LevelName"
+  == 140453b80-140453bf1
+#### "playerdata/gainxp/%d"  request fn 140470da0  callbacks ['140470ed0']
+== 140470ed0-14047106d
+   140470f5b "mCurrentXP"
+  == 140460f20-140460f9e
+     140460f42 "mDataBags"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+#### "playerdata/gameplaystate"  request fn 140472880  callbacks ['140472920']
+== 140472920-140472ab0
+   1404729c7 "mGameplayState"
+  == 140485e90-140485f10
+     140485ecc "qReflectString::Set()"
+#### "playerdata/lastusedvehicle/%u/"  request fn 14047c820  callbacks ['14047c8f0']
+== 14047c8f0-14047cbc5
+   14047c9ad "mReturnCode"
+   14047c9de "mMessage"
+   14047c9fb "mMessage"
+  == 140455c90-140455cc8
+  == 140460f20-140460f9e
+     140460f42 "mDataBags"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+#### "playerdata/name"  request fn 14047cbd0  callbacks ['14047cd70']
+== 14047cd70-14047d045
+   14047ce2d "mReturnCode"
+   14047ce5e "mMessage"
+   14047ce7b "mMessage"
+  == 140455c90-140455cc8
+  == 140460f20-140460f9e
+     140460f42 "mDataBags"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+#### "playerdata/opponent/%u64"  request fn 140476430  callbacks ['140476600']
+== 140476600-140476706
+  == 1404675c0-140467cd0
+     14046766e "mOpponents"
+     14046769c "qArray.Reallocate(Reserve)"
+     1404676bd "qArray.Reallocate(Reserve)"
+     14046775e "mPlayerDataID"
+     14046780e "qArray.Add"
+     14046786d "mOpponentType"
+     1404678fc "qArray.Add"
+     1404679c6 "mTriad"
+     140467a28 "qArray.Add"
+     140467a5e "mRemainingSeconds"
+     140467aff "mOpponentDataBags"
+    == 14045f560-14045f58a
+       14045f580 "TriadID"
+    == 140467120-14046721b
+    == 1404809e0-140480dfb
+       140480a8a "qArray.Reallocate(Reserve)"
+       140480b39 "qArray.Reallocate(Reserve)"
+       140480be9 "Populate Array"
+       140480caa "UFG::StoreOutfit"
+       140480cf7 "Populate Array"
+       140480d3e "qReflectArray.Resize"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+    == 1404a9ab0-1404a9b22
+#### "playerdata/opponents"  request fn 140476530  callbacks ['140476600']
+== 140476600-140476706
+  == 1404675c0-140467cd0
+     14046766e "mOpponents"
+     14046769c "qArray.Reallocate(Reserve)"
+     1404676bd "qArray.Reallocate(Reserve)"
+     14046775e "mPlayerDataID"
+     14046780e "qArray.Add"
+     14046786d "mOpponentType"
+     1404678fc "qArray.Add"
+     1404679c6 "mTriad"
+     140467a28 "qArray.Add"
+     140467a5e "mRemainingSeconds"
+     140467aff "mOpponentDataBags"
+    == 14045f560-14045f58a
+       14045f580 "TriadID"
+    == 140467120-14046721b
+    == 1404809e0-140480dfb
+       140480a8a "qArray.Reallocate(Reserve)"
+       140480b39 "qArray.Reallocate(Reserve)"
+       140480be9 "Populate Array"
+       140480caa "UFG::StoreOutfit"
+       140480cf7 "Populate Array"
+       140480d3e "qReflectArray.Resize"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+    == 1404a9ab0-1404a9b22
+#### "playerdata/playersavegame"  request fn 140472e50  callbacks ['140472f00']
+== 140472f00-1404731b1
+   140472fd8 "mGameState"
+#### "playerdata/playersavegame"  request fn 14047d050  callbacks ['14047d1e0']
+== 14047d1e0-14047d4b5
+   14047d29d "mReturnCode"
+   14047d2ce "mMessage"
+   14047d2eb "mMessage"
+  == 140455c90-140455cc8
+  == 140460f20-140460f9e
+     140460f42 "mDataBags"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+#### "playerdata/preferfriendmatchmaking"  request fn 14047d4c0  callbacks ['14047d660']
+== 14047d660-14047d935
+   14047d71d "mReturnCode"
+   14047d74e "mMessage"
+   14047d76b "mMessage"
+  == 140455c90-140455cc8
+  == 140460f20-140460f9e
+     140460f42 "mDataBags"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+#### "playerdata/reset"  request fn 14047ad60  callbacks ['140451cc0']
+== 140451cc0-140451d21
+#### "playerdata/sellenforcerupgrade/%u64"  request fn 14047b5b0  callbacks ['14047b760']
+== 14047b760-14047ba35
+   14047b81d "mReturnCode"
+   14047b84e "mMessage"
+   14047b86b "mMessage"
+  == 140455c90-140455cc8
+  == 140460f20-140460f9e
+     140460f42 "mDataBags"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+#### "playerdata/serializedplayerdata/%d"  request fn 140476d40  callbacks ['140477120']
+== 140477120-1404772d5
+  == 140484f30-1404854ab
+     140484f5d "mRequestedBags"
+     140485013 "qReflectArray.Add"
+     1404850e7 "qReflectArray.Add"
+     140485147 "UFG::PlayerInstanceData"
+     1404852fa "UFG::PlayerInstanceData"
+    == 140481980-140481a94
+    == 1404844f0-140484659
+    == 140486260-140486315
+    == 14045edf0-14045f10a
+       14045ee1d "ScalingPresetCortexUID"
+       14045ee72 "ClothingOutfitCortexUID"
+       14045eec3 "ClothingStoreItemUIDs"
+       14045ef30 "ClothingStoreItemUIDs"
+       14045ef95 "qReflectArray.Add"
+       14045efd9 "MeleeWeapon"
+       14045f02f "OneHandedWeapon"
+       14045f086 "TwoHandedWeapon"
+    == 140462b00-140462c8b
+       140462bc1 "UFG::InformantType"
+       140462bd6 "UFG::InformantInstanceData"
+       140462c0c "qReflectArray.Add"
+    == 140485f10-140486052
+    == 140461840-140461a8a
+       140461934 "UFG::FavourType"
+       14046194b "UFG::FavourInstanceData"
+       1404619c8 "qReflectArray.Add"
+    == 140485d20-140485e81
+    == 14045fce0-14045fe5f
+       14045fd97 "UFG::FavourType"
+       14045fdb1 "UFG::ActiveFavourInstanceData"
+       14045fde5 "qReflectArray.Add"
+    == 140484c90-140484df3
+    == 140461090-140461229
+       14046110f "Item1"
+       140461121 "Item2"
+       1404611bf "qReflectArray.Add"
+    == 140465990-140465b3b
+       1404659b6 "Turf"
+       1404659de "UFG::TurfInstanceData"
+       140465a0d "Rackets"
+       140465a5f "qReflectArray.Resize"
+       140465a6b "Commodities"
+       140465abd "qReflectArray.Resize"
+       140465ad4 "UFG::TurfInstanceData"
+    == 140462c90-140462e3e
+       140462d4c "UFG::StoreItemBase"
+       140462d6d "UFG::InventoryItemInstanceData"
+       140462da3 "qReflectArray.Add"
+    == 140486060-1404861b0
+    == 140473cf0-140473fc2
+       140473dad "mReturnCode"
+       140473dde "mMessage"
+       140473dfb "mMessage"
+    == 140486b70-140486c1f
+    == 14048fde0-14048fdfd
+    == 14048fc00-14048fdda
+       14048fc41 "ExportMissionSlots"
+       14048fc81 "qArray.Reallocate(Reserve)"
+       14048fcba "mCommodity1UID"
+       14048fce0 "mCommodity1Amount"
+       14048fcfd "mFaceReward"
+       14048fd1a "mMoneyReward"
+       14048fd6d "OperationManager PopulateFromExportRewardsBag"
+    == 140467cd0-140467d50
+#### "playerdata/serializedplayerdata/%d/opponent/%d"  request fn 140476e70  callbacks ['140476fb0']
+== 140476fb0-140477111
+  == 140484f30-1404854ab
+     140484f5d "mRequestedBags"
+     140485013 "qReflectArray.Add"
+     1404850e7 "qReflectArray.Add"
+     140485147 "UFG::PlayerInstanceData"
+     1404852fa "UFG::PlayerInstanceData"
+    == 140481980-140481a94
+    == 1404844f0-140484659
+    == 140486260-140486315
+    == 14045edf0-14045f10a
+       14045ee1d "ScalingPresetCortexUID"
+       14045ee72 "ClothingOutfitCortexUID"
+       14045eec3 "ClothingStoreItemUIDs"
+       14045ef30 "ClothingStoreItemUIDs"
+       14045ef95 "qReflectArray.Add"
+       14045efd9 "MeleeWeapon"
+       14045f02f "OneHandedWeapon"
+       14045f086 "TwoHandedWeapon"
+    == 140462b00-140462c8b
+       140462bc1 "UFG::InformantType"
+       140462bd6 "UFG::InformantInstanceData"
+       140462c0c "qReflectArray.Add"
+    == 140485f10-140486052
+    == 140461840-140461a8a
+       140461934 "UFG::FavourType"
+       14046194b "UFG::FavourInstanceData"
+       1404619c8 "qReflectArray.Add"
+    == 140485d20-140485e81
+    == 14045fce0-14045fe5f
+       14045fd97 "UFG::FavourType"
+       14045fdb1 "UFG::ActiveFavourInstanceData"
+       14045fde5 "qReflectArray.Add"
+    == 140484c90-140484df3
+    == 140461090-140461229
+       14046110f "Item1"
+       140461121 "Item2"
+       1404611bf "qReflectArray.Add"
+    == 140465990-140465b3b
+       1404659b6 "Turf"
+       1404659de "UFG::TurfInstanceData"
+       140465a0d "Rackets"
+       140465a5f "qReflectArray.Resize"
+       140465a6b "Commodities"
+       140465abd "qReflectArray.Resize"
+       140465ad4 "UFG::TurfInstanceData"
+    == 140462c90-140462e3e
+       140462d4c "UFG::StoreItemBase"
+       140462d6d "UFG::InventoryItemInstanceData"
+       140462da3 "qReflectArray.Add"
+    == 140486060-1404861b0
+    == 140473cf0-140473fc2
+       140473dad "mReturnCode"
+       140473dde "mMessage"
+       140473dfb "mMessage"
+    == 140486b70-140486c1f
+    == 14048fde0-14048fdfd
+    == 14048fc00-14048fdda
+       14048fc41 "ExportMissionSlots"
+       14048fc81 "qArray.Reallocate(Reserve)"
+       14048fcba "mCommodity1UID"
+       14048fce0 "mCommodity1Amount"
+       14048fcfd "mFaceReward"
+       14048fd1a "mMoneyReward"
+       14048fd6d "OperationManager PopulateFromExportRewardsBag"
+    == 140467cd0-140467d50
+  == 140456a50-140456a97
+  == 1404569f0-140456a42
+#### "playerdata/serializedplayerdata/%d/opponent/%d"  request fn 140476e70  callbacks ['140476fb0']
+== 140476fb0-140477111
+  == 140484f30-1404854ab
+     140484f5d "mRequestedBags"
+     140485013 "qReflectArray.Add"
+     1404850e7 "qReflectArray.Add"
+     140485147 "UFG::PlayerInstanceData"
+     1404852fa "UFG::PlayerInstanceData"
+    == 140481980-140481a94
+    == 1404844f0-140484659
+    == 140486260-140486315
+    == 14045edf0-14045f10a
+       14045ee1d "ScalingPresetCortexUID"
+       14045ee72 "ClothingOutfitCortexUID"
+       14045eec3 "ClothingStoreItemUIDs"
+       14045ef30 "ClothingStoreItemUIDs"
+       14045ef95 "qReflectArray.Add"
+       14045efd9 "MeleeWeapon"
+       14045f02f "OneHandedWeapon"
+       14045f086 "TwoHandedWeapon"
+    == 140462b00-140462c8b
+       140462bc1 "UFG::InformantType"
+       140462bd6 "UFG::InformantInstanceData"
+       140462c0c "qReflectArray.Add"
+    == 140485f10-140486052
+    == 140461840-140461a8a
+       140461934 "UFG::FavourType"
+       14046194b "UFG::FavourInstanceData"
+       1404619c8 "qReflectArray.Add"
+    == 140485d20-140485e81
+    == 14045fce0-14045fe5f
+       14045fd97 "UFG::FavourType"
+       14045fdb1 "UFG::ActiveFavourInstanceData"
+       14045fde5 "qReflectArray.Add"
+    == 140484c90-140484df3
+    == 140461090-140461229
+       14046110f "Item1"
+       140461121 "Item2"
+       1404611bf "qReflectArray.Add"
+    == 140465990-140465b3b
+       1404659b6 "Turf"
+       1404659de "UFG::TurfInstanceData"
+       140465a0d "Rackets"
+       140465a5f "qReflectArray.Resize"
+       140465a6b "Commodities"
+       140465abd "qReflectArray.Resize"
+       140465ad4 "UFG::TurfInstanceData"
+    == 140462c90-140462e3e
+       140462d4c "UFG::StoreItemBase"
+       140462d6d "UFG::InventoryItemInstanceData"
+       140462da3 "qReflectArray.Add"
+    == 140486060-1404861b0
+    == 140473cf0-140473fc2
+       140473dad "mReturnCode"
+       140473dde "mMessage"
+       140473dfb "mMessage"
+    == 140486b70-140486c1f
+    == 14048fde0-14048fdfd
+    == 14048fc00-14048fdda
+       14048fc41 "ExportMissionSlots"
+       14048fc81 "qArray.Reallocate(Reserve)"
+       14048fcba "mCommodity1UID"
+       14048fce0 "mCommodity1Amount"
+       14048fcfd "mFaceReward"
+       14048fd1a "mMoneyReward"
+       14048fd6d "OperationManager PopulateFromExportRewardsBag"
+    == 140467cd0-140467d50
+  == 140456a50-140456a97
+  == 1404569f0-140456a42
+#### "playerdata/unequipenforcerupgrade/%u"  request fn 14047a6a0  callbacks ['14047a840']
+== 14047a840-14047ab3a
+   14047a902 "mReturnCode"
+   14047a933 "mMessage"
+   14047a950 "mMessage"
+  == 140455c90-140455cc8
+  == 140460f20-140460f9e
+     140460f42 "mDataBags"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+  == 1404560b0-1404561e8
+     1404560e5 "UFG::FavourType"
+     140456125 "FavourActionSummary"
+     140456137 "FavourCortexUID"
+     140456166 "FavourTypeTagCortexUID"
+     14045618d "FavourCategoryCortexUID"
+     14045619f "Action"
+     1404561b1 "BundleItemUID"
+#### "[netcodeMatchmakingConfig] AddNumberPreferenceValue got negative value, so using 0.0f: preferenceName[%s] value[%f]
+"  request fn 1402742b0  callbacks []
+#### "[netcodeMatchmakingConfig] SetNumberPreferenceValue got negative value, so using 0.0f: preferenceName[%s] value[%f]
+"  request fn 14028f6d0  callbacks []
+#### "preference"  request fn 14047d4c0  callbacks ['14047d660']
+== 14047d660-14047d935
+   14047d71d "mReturnCode"
+   14047d74e "mMessage"
+   14047d76b "mMessage"
+  == 140455c90-140455cc8
+  == 140460f20-140460f9e
+     140460f42 "mDataBags"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+#### "profile/playerdata/%d"  request fn 140477410  callbacks ['1404774f0']
+== 1404774f0-140477d65
+   14047759c "mReturnCode"
+   1404775d2 "GameService::RequestPlayerProfileByID_Callback()"
+   1404775fe "mAccountID"
+   140477648 "mPlayerName"
+   140477691 "mXP"
+   1404776c5 "mXPLevel"
+   1404776fc "mFace"
+   140477747 "mRaidAttempts"
+   14047777b "mRaidSuccesses"
+   1404777af "mRacketsCompleted"
+   1404777e3 "mTotalTurfPointsPossible"
+   140477817 "mTurfPoints"
+   14047784b "mRaidFaceEarned"
+   140477896 "mExportFaceEarned"
+   1404778e1 "mAvatarURL"
+   14047792d "mIsAI"
+   140477964 "mUpgrades"
+   140477990 "mUpgrades"
+   1404779b9 "mName"
+   1404779fd "ENFORCER UPGRADES"
+   140477a0d "mUnlocked"
+   140477a41 "mTotal"
+   140477a75 "mName"
+   140477ab9 "GANG UPGRADES"
+   140477ac9 "mUnlocked"
+   140477afd "mTotal"
+   140477b46 "mWeaponResults"
+   140477b74 "mWeaponResults"
+   140477bd5 "mName"
+   140477c1e "mHits"
+   140477c52 "mTotalShots"
+   140477c86 "mKills"
+#### "profile/playerdatabyplayerdataid/%d"  request fn 140477d70  callbacks ['1404774f0']
+== 1404774f0-140477d65
+   14047759c "mReturnCode"
+   1404775d2 "GameService::RequestPlayerProfileByID_Callback()"
+   1404775fe "mAccountID"
+   140477648 "mPlayerName"
+   140477691 "mXP"
+   1404776c5 "mXPLevel"
+   1404776fc "mFace"
+   140477747 "mRaidAttempts"
+   14047777b "mRaidSuccesses"
+   1404777af "mRacketsCompleted"
+   1404777e3 "mTotalTurfPointsPossible"
+   140477817 "mTurfPoints"
+   14047784b "mRaidFaceEarned"
+   140477896 "mExportFaceEarned"
+   1404778e1 "mAvatarURL"
+   14047792d "mIsAI"
+   140477964 "mUpgrades"
+   140477990 "mUpgrades"
+   1404779b9 "mName"
+   1404779fd "ENFORCER UPGRADES"
+   140477a0d "mUnlocked"
+   140477a41 "mTotal"
+   140477a75 "mName"
+   140477ab9 "GANG UPGRADES"
+   140477ac9 "mUnlocked"
+   140477afd "mTotal"
+   140477b46 "mWeaponResults"
+   140477b74 "mWeaponResults"
+   140477bd5 "mName"
+   140477c1e "mHits"
+   140477c52 "mTotalShots"
+   140477c86 "mKills"
+#### "purchase/%u64/%u64"  request fn 14046bc20  callbacks ['14046bed0']
+== 14046bed0-14046c1f3
+   14046bfba "mReturnCode"
+   14046bfea "mMessage"
+   14046c006 "mMessage"
+  == 140455c90-140455cc8
+  == 140460450-140460880
+     140460485 "data"
+     1404604d7 "CortexUID"
+     1404604f7 "CortexUID"
+     140460559 "UFG::StoreItemBase"
+     140460580 "ItemContext"
+     1404605b2 "::PopulateBuyFromStoreResponse()"
+     140460614 "UFG::StoreContactBundle"
+     140460653 "FavourDefinitionUIDString"
+     140460672 "FavourDefinitionUIDString"
+     140460699 "::PopulateBuyFromStoreResponse()"
+     140460719 "UFG::StoreBundle"
+     14046073c "UFG::StoreBundle"
+     1404607a0 "::PopulateBuyFromStoreResponse()"
+     1404607f9 "CouponID"
+    == 140460f20-140460f9e
+       140460f42 "mDataBags"
+    == 1404560b0-1404561e8
+       1404560e5 "UFG::FavourType"
+       140456125 "FavourActionSummary"
+       140456137 "FavourCortexUID"
+       140456166 "FavourTypeTagCortexUID"
+       14045618d "FavourCategoryCortexUID"
+       14045619f "Action"
+       1404561b1 "BundleItemUID"
+    == 140469320-140469421
+    == 140469140-140469226
+  == 140450140-1404501b5
+#### "raid/claimfromraidmutator/%u64"  request fn 14046d9f0  callbacks ['14046db30']
+== 14046db30-14046de3b
+   14046dbf5 "mReturnCode"
+   14046dc26 "mMessage"
+   14046dc43 "mMessage"
+   14046dc99 "FavourReward"
+  == 140455c90-140455cc8
+#### "raid/endraid/%d/%d/%d"  request fn 140479a10  callbacks ['1404701b0']
+== 1404701b0-1404705f4
+   1404702de "mReturnCode"
+   140470312 "mMessage"
+   14047032e "mMessage"
+  == 140455c90-140455cc8
+  == 140463850-140464274
+     1404638ae "mOpponentFaceGained"
+     1404638f7 "mOpponentAccountID"
+     140463940 "mOpponentXPLevel"
+     140463973 "mOpponentFace"
+     1404639bc "mPlayerFaceGained"
+     140463a05 "mFaceGainedPenalty"
+     140463a4e "mPlayerBonusFaceGained"
+     140463a97 "mPlayerFace"
+     140463ae0 "mOpponentIndex"
+     140463b12 "mDirtyMoneyGained"
+     140463b44 "mDirtyMoneyGainedFromSafes"
+     140463b76 "mSlotCooldownMinutes"
+     140463bab "mCommodityRewards"
+     140463c0a "mCommodityUID"
+     140463c55 "mAmount"
+     140463c8a "mPotentialAmount"
+     140463cbf "mOverCapacityAmount"
+     140463cf4 "mSoldOverCapacity"
+     140463d29 "mDirtyMoneyGainedFromSale"
+     140463dd4 "mSafeCommodityRewards"
+     140463e3a "mCommodityUID"
+     140463e85 "mAmount"
+     140463eba "mPotentialAmount"
+     140463eef "mOverCapacityAmount"
+     140463f24 "mSoldOverCapacity"
+     140463f59 "mDirtyMoneyGainedFromSale"
+     140464004 "mFavoursAwarded"
+     14046405e "qArray.Reallocate(Reserve)"
+     14046418e "qArray.Add"
+    == 140460f20-140460f9e
+       140460f42 "mDataBags"
+    == 1404560b0-1404561e8
+       1404560e5 "UFG::FavourType"
+       140456125 "FavourActionSummary"
+       140456137 "FavourCortexUID"
+       140456166 "FavourTypeTagCortexUID"
+       14045618d "FavourCategoryCortexUID"
+       14045619f "Action"
+       1404561b1 "BundleItemUID"
+#### "raid/event/%u64/%d/%d"  request fn 140479680  callbacks ['140479770']
+== 140479770-140479a10
+   140479839 "mReturnCode"
+   14047986a "mMessage"
+  == 140453b80-140453bf1
+#### "raid/getraidtime/%d"  request fn 140479b60  callbacks ['140473560']
+== 140473560-140473829
+   140473629 "mReturnCode"
+   14047365a "mMessage"
+   140473677 "mMessage"
+  == 140455c90-140455cc8
+  == 140464280-140464363
+     1404642b1 "mCopResponseSeconds"
+     1404642e5 "mFavoursBonusSeconds"
+     140464317 "mFavoursPenaltySeconds"
+#### "raid/startraid/%d"  request fn 140479ca0  callbacks ['14047dd50']
+== 14047dd50-14047e019
+   14047de19 "mReturnCode"
+   14047de4a "mMessage"
+   14047de67 "mMessage"
+  == 140455c90-140455cc8
+  == 140464280-140464363
+     1404642b1 "mCopResponseSeconds"
+     1404642e5 "mFavoursBonusSeconds"
+     140464317 "mFavoursPenaltySeconds"
+#### "raidcrimescene/%u/%d"  request fn 14046a8c0  callbacks ['14046ab60']
+== 14046ab60-14046ae35
+   14046ac1d "mReturnCode"
+   14046ac4e "mMessage"
+   14046ac6b "mMessage"
+  == 140455c90-140455cc8
+  == 140460f20-140460f9e
+     140460f42 "mDataBags"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+#### "raidcrimescene/%u/%u64/%u/%d"  request fn 14046aa00  callbacks ['14046ab60']
+== 14046ab60-14046ae35
+   14046ac1d "mReturnCode"
+   14046ac4e "mMessage"
+   14046ac6b "mMessage"
+  == 140455c90-140455cc8
+  == 140460f20-140460f9e
+     140460f42 "mDataBags"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+#### "raidcrimescene"  request fn 1404731c0  callbacks ['140473260']
+== 140473260-140473554
+   140473332 "mReturnCode"
+   140473367 "mMessage"
+   140473384 "mMessage"
+  == 140455c90-140455cc8
+  == 1404635b0-14046384c
+     1404635f1 "CrimeScenes"
+     14046365b "RaidCrimeSceneID"
+     1404636a5 "RacketTypeUIDString"
+     1404636ef "RoomNumber"
+     140463722 "VictimPlayerDataIDString"
+     1404637b7 "qArray.Add"
+    == 140467020-14046711f
+#### "raidcrimescenecompletion/%d64/%s"  request fn 14046e250  callbacks ['14046e3a0']
+== 14046e3a0-14046e669
+   14046e46a "mReturnCode"
+   14046e49b "mMessage"
+   14046e4b8 "mMessage"
+  == 140455c90-140455cc8
+  == 140460e30-140460f1f
+     140460e8a "CrimeSceneID"
+     140460ed3 "FaceCollected"
+    == 140460f20-140460f9e
+       140460f42 "mDataBags"
+#### "raidcrimescene/%u/%d"  request fn 14046a8c0  callbacks ['14046ab60']
+== 14046ab60-14046ae35
+   14046ac1d "mReturnCode"
+   14046ac4e "mMessage"
+   14046ac6b "mMessage"
+  == 140455c90-140455cc8
+  == 140460f20-140460f9e
+     140460f42 "mDataBags"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+#### "raidcrimescene/%u/%u64/%u/%d"  request fn 14046aa00  callbacks ['14046ab60']
+== 14046ab60-14046ae35
+   14046ac1d "mReturnCode"
+   14046ac4e "mMessage"
+   14046ac6b "mMessage"
+  == 140455c90-140455cc8
+  == 140460f20-140460f9e
+     140460f42 "mDataBags"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+#### "raidcrimescenecompletion/%d64/%s"  request fn 14046e250  callbacks ['14046e3a0']
+== 14046e3a0-14046e669
+   14046e46a "mReturnCode"
+   14046e49b "mMessage"
+   14046e4b8 "mMessage"
+  == 140455c90-140455cc8
+  == 140460e30-140460f1f
+     140460e8a "CrimeSceneID"
+     140460ed3 "FaceCollected"
+    == 140460f20-140460f9e
+       140460f42 "mDataBags"
+#### "removeslotcooldowns"  request fn 140476430  callbacks ['140476600']
+== 140476600-140476706
+  == 1404675c0-140467cd0
+     14046766e "mOpponents"
+     14046769c "qArray.Reallocate(Reserve)"
+     1404676bd "qArray.Reallocate(Reserve)"
+     14046775e "mPlayerDataID"
+     14046780e "qArray.Add"
+     14046786d "mOpponentType"
+     1404678fc "qArray.Add"
+     1404679c6 "mTriad"
+     140467a28 "qArray.Add"
+     140467a5e "mRemainingSeconds"
+     140467aff "mOpponentDataBags"
+    == 14045f560-14045f58a
+       14045f580 "TriadID"
+    == 140467120-14046721b
+    == 1404809e0-140480dfb
+       140480a8a "qArray.Reallocate(Reserve)"
+       140480b39 "qArray.Reallocate(Reserve)"
+       140480be9 "Populate Array"
+       140480caa "UFG::StoreOutfit"
+       140480cf7 "Populate Array"
+       140480d3e "qReflectArray.Resize"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+    == 1404a9ab0-1404a9b22
+#### "removeslotcooldowns"  request fn 140476530  callbacks ['140476600']
+== 140476600-140476706
+  == 1404675c0-140467cd0
+     14046766e "mOpponents"
+     14046769c "qArray.Reallocate(Reserve)"
+     1404676bd "qArray.Reallocate(Reserve)"
+     14046775e "mPlayerDataID"
+     14046780e "qArray.Add"
+     14046786d "mOpponentType"
+     1404678fc "qArray.Add"
+     1404679c6 "mTriad"
+     140467a28 "qArray.Add"
+     140467a5e "mRemainingSeconds"
+     140467aff "mOpponentDataBags"
+    == 14045f560-14045f58a
+       14045f580 "TriadID"
+    == 140467120-14046721b
+    == 1404809e0-140480dfb
+       140480a8a "qArray.Reallocate(Reserve)"
+       140480b39 "qArray.Reallocate(Reserve)"
+       140480be9 "Populate Array"
+       140480caa "UFG::StoreOutfit"
+       140480cf7 "Populate Array"
+       140480d3e "qReflectArray.Resize"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+    == 1404a9ab0-1404a9b22
+#### "sourceid"  request fn 14046bc20  callbacks ['14046bed0']
+== 14046bed0-14046c1f3
+   14046bfba "mReturnCode"
+   14046bfea "mMessage"
+   14046c006 "mMessage"
+  == 140455c90-140455cc8
+  == 140460450-140460880
+     140460485 "data"
+     1404604d7 "CortexUID"
+     1404604f7 "CortexUID"
+     140460559 "UFG::StoreItemBase"
+     140460580 "ItemContext"
+     1404605b2 "::PopulateBuyFromStoreResponse()"
+     140460614 "UFG::StoreContactBundle"
+     140460653 "FavourDefinitionUIDString"
+     140460672 "FavourDefinitionUIDString"
+     140460699 "::PopulateBuyFromStoreResponse()"
+     140460719 "UFG::StoreBundle"
+     14046073c "UFG::StoreBundle"
+     1404607a0 "::PopulateBuyFromStoreResponse()"
+     1404607f9 "CouponID"
+    == 140460f20-140460f9e
+       140460f42 "mDataBags"
+    == 1404560b0-1404561e8
+       1404560e5 "UFG::FavourType"
+       140456125 "FavourActionSummary"
+       140456137 "FavourCortexUID"
+       140456166 "FavourTypeTagCortexUID"
+       14045618d "FavourCategoryCortexUID"
+       14045619f "Action"
+       1404561b1 "BundleItemUID"
+    == 140469320-140469421
+    == 140469140-140469226
+  == 140450140-1404501b5
+#### "store/%u64"  request fn 140473830  callbacks ['140473a20']
+== 140473a20-140473ce7
+   140473ae0 "mReturnCode"
+   140473b11 "mMessage"
+   140473b2e "mMessage"
+  == 140455c90-140455cc8
+  == 1404621f0-1404628fe
+     140462225 "data"
+     14046226e "mCortexUID"
+     1404622bf "::PopulateGetStoreResponse()"
+     1404622ed "mCortexUID"
+     140462339 "mCurrency"
+     14046236b "mPrice"
+     14046239d "mFinalPrice"
+     1404623cf "mDiscountPercent"
+     140462401 "mStock"
+     140462433 "mIsNew"
+     140462465 "mFeatured"
+     140462497 "mFeatured2"
+     1404624b2 "mFeatured2"
+     1404624e4 "mAvailableStart"
+     1404624ff "mAvailableStart"
+     140462546 "mAvailableEnd"
+     140462561 "mAvailableEnd"
+     1404625a8 "mImageURL"
+     1404625c3 "mImageURL"
+     14046260d "mFeaturedImageURLSmall"
+     140462628 "mFeaturedImageURLSmall"
+     140462672 "mFeaturedImageURLLarge"
+     14046268d "mFeaturedImageURLLarge"
+     1404626d7 "mCatalogExpirySeconds"
+     1404626fe "mCatalogExpirySeconds"
+     140462733 "mItemExpirySeconds"
+     14046274e "mItemExpirySeconds"
+     140462792 "mDiscountExpirySeconds"
+     1404627b9 "mDiscountExpirySeconds"
+     14046280c "mName"
+     140462827 "mName"
+    == 140486c20-140486f35
+       140486c9e "mCortexUID"
+       140486d08 "mCatalogExpirySeconds"
+       140486d3c "mItemExpirySeconds"
+       140486d70 "mDiscountExpirySeconds"
+#### "storeaccess"  request fn 14047e020  callbacks ['14047e0c0']
+== 14047e0c0-14047e1f0
+   14047e153 "mHasAccess"
+#### "storelink"  request fn 14047e1f0  callbacks ['14047e2f0']
+== 14047e2f0-14047e611
+   14047e344 "https://triadwars.com/store"
+   14047e3c8 "mReturnCode"
+   14047e3f9 "mMessage"
+   14047e416 "mMessage"
+   14047e460 "mStoreURL"
+  == 140455c90-140455cc8
+#### "triads/joinablelist"  request fn 140474810  callbacks ['140474940']
+== 140474940-140474c83
+   140474a1d "mReturnCode"
+   140474a4e "mMessage"
+   140474a6b "mMessage"
+  == 140455c90-140455cc8
+  == 140460f20-140460f9e
+     140460f42 "mDataBags"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+  == 140464d20-140464e5f
+     140464d56 "mTriads"
+     140464d81 "mTriads"
+    == 14045f560-14045f58a
+       14045f580 "TriadID"
+  == 140450290-14045030f
+#### "triads/playertriad"  request fn 140477e50  callbacks ['140477f80']
+== 140477f80-1404782ef
+   14047804e "mReturnCode"
+   14047807e "mMessage"
+   14047809b "mMessage"
+   140478114 "mTriad"
+  == 140455c90-140455cc8
+  == 140460f20-140460f9e
+     140460f42 "mDataBags"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+  == 14045f560-14045f58a
+     14045f580 "TriadID"
+#### "triads/search/%s"  request fn 14047e620  callbacks ['14047e760']
+== 14047e760-14047eaa3
+   14047e83d "mReturnCode"
+   14047e86e "mMessage"
+   14047e88b "mMessage"
+  == 140455c90-140455cc8
+  == 140460f20-140460f9e
+     140460f42 "mDataBags"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+  == 140464d20-140464e5f
+     140464d56 "mTriads"
+     140464d81 "mTriads"
+    == 14045f560-14045f58a
+       14045f580 "TriadID"
+  == 140450290-14045030f
+#### "triads/triadinvitation/%u64/%u64"  request fn 140473fd0  callbacks ['140474110']
+== 140474110-1404743e5
+   1404741cd "mReturnCode"
+   1404741fe "mMessage"
+   14047421b "mMessage"
+  == 140455c90-140455cc8
+  == 140460f20-140460f9e
+     140460f42 "mDataBags"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+#### "triads/triadinvitation/"  request fn 14047ae00  callbacks ['14047af30']
+== 14047af30-14047b29f
+   14047b012 "mReturnCode"
+   14047b043 "mMessage"
+   14047b060 "mMessage"
+  == 140455c90-140455cc8
+  == 140464670-1404648c8
+     1404646c3 "mTriadInvites"
+     1404646f0 "mTriadInvites"
+     140464756 "TriadInvitationID"
+     1404647a1 "TriadID"
+     1404647ec "InvitedPlayer"
+     140464837 "RequestingPlayer"
+    == 140460f20-140460f9e
+       140460f42 "mDataBags"
+#### "triads/triadinvitation/%u64/"  request fn 140469430  callbacks ['140469570']
+== 140469570-140469845
+   14046962d "mReturnCode"
+   14046965e "mMessage"
+   14046967b "mMessage"
+  == 140455c90-140455cc8
+  == 140460f20-140460f9e
+     140460f42 "mDataBags"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+#### "triads/triadmembers/%u64/"  request fn 1404782f0  callbacks ['140478430']
+== 140478430-1404787eb
+   140478542 "mReturnCode"
+   140478572 "mMessage"
+   14047858e "mMessage"
+  == 140455c90-140455cc8
+  == 140460f20-140460f9e
+     140460f42 "mDataBags"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+  == 140464e60-1404652a1
+     140464e99 "mTriadLeader"
+     140464ec8 "TriadID"
+     140464f13 "PlayerDataID"
+     140464f5e "AccountID"
+     140464fa9 "Name"
+     140464ff2 "Face"
+     140465040 "mTriadMembers"
+     140465070 "mTriadMembers"
+     1404650e0 "Name"
+     140465129 "TriadID"
+     140465174 "PlayerDataID"
+     1404651bf "AccountID"
+     14046520a "Face"
+  == 140450310-140450385
+#### "triads/triad"  request fn 14046e670  callbacks ['14046e890']
+== 14046e890-14046eb65
+   14046e94d "mReturnCode"
+   14046e97e "mMessage"
+   14046e99b "mMessage"
+  == 140455c90-140455cc8
+  == 140460f20-140460f9e
+     140460f42 "mDataBags"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+#### "triads/triadmembership/%u64/"  request fn 1404743f0  callbacks ['140474530']
+== 140474530-140474805
+   1404745ed "mReturnCode"
+   14047461e "mMessage"
+   14047463b "mMessage"
+  == 140455c90-140455cc8
+  == 140460f20-140460f9e
+     140460f42 "mDataBags"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+#### "triads/triadmembership/%u64/"  request fn 1404757d0  callbacks ['140475910']
+== 140475910-140475be5
+   1404759cd "mReturnCode"
+   1404759fe "mMessage"
+   140475a1b "mMessage"
+  == 140455c90-140455cc8
+  == 140460f20-140460f9e
+     140460f42 "mDataBags"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+#### "triads/triad/%u64/"  request fn 14047f7e0  callbacks ['14047fa30']
+== 14047fa30-14047fd05
+   14047faed "mReturnCode"
+   14047fb1e "mMessage"
+   14047fb3b "mMessage"
+  == 140455c90-140455cc8
+  == 140460f20-140460f9e
+     140460f42 "mDataBags"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+#### "triads/triad/%u64/"  request fn 14047f7e0  callbacks ['14047fa30']
+== 14047fa30-14047fd05
+   14047faed "mReturnCode"
+   14047fb1e "mMessage"
+   14047fb3b "mMessage"
+  == 140455c90-140455cc8
+  == 140460f20-140460f9e
+     140460f42 "mDataBags"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+#### "triads/triadinvitation/%u64/%u64"  request fn 140473fd0  callbacks ['140474110']
+== 140474110-1404743e5
+   1404741cd "mReturnCode"
+   1404741fe "mMessage"
+   14047421b "mMessage"
+  == 140455c90-140455cc8
+  == 140460f20-140460f9e
+     140460f42 "mDataBags"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+#### "triads/triadinvitation/"  request fn 14047ae00  callbacks ['14047af30']
+== 14047af30-14047b29f
+   14047b012 "mReturnCode"
+   14047b043 "mMessage"
+   14047b060 "mMessage"
+  == 140455c90-140455cc8
+  == 140464670-1404648c8
+     1404646c3 "mTriadInvites"
+     1404646f0 "mTriadInvites"
+     140464756 "TriadInvitationID"
+     1404647a1 "TriadID"
+     1404647ec "InvitedPlayer"
+     140464837 "RequestingPlayer"
+    == 140460f20-140460f9e
+       140460f42 "mDataBags"
+#### "triads/triadinvitation/%u64/"  request fn 140469430  callbacks ['140469570']
+== 140469570-140469845
+   14046962d "mReturnCode"
+   14046965e "mMessage"
+   14046967b "mMessage"
+  == 140455c90-140455cc8
+  == 140460f20-140460f9e
+     140460f42 "mDataBags"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+#### "triads/triadinvitation/%u64/%u64"  request fn 140473fd0  callbacks ['140474110']
+== 140474110-1404743e5
+   1404741cd "mReturnCode"
+   1404741fe "mMessage"
+   14047421b "mMessage"
+  == 140455c90-140455cc8
+  == 140460f20-140460f9e
+     140460f42 "mDataBags"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+#### "triads/triadinvitation/%u64/"  request fn 140469430  callbacks ['140469570']
+== 140469570-140469845
+   14046962d "mReturnCode"
+   14046965e "mMessage"
+   14046967b "mMessage"
+  == 140455c90-140455cc8
+  == 140460f20-140460f9e
+     140460f42 "mDataBags"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+#### "triads/triadinvitation/%u64/%u64"  request fn 140473fd0  callbacks ['140474110']
+== 140474110-1404743e5
+   1404741cd "mReturnCode"
+   1404741fe "mMessage"
+   14047421b "mMessage"
+  == 140455c90-140455cc8
+  == 140460f20-140460f9e
+     140460f42 "mDataBags"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+#### "triads/triadmembers/%u64/"  request fn 1404782f0  callbacks ['140478430']
+== 140478430-1404787eb
+   140478542 "mReturnCode"
+   140478572 "mMessage"
+   14047858e "mMessage"
+  == 140455c90-140455cc8
+  == 140460f20-140460f9e
+     140460f42 "mDataBags"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+  == 140464e60-1404652a1
+     140464e99 "mTriadLeader"
+     140464ec8 "TriadID"
+     140464f13 "PlayerDataID"
+     140464f5e "AccountID"
+     140464fa9 "Name"
+     140464ff2 "Face"
+     140465040 "mTriadMembers"
+     140465070 "mTriadMembers"
+     1404650e0 "Name"
+     140465129 "TriadID"
+     140465174 "PlayerDataID"
+     1404651bf "AccountID"
+     14046520a "Face"
+  == 140450310-140450385
+#### "triads/triadmembership/%u64/"  request fn 1404743f0  callbacks ['140474530']
+== 140474530-140474805
+   1404745ed "mReturnCode"
+   14047461e "mMessage"
+   14047463b "mMessage"
+  == 140455c90-140455cc8
+  == 140460f20-140460f9e
+     140460f42 "mDataBags"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+#### "triads/triadmembership/%u64/"  request fn 1404757d0  callbacks ['140475910']
+== 140475910-140475be5
+   1404759cd "mReturnCode"
+   1404759fe "mMessage"
+   140475a1b "mMessage"
+  == 140455c90-140455cc8
+  == 140460f20-140460f9e
+     140460f42 "mDataBags"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+#### "trial/reportprogress/%d"  request fn 14047eac0  callbacks ['14047ed70']
+== 14047ed70-14047f07e
+   14047ee47 "mReturnCode"
+   14047ee7b "mMessage"
+   14047ee97 "mMessage"
+  == 140455c90-140455cc8
+  == 1404652b0-140465986
+     14046532c "mPlayerProgress"
+     14046535d "UFG::TrialPlayerProgress"
+     14046538c "mRewardList"
+     1404653f0 "qArray.Add"
+     1404653ff "mGameRewardTunerName"
+     14046544b "UFG::GameRewardTuner"
+     140465492 "UFG::GameRewardTuner"
+     1404654bb "mReward"
+     140465524 "::PopulateTrialReportProgressResponse()"
+     1404655a2 "UFG::StoreContactBundle"
+     14046563e "FavourDefinitionUIDString"
+     140465659 "FavourDefinitionUIDString"
+     140465680 "::PopulateTrialReportProgressResponse()"
+     14046570a "UFG::StoreBundle"
+     1404657a1 "::PopulateTrialReportProgressResponse()"
+     140465805 "::PopulateTrialReportProgressResponse()"
+     140465863 "::PopulateTrialReportProgressResponse()"
+     1404658be "::PopulateTrialReportProgressResponse()"
+    == 140460f20-140460f9e
+       140460f42 "mDataBags"
+    == 1404844f0-140484659
+#### "trialinstance/optin/%u64/%s"  request fn 140476710  callbacks ['140476800']
+== 140476800-140476946
+   14047688e "mReturnCode"
+   1404768f6 "HappyCatTrial"
+   14047690e "false"
+  == 14048fb80-14048fb99
+  == 14048bab0-14048bae3
+    == 140490230-140490672
+  == 140476430-140476521
+     140476453 "playerdata/opponent/%u64"
+     1404764d4 "removeslotcooldowns"
+    == 140451c60-140451cb4
+#### "trialsscreenvisits"  request fn 14047eac0  callbacks ['14047ed70']
+== 14047ed70-14047f07e
+   14047ee47 "mReturnCode"
+   14047ee7b "mMessage"
+   14047ee97 "mMessage"
+  == 140455c90-140455cc8
+  == 1404652b0-140465986
+     14046532c "mPlayerProgress"
+     14046535d "UFG::TrialPlayerProgress"
+     14046538c "mRewardList"
+     1404653f0 "qArray.Add"
+     1404653ff "mGameRewardTunerName"
+     14046544b "UFG::GameRewardTuner"
+     140465492 "UFG::GameRewardTuner"
+     1404654bb "mReward"
+     140465524 "::PopulateTrialReportProgressResponse()"
+     1404655a2 "UFG::StoreContactBundle"
+     14046563e "FavourDefinitionUIDString"
+     140465659 "FavourDefinitionUIDString"
+     140465680 "::PopulateTrialReportProgressResponse()"
+     14046570a "UFG::StoreBundle"
+     1404657a1 "::PopulateTrialReportProgressResponse()"
+     140465805 "::PopulateTrialReportProgressResponse()"
+     140465863 "::PopulateTrialReportProgressResponse()"
+     1404658be "::PopulateTrialReportProgressResponse()"
+    == 140460f20-140460f9e
+       140460f42 "mDataBags"
+    == 1404844f0-140484659
+#### "turf/claimlaunderedmoney"  request fn 14046d610  callbacks ['14046d720']
+== 14046d720-14046d9e9
+   14046d7ea "mReturnCode"
+   14046d81b "mMessage"
+   14046d838 "mMessage"
+  == 140455c90-140455cc8
+  == 140460a90-140460b56
+     140460ab3 "mAmount"
+     140460ae7 "mNewCleanMoney"
+    == 140460f20-140460f9e
+       140460f42 "mDataBags"
+#### "turf/laundermoney/%u64"  request fn 140474c90  callbacks ['140474dd0']
+== 140474dd0-140475099
+   140474e9a "mReturnCode"
+   140474ecb "mMessage"
+   140474ee8 "mMessage"
+  == 140455c90-140455cc8
+  == 140462e40-140462f24
+     140462e63 "mLaunderedMoney"
+     140462e97 "mLaundrySecondsRemaining"
+    == 140486260-140486315
+    == 140460f20-140460f9e
+       140460f42 "mDataBags"
+#### "turf/location/%u64"  request fn 14047d940  callbacks ['14047da70']
+== 14047da70-14047dd42
+   14047db2d "mReturnCode"
+   14047db5e "mMessage"
+   14047db7b "mMessage"
+  == 140455c90-140455cc8
+  == 140460f20-140460f9e
+     140460f42 "mDataBags"
+    == 140484f30-1404854ab
+       140484f5d "mRequestedBags"
+       140485013 "qReflectArray.Add"
+       1404850e7 "qReflectArray.Add"
+       140485147 "UFG::PlayerInstanceData"
+       1404852fa "UFG::PlayerInstanceData"
+#### "turf/movetowarehouse/%u64/%u64"  request fn 140479220  callbacks []
+#### "turf/racketcountdowns"  request fn 140479270  callbacks ['140479320']
+== 140479320-14047962f
+   1404793bc "mReturnCode"
+   1404793f1 "mTimers"
+   14047944e "mRacketTypeUID"
+   140479498 "mRacketTimerType"
+   1404794dc "mTotalSeconds"
+   14047950f "mSecondsToCompletion"
+  == 140450650-1404506e1
+#### "turf/racketinfo/%u64"  request fn 1404791d0  callbacks []
+#### "turf/removeracket/%u64"  request fn 140479080  callbacks []
+#### "turf/startconstruction/%u64/%d/%d"  request fn 140479020  callbacks []
+#### "turf/startconstruction/%u64/%d"  request fn 140479630  callbacks []
+#### "turf/startconstruction/%u64/%d/%d"  request fn 140479020  callbacks []
+#### "updateavatar/%s"  request fn 14047f4d0  callbacks ['14047f660']
+== 14047f660-14047f7db
+#### "worldencounter/endencounter/%s/%d"  request fn 140480180  callbacks ['1404802e0']
+== 1404802e0-1404805a9
+   1404803aa "mReturnCode"
+   1404803db "mMessage"
+   1404803f8 "mMessage"
+  == 140455c90-140455cc8
+  == 140465d30-140465e2c
+     140465d72 "mRewardType"
+     140465da4 "mReward"
+    == 140460f20-140460f9e
+       140460f42 "mDataBags"
+#### "worldencounter/list"  request fn 1404805b0  callbacks ['1404806e0']
+== 1404806e0-1404809d4
+   1404807b2 "mReturnCode"
+   1404807e7 "mMessage"
+   140480804 "mMessage"
+  == 140455c90-140455cc8
+  == 140465e30-140466024
+     140465e78 "WorldEncounters"
+     140465edd "SecondsElapsed"
+     140465f12 "TotalSeconds"
+     140465f47 "WorldEndcounterType"
+     140465fae "qArray.Add"
+    == 140467320-14046740d
