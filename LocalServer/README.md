@@ -56,14 +56,14 @@ on the next launch).
 | `schema.py` | Reads the game's own `Reflection.rdb` (next to `TriadWars.exe`) and shapes replies to the type the client declares. Optional; without the file every helper is a no-op. |
 | `state.json` | Your saved profile (created on first run). Delete it to start over. |
 | `data/gamedb_min.json` | Object UIDs and tuning tables extracted from the game's own data. |
-| `data/store_items.json` | What the clothing, outfit, favour-pack and pack-bundle stores sell (see `tools/store_items.py`). |
+| `data/store_items.json` | What every store sells: 792 wardrobe pieces, all 28 outfits (12 of them non-player models), 247 vehicles, the health item, and the favour packs with their 1x/3x/5x bundles. Each outfit keeps its piece UIDs so the server can put it on (see `tools/store_items.py`). |
 | `data/errands.json` | Every job (`UFG::ErrandTypeMetadata`) with its reward, requirements, prerequisites and completion conditions, plus the `UFG::ErrandRewards` tables (see `tools/errands.py`). |
 | `data/challenges.json` | The rotating challenges (`JiangShiTrial`, `HappyCatTrial`, `EliteGhoulTrial`), their progress tiers and the `UFG::GameRewardTuner` each tier pays (see `tools/challenges.py`). |
 | `data/favour_upgrades.json` | Every favour that grants an enforcer upgrade, with the rarity/tags/level job and challenge rewards filter on (see `tools/favour_rewards.py`). |
 | `useroptions.py` | Reads/edits the obfuscated `UserOptions.dat`. |
 | `cert.pem`, `key.pem` | Self-signed certificate for `localhost` (the client does not verify it). |
 | `logs/` | One request log per server run. Lines marked `UNHANDLED` are endpoints with no handler yet. |
-| `tools/` | The scripts used to unpack the game data and decode its schema, crash-analysis helpers, `smoke_test.py`, `schema_dump.py`, `patch_exe.py` (see above), `make_bundle.py` and the data builders (`errands.py`, `challenges.py`, `favour_rewards.py`). |
+| `tools/` | The scripts used to unpack the game data and decode its schema, crash-analysis helpers, `smoke_test.py`, `test_jobs.py`, `test_shops.py`, `playermodel.py`, `schema_dump.py`, `patch_exe.py` (see above), `make_bundle.py` and the data builders (`errands.py`, `challenges.py`, `favour_rewards.py`, `store_items.py`). |
 | `devdata/` | Reference data for extending the server: the full object-database export and the client's endpoint and key lists. Not needed to play. |
 
 ## How it works
@@ -243,10 +243,11 @@ plain JSON - edit them freely.
 
     python tools/test_jobs.py      # handlers directly: board, claim, history, change,
                                    # rollover, trial report/opt-in/tiers, restart
+    python tools/test_shops.py     # every catalogue, every purchase path, the model
 
-`tools/test_jobs.py` builds a throw-away profile in a temp folder, so it never touches
-`state.json`. `tools/smoke_test.py` runs the same two screens over HTTPS against a
-running server (start it with `--port 8443` and pass `--port 8443`).
+Both test scripts build a throw-away profile in a temp folder, so they never touch
+`state.json`. `tools/smoke_test.py` runs the same screens over HTTPS against a running
+server (start it with `--port 8443` and pass `--port 8443`).
 
 ### What is a guess, and how to check it
 
@@ -261,6 +262,9 @@ values are inferred, and these are the ones to look at if a screen misbehaves:
 | `mRewardType` 0/1/2/3 = gold/cash/face/favour | the `JOB_REWARD_GOLD`..`JOB_REWARD_FAVOUR` strings | only the reward card's art is wrong |
 | `mServerUTC`, `mTimeBegun`, `mLastUpdated` are `"%Y-%m-%d %H:%M:%S"` UTC strings | that is the client's own date format string (`019cf4570`) and its `getDateTimeFromUTC` | timers show nonsense; `handlers._utc_string` is the one place to change |
 | `mGameRewardTunerName` is the tuner's UID as a string | the field is a string and `UFG::GameRewardTuner` has no name field | the Challenges screen may show no reward name |
+| `ClothingStoreItemUIDs` holds the UIDs of the worn `UFG::StoreClothing` pieces | the field is a list of store item UIDs and the wardrobe sends it next to `ClothingOutfitCortexUID`; the outfit's own `mClothingItems` gives the pieces | the model does not change; `tools/playermodel.py show` prints what is set |
+| `ClothingOutfitCortexUID` is the worn `UFG::StoreOutfit` UID | same reply; the field is named after the outfit | only the outfit name in the wardrobe is wrong, the pieces still apply |
+| buying an outfit also wears it | the shop has no "try on" step and the model has to come from somewhere | the player keeps the old look until they open the wardrobe; `tools/playermodel.py set <name>` does it directly |
 
 The challenge rotation (which three trials, tier targets, which tuner each tier pays) is
 this server's own design - the object database has no trial objects at all, and the
@@ -328,39 +332,88 @@ Details that matter (each one was a hang or a crash before it was right):
   shows its results in tutorial mode, which only offers Continue after the
   favour cards; with none the screen never unlocks.
 
-* `commerce/store/<uid>` for the Wardrobe Store and the Outfit Store returns
-  every finished clothing item / outfit in the game data (`data/store_items.json`,
-  built by `tools/store_items.py`) at a flat approximate price in dirty money.
-  The reply is `mReturnCode`, `mMessage` and a bare array `data` of item
-  records; `mCortexUID` must be an unsigned decimal string. These two stores
-  must not be empty: the wardrobe screen then shows its "empty" state without
-  building its category tree and the next button press crashes the client
-  (null read at `TriadWars.exe+0x6fcc48`).
-* The favour-pack stores (the regular "Favor pack - Pack Store" and the three
-  tutorial pack stores) list favour packs at a flat approximate price in clean
-  money. They must not be empty either: the favour shop builds its large tile
-  from the first pack without checking that one exists
-  (`TriadWars.exe+0x72240f`). Which pack belongs in which tutorial store is
-  hard-coded in the client (func `140654510`).
-* Each pack store is paired with a bundle store (the regular "Favour Pack
-  Bundle Store" and three tutorial ones; pairing hard-coded in func
-  `1407100c0`). Selecting a pack opens a details screen that searches the
-  bundle store for `UFG::StoreBundle` items made of that pack (1x, 3x, 5x).
-  The bundle is what gets bought, and the 1x bundle supplies the price shown;
-  if it is missing the client crashes (`TriadWars.exe+0x6a34ec`).
-* `game/purchase/<store uid>/<item uid>` for the stores above takes the price.
-  Clothing and outfits are added to the InventoryBag. Packs are opened on the
-  spot and pay out six upgrade favours each (what the real packs held was
-  decided by the original server). The reply nests the bags under
-  `data.mDataBags`, next to `data.CortexUID`; for a bundle, `data.ItemContext`
-  holds one `{"StoreItemIDStr": pack uid, "FavourResults":
-  [{"FavourDefinitionUIDString": uid}, ...]}` record per pack.
+* `commerce/store/<uid>` answers for every store the client has, with every item of
+  the type that store accepts (`mAllowedStoreItemType`) that is usable, straight from
+  the game data (`data/store_items.json`, built by `tools/store_items.py`):
+  **792 wardrobe pieces**, **all 28 outfits**, **247 vehicles**, the health vendor's one
+  item, and the favour packs with their 1x/3x/5x bundles. The reply is `mReturnCode`,
+  `mMessage` and a bare array `data` of item records; `mCortexUID` must be an unsigned
+  decimal string. The wardrobe and outfit stores must not be empty: the wardrobe screen
+  then shows its "empty" state without building its category tree, and the next button
+  press crashes the client (null read at `TriadWars.exe+0x6fcc48`).
+* Prices are this server's own (`STORE_PRICES` in `handlers.py`): 250 dirty money for a
+  clothing piece, 1500 for an outfit, 4000 for a vehicle, 500 for the health item, 100
+  clean money per favour pack. The real prices lived on the original server.
+* Clothing, outfits and vehicles are `AddToInventory` items and go into the
+  `InventoryBag`, which is what the client reads to know the player owns them. An
+  outfit also goes straight onto the player: `CustomizationBag.ClothingOutfitCortexUID`
+  and `ClothingStoreItemUIDs` are set to it and its pieces, and the reply carries the
+  customization bag, so buying "Swat Uniform" changes the model without a trip to the
+  wardrobe. The health item is a pure currency transaction and stores nothing.
+* The favour-pack stores (the regular "Favor pack - Pack Store" and the four tutorial
+  pack stores) list favour packs at a flat approximate price in clean money. They must
+  not be empty either: the favour shop builds its large tile from the first pack without
+  checking that one exists (`TriadWars.exe+0x72240f`). Which pack belongs in which
+  tutorial store is hard-coded in the client (func `140654510`). The regular store lists
+  every pack that can actually be bought - one without a 1x bundle is left out, see
+  below.
+* Each pack store is paired with a bundle store (the regular "Favour Pack Bundle
+  Store", the hub's "Bundle Store" and the tutorial ones; pairing hard-coded in func
+  `1407100c0`). Selecting a pack opens a details screen that searches the bundle store
+  for `UFG::StoreBundle` items made of that pack (1x, 3x, 5x). The bundle is what gets
+  bought, and the 1x bundle supplies the price shown; if it is missing the client
+  crashes (`TriadWars.exe+0x6a34ec`), so `tools/store_items.py` only lists packs that
+  have one and asserts it.
+* `game/purchase/<store uid>/<item uid>` handles all of the above. Packs are opened on
+  the spot and pay out six upgrade favours each (what the real packs held was decided
+  by the original server). The reply nests the bags under `data.mDataBags`, next to
+  `data.CortexUID`; for a bundle, `data.ItemContext` holds one
+  `{"StoreItemIDStr": pack uid, "FavourResults": [{"FavourDefinitionUIDString": uid},
+  ...]}` record per pack.
+
+### The player model, and the non-player ones
+
+The client draws the player from `CustomizationBag`: `ClothingStoreItemUIDs` lists the
+`UFG::StoreClothing` pieces that are worn, `ClothingOutfitCortexUID` names the outfit
+they came from, and `ScalingPresetCortexUID` picks a body preset. There is no model UID
+anywhere in the protocol - the model *is* the set of pieces - so changing it means
+changing those UIDs, which is exactly what the wardrobe does.
+
+The game ships 29 outfit definitions. Sixteen were sold in the wardrobe; the other
+twelve are the looks the NPCs wear, and the wardrobe skipped them because their head or
+hands are labelled "NOT READY FOR STORE YET" (the piece was never sold loose, but the
+model is in the game):
+
+    Swat Uniform            Super Swat Uniform      Agent 47
+    Zombie Enforcer         NVidia Zombie Enforcer  Deus Ex
+    Sun Wukong              Masked Justice          Bronze Master
+    Shaolin Warrior         Ultimate Beatdown       Spry and Viscious
+
+All 28 outfits that have every piece defined are now in the outfit store, so any of
+those looks can be bought and worn. Two ways to put one on:
+
+* in the game - buy the outfit; the server wears it as part of the purchase (see
+  above), and the wardrobe lets you change back;
+* without the game - close the game and the server, then
+
+      python tools\playermodel.py list --npc       # the twelve models
+      python tools\playermodel.py set swat         # or the full UID
+      python tools\playermodel.py show             # what is worn now
+      python tools\playermodel.py clear            # back to the default model
+
+  It writes the same three fields into `state.json` and adds the outfit and its pieces
+  to the inventory, so the wardrobe shows them as owned. Start the game afterwards.
+
+The 42 clothing pieces with no category at all are outfit-only parts (a jacket's
+sleeves, a mask's straps) and are not sold loose: the wardrobe builds its tree from the
+category, and a piece without one has nowhere to go. They arrive with their outfit.
 
 Answered with an empty but valid result:
 
-* the other stores (the hub's general "Bundle Store", vehicles, health, gold,
-  two unused tutorial stores), coupons and their purchases; black market
-  trades; favour sales and informants
+* the gold store's ten `BeginExternalPurchase` items and the two spare tutorial
+  pack stores (Extortion and Gambling; the racket-boss tutorial uses the
+  Counterfeiting one), coupons and their purchases; black market trades; favour
+  sales and informants
 * operations; notices and private messages
 * player-run triads (clans) and friends, which need other players
 
@@ -404,7 +457,10 @@ All fixed in the current server. Listed so the family is recognisable.
    for what it assumes about the items before choosing them.
 3. Add the store to `tools\store_items.py` and run it (it rewrites
    `data\store_items.json`), add a price for the item type to `STORE_PRICES`
-   in `handlers.py`, and make `purchase` do something sensible for it.
+   in `handlers.py`, and make `purchase` do something sensible for it. The
+   generator now covers every store whose item type it knows - clothing,
+   outfits, vehicles, vendor items and the two pack kinds - so a new store of
+   one of those types only needs a line if the client pairs it with another.
 4. Extend `tools\smoke_test.py` if the client pairs the store with another
    one, as it does for packs and bundles.
 

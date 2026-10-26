@@ -196,6 +196,8 @@ CURRENCY_BAG_KEY = {CURRENCY_DIRTY: "DirtyMoney", CURRENCY_CLEAN: "CleanMoney"}
 STORE_PRICES = {
     "UFG::StoreClothing": (CURRENCY_DIRTY, 250),
     "UFG::StoreOutfit": (CURRENCY_DIRTY, 1500),
+    "UFG::StoreVehicle": (CURRENCY_DIRTY, 4000),
+    "UFG::VendorItem": (CURRENCY_DIRTY, 500),
     "UFG::StoreContactBundle": (CURRENCY_CLEAN, 100),
 }
 
@@ -1042,12 +1044,19 @@ def purchase(req, method, parts, body, query):
     #   * a bare pack: one {"FavourDefinitionUIDString": uid} per favour.
     # Packs are opened on the spot. What the real packs held was decided by the server; here
     # every pack holds upgrade favours, the kind this server can honour.
+    #
+    # Everything with mPurchaseOperation "AddToInventory" - clothing, outfits, vehicles -
+    # goes into the InventoryBag, which is what the client reads to decide that the player
+    # owns it. An outfit also goes straight onto the player: its pieces are what the client
+    # draws, so buying "Swat Uniform" makes the player look like one without a trip to the
+    # wardrobe. The vendor items are pure currency transactions and store nothing.
     store_uid, item_uid = (parts[1:3] + ["", ""])[:2]
     catalogue = state.STORE_ITEMS.get(store_uid)
     if catalogue is None or item_uid not in catalogue["items"]:
         return _ok_bags()
     currency, price = _store_price(catalogue, item_uid)
     data = {"CortexUID": item_uid}
+    worn = False
     with STATE.lock:
         player = _player()
         if _money(CURRENCY_BAG_KEY[currency]) < price:
@@ -1063,13 +1072,30 @@ def purchase(req, method, parts, body, query):
                                    for pack in catalogue["packs"][item_uid]]
         elif catalogue["type"] == "UFG::StoreContactBundle":
             data["ItemContext"] = open_pack()
-        else:
+        elif catalogue["type"] != "UFG::VendorItem":
             bag = player.setdefault("InventoryBag", [])
-            if not any(i.get("StoreItemID") == item_uid for i in bag):
-                next_id = max([7000] + [_int(i.get("InventoryItemID")) for i in bag]) + 1
-                bag.append(state.inventory_item(next_id, item_uid, player["PlayerDataBag"]["AccountID"]))
+            pieces = (catalogue.get("pieces") or {}).get(item_uid) or []
+
+            def store(uid):
+                if not any(i.get("StoreItemID") == uid for i in bag):
+                    next_id = max([7000] + [_int(i.get("InventoryItemID")) for i in bag]) + 1
+                    bag.append(state.inventory_item(next_id, uid,
+                                                    player["PlayerDataBag"]["AccountID"]))
+
+            store(item_uid)
+            if catalogue["type"] == "UFG::StoreOutfit":
+                for piece in pieces:
+                    store(piece)
+                custom = player.setdefault("CustomizationBag", state.new_customization_bag())
+                custom["ClothingOutfitCortexUID"] = item_uid
+                if pieces:
+                    custom["ClothingStoreItemUIDs"] = list(pieces)
+                worn = True
     STATE.save()
-    data["mDataBags"] = _bags(ALL_OWN | state.BAG_INVENTORY | state.BAG_FAVOURS)
+    mask = ALL_OWN | state.BAG_INVENTORY | state.BAG_FAVOURS
+    if worn:
+        mask |= state.BAG_CUSTOMIZATION
+    data["mDataBags"] = _bags(mask)
     return ok(data=data)
 
 

@@ -95,3 +95,10 @@ the original prerequisites, level and safehouse gates and its own reward
 client's trials with progress, opt-in and tier rewards. LocalServer\README.md
 explains how both work, what is exact and what is this server's own design,
 and how to change it.
+
+* The shops sell everything the game has: the whole wardrobe (792 pieces), all 28
+  outfits - including the twelve the NPCs wear (Swat Uniform, Zombie Enforcer,
+  Agent 47, Deus Ex, Sun Wukong, ...) - 247 vehicles and the health vendor, and
+  everything bought is kept in the inventory. Buying an outfit puts it on, so the
+  non-player models are playable; LocalServer\tools\playermodel.py can also set
+  one from outside the game.

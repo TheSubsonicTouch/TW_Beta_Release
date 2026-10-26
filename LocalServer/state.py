@@ -140,6 +140,21 @@ def new_turf(location, template_index=0, level=1):
     }
 
 
+def new_customization_bag():
+    """What the player is wearing (UFG::EnforcerCustomization). Zero means "as created".
+
+    ScalingPresetCortexUID picks a body preset, ClothingOutfitCortexUID the outfit, and
+    ClothingStoreItemUIDs the individual UFG::StoreClothing pieces drawn on top. The
+    wardrobe screen rewrites all three through enforcer/customization; the model the
+    game draws is these pieces, so they are the player model as far as the client cares.
+    """
+    return {
+        "ScalingPresetCortexUID": "0",
+        "ClothingOutfitCortexUID": "0",
+        "ClothingStoreItemUIDs": [],
+    }
+
+
 def new_player(player_id, name, triad_index, location, template_index=0, account_id=None):
     return {
         "PlayerDataBag": {
@@ -162,6 +177,7 @@ def new_player(player_id, name, triad_index, location, template_index=0, account
         "FavoursBag": [],
         "EnforcerUpgradesBag": [],
         "InventoryBag": [],
+        "CustomizationBag": new_customization_bag(),
         # Job board and challenge progress; not client data bags, so they are not
         # serialised into mDataBags (see State.bags).
         "ErrandsBag": new_errand_bag(),
@@ -679,7 +695,7 @@ def default_state():
     grant_starting_favours(player)
     grant_starting_inventory(player)
     return {
-        "version": 6,
+        "version": 7,
         "created": int(time.time()),
         "player": player,
         "opponents": [
@@ -710,7 +726,7 @@ class State:
     def _migrate(self):
         """Bring a profile saved by an older server version up to date."""
         version = self.data.get("version", 1)
-        if version >= 6:
+        if version >= 7:
             return
         player = self.data["player"]
         if version < 2:
@@ -740,7 +756,12 @@ class State:
                 owner.setdefault("ErrandsBag", new_errand_bag())
                 owner.setdefault("TrialsBag", new_trial_bag())
                 owner.setdefault("CurrencyBag", {}).setdefault("Gold", "0")
-        self.data["version"] = 6
+        if version < 7:
+            # The customization bag is a data bag now, so it is always present and the
+            # client never reads a missing one (it is sent only when asked for).
+            for owner in [player] + [o["data"] for o in self.data.get("opponents", [])]:
+                owner.setdefault("CustomizationBag", new_customization_bag())
+        self.data["version"] = 7
         self.save()
 
     def save(self):
