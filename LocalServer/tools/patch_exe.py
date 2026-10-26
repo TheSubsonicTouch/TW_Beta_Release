@@ -26,6 +26,25 @@ import sys
 GAME_DIR = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 EXE = os.path.join(GAME_DIR, "TriadWars.exe")
 ORIG = EXE + ".orig"
+# launch.py writes the game folder here when the server is not sitting next to the
+# executable (extracted into its own folder, for instance).
+CONFIG = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                       "..", "game-folder.txt"))
+
+
+def use_saved_game_folder():
+    """Switch EXE/ORIG to the folder launch.py found, if this one has no executable."""
+    global EXE, ORIG
+    if os.path.isfile(EXE):
+        return
+    try:
+        with open(CONFIG, encoding="utf-8") as f:
+            folder = f.read().strip()
+    except OSError:
+        return
+    if folder and os.path.isfile(os.path.join(folder, "TriadWars.exe")):
+        EXE = os.path.join(folder, "TriadWars.exe")
+        ORIG = EXE + ".orig"
 ORIG_SHA256 = "6bd58dbdea8f8acb4d76c24eccff77c14cdd8652408f25c38f7ab8bcb832cf7b"
 
 IMAGE_BASE = 0x140000000
@@ -71,12 +90,24 @@ def _read(path):
         return f.read()
 
 
+def _require_exe():
+    if not os.path.isfile(EXE):
+        sys.exit("no TriadWars.exe in %s\n"
+                 "(launch.py records the game folder here when it finds it)"
+                 % os.path.dirname(EXE))
+
+
 def status():
+    if not os.path.isfile(EXE):
+        print("TriadWars.exe: not found in %s" % os.path.dirname(EXE))
+        print("(launch.py records the game folder here when it finds it)")
+        return
     print("TriadWars.exe: %s" % state(_read(EXE)))
     print("TriadWars.exe.orig: %s" % ("present" if os.path.exists(ORIG) else "absent"))
 
 
 def apply():
+    _require_exe()
     data = _read(EXE)
     st = state(data)
     if st == "patched":
@@ -102,6 +133,7 @@ def apply():
 
 
 def restore():
+    _require_exe()
     if not os.path.exists(ORIG):
         sys.exit("no TriadWars.exe.orig to restore")
     if hashlib.sha256(_read(ORIG)).hexdigest() != ORIG_SHA256:
@@ -114,5 +146,6 @@ def restore():
 
 
 if __name__ == "__main__":
+    use_saved_game_folder()
     cmd = sys.argv[1] if len(sys.argv) > 1 else "status"
     {"status": status, "apply": apply, "restore": restore}.get(cmd, status)()

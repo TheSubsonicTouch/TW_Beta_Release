@@ -30,6 +30,29 @@ a crash on the loading screen.
 Requirements: Python 3.9 or newer on `PATH` (standard library only), and
 port 443 free.
 
+### If `TriadWars.exe` is not next to this folder
+
+This zip is the server only - about 2 MB. The game is a separate folder with
+`TriadWars.exe` (roughly 1.5 GB) in it, and the server has to know where that
+is: `UserOptions.dat`, the crash patch and the game itself all live there.
+
+Extracting the zip *inside* the game folder keeps everything in one place and
+is what the instructions assume. If it ends up somewhere else, the launcher
+looks for the game by itself - this folder, its parent, the Desktop, Downloads,
+Documents, `C:\Games`, Program Files, the Steam libraries, and the
+"Triad Wars" entry in Windows' installed-programs list - and uses the first
+copy it finds, printing which one.
+
+When that is not enough, point it at the folder once:
+
+    Play-TriadWars.bat "D:\Games\TriadWars"
+    python LocalServer\launch.py --root "D:\Games\TriadWars"
+
+or drag the game folder onto `Play-TriadWars.bat`. The folder is remembered in
+`LocalServer\game-folder.txt`, which `tools\patch_exe.py` reads as well, so
+every later run is a plain double-click. Delete that file to make the launcher
+search again.
+
 ## When the game crashes on launch
 
 A crash on launch used to leave nothing behind: the console closed, the server
@@ -48,6 +71,7 @@ What the report tells you, in order of usefulness:
 | `code: ... (different from this copy)` | A server from an older zip was still running. The launcher replaces it and says so. | Nothing - but restart the game so it talks to the new one. |
 | `Answers game: NO` | Something is listening on 443 but it does not answer the game's own `storeaccess` request. | The server is up with broken handlers; `logs\console.log` holds the traceback. |
 | `UserOptions.dat: Environment = (file not found)` | The client has no environment set, so it will look for the real (dead) service. | Run the game once so it writes the file, then `Play-TriadWars.bat` again. The launcher sets it to `localhost` every run. |
+| `This folder holds the local server, not the game` | The zip was extracted somewhere without `TriadWars.exe`. | Extract it inside the game folder, or drop that folder onto `Play-TriadWars.bat` once (see "If `TriadWars.exe` is not next to this folder"). |
 
 `Play-TriadWars.bat diagnose` runs the same checks without starting anything and
 prints the report to the console, which is the quickest way to see what the
@@ -108,6 +132,7 @@ on the next launch).
 | `cert.pem`, `key.pem` | Self-signed certificate for `localhost` (the client does not verify it). |
 | `logs/` | One request log per server run, plus `console.log` with whatever the server printed (a Python traceback ends up here). Lines marked `UNHANDLED` are endpoints with no handler yet. |
 | `last-launch.txt` | Written when the game exits during launch: what is listening, whether the client reached it, the exit code, the Windows application-log entry with faulting module and offset, and the last requests. Safe to send. |
+| `game-folder.txt` | Only when the game is not next to this folder: remembers where `TriadWars.exe` was found or pointed at. Delete it to search again. |
 | `tools/` | The scripts used to unpack the game data and decode its schema, crash-analysis helpers, `smoke_test.py`, `test_jobs.py`, `test_exports.py`, `test_crash.py`, `test_launch.py`, `storyline.py`, `unlock.py`, `schema_dump.py`, `patch_exe.py` (see above), `make_bundle.py` and the data builders (`errands.py`, `challenges.py`, `exports.py`, `favour_rewards.py`). |
 | `devdata/` | Reference data for extending the server: the full object-database export and the client's endpoint and key lists. Not needed to play. |
 

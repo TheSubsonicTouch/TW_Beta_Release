@@ -186,6 +186,46 @@ def main():
             useroptions.PATH, useroptions.ORIG = saved
         return "corrupt file repaired from .orig"
 
+    def game_next_door():
+        import tempfile
+        work = tempfile.mkdtemp(prefix="tw-find-")
+        launcher = os.path.join(work, "Install")
+        game = os.path.join(work, "TriadWars")
+        os.makedirs(launcher)
+        os.makedirs(game)
+        open(os.path.join(game, launch.GAME_NAME), "wb").close()
+        saved = (launch.search_places, launch.CONFIG)
+        launch.search_places = lambda root: [root, os.path.dirname(os.path.abspath(root))]
+        launch.CONFIG = os.path.join(work, "game-folder.txt")
+        try:
+            folder, how, _ = launch.locate_game(launcher)
+            assert folder == os.path.abspath(game), (folder, how)
+            assert how == "found nearby", how
+            assert launch.saved_game_folder() is None      # only saved once used
+            launch.save_game_folder(folder)
+            assert launch.saved_game_folder() == os.path.abspath(game)
+            folder, how, _ = launch.locate_game(tempfile.mkdtemp(prefix="tw-elsewhere-"))
+            assert folder == os.path.abspath(game) and how == "remembered", (folder, how)
+        finally:
+            launch.search_places, launch.CONFIG = saved
+        return "found beside the launcher, then remembered"
+
+    def game_nowhere():
+        import tempfile
+        work = tempfile.mkdtemp(prefix="tw-none-")
+        saved = (launch.search_places, launch.CONFIG)
+        launch.search_places = lambda root: [work]
+        launch.CONFIG = os.path.join(work, "game-folder.txt")
+        try:
+            folder, how, looked = launch.locate_game(work)
+            assert folder is None and how == "" and looked, (folder, how, looked)
+            text = launch.missing_game_message(work, looked)
+            assert "only the server" in text and "TriadWars.exe is not in" in text
+            assert "--root" in text
+        finally:
+            launch.search_places, launch.CONFIG = saved
+        return "says the zip is only the server"
+
     def probes_are_not_client_traffic():
         import tempfile
         workdir = tempfile.mkdtemp(prefix="tw-launch-")
@@ -209,6 +249,8 @@ def main():
     check("server dies on start", server_that_dies)
     check("report contents", report_says_what_happened)
     check("UserOptions.dat repair", useroptions_repair)
+    check("game found next door", game_next_door)
+    check("game not anywhere", game_nowhere)
     check("request counting", probes_are_not_client_traffic)
     print("%d check(s) failed" % len(failures) if failures else "all checks passed")
     return 1 if failures else 0

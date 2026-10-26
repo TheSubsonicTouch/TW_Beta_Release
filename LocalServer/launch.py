@@ -153,15 +153,23 @@ def sha256(path):
 
 # -- setup -------------------------------------------------------------------
 
+def _useroptions(root):
+    """useroptions.py works relative to its own folder; point it at the game instead."""
+    sys.path.insert(0, HERE)
+    import useroptions
+    useroptions.ROOT = root
+    useroptions.PATH = os.path.join(root, "UserOptions.dat")
+    useroptions.ORIG = useroptions.PATH + ".orig"
+    return useroptions
+
+
 def useroptions_environment(root):
     """What UserOptions.dat currently points the client at."""
     path = os.path.join(root, "UserOptions.dat")
     if not os.path.isfile(path):
         return None
-    sys.path.insert(0, HERE)
     try:
-        import useroptions
-        text = useroptions.read()
+        text = _useroptions(root).read()
     except Exception as e:
         return "unreadable (%s)" % e
     m = re.search(r'<Param key="Environment">(.*?)</Param>', text)
@@ -190,16 +198,170 @@ def point_client_at_localhost(root):
         return current, ("repaired from UserOptions.dat.orig" if repaired else None)
     if any(mark in str(current) for mark in (".orig", "unreadable")):
         return current, None                       # nothing we can safely edit
-    sys.path.insert(0, HERE)
-    import useroptions
+    useroptions = _useroptions(root)
     useroptions.write(useroptions.set_param(useroptions.read(), "Environment", "localhost"))
     if repaired:
         return current, "repaired from UserOptions.dat.orig and pointed at localhost"
     return current, "rewritten"
 
 
+GAME_NAME = "TriadWars.exe"
+CONFIG = os.path.join(HERE, "game-folder.txt")
+_SKIP_DIRS = {"$recycle.bin", "system volume information", "windows", "winsxs",
+              "node_modules", ".git", "__pycache__", "logs", "appdata"}
+
+
 def game_exe(root):
-    return os.path.join(root, "TriadWars.exe")
+    return os.path.join(root, GAME_NAME)
+
+
+def game_in(folder):
+    return bool(folder) and os.path.isfile(os.path.join(folder, GAME_NAME))
+
+
+def saved_game_folder():
+    """The folder a previous run found, if the exe is still there."""
+    try:
+        with open(CONFIG, encoding="utf-8") as f:
+            folder = f.read().strip()
+    except OSError:
+        return None
+    return folder if game_in(folder) else None
+
+
+def save_game_folder(folder):
+    try:
+        with open(CONFIG, "w", encoding="utf-8") as f:
+            f.write(os.path.abspath(folder))
+    except OSError:
+        pass
+
+
+def _walk_for_game(base, depth, budget):
+    """Folders under base that hold TriadWars.exe, without walking the whole disk."""
+    hits, seen = [], 0
+    stack = [(os.path.abspath(base), 0)]
+    while stack and seen < budget:
+        folder, level = stack.pop()
+        seen += 1
+        if game_in(folder):
+            hits.append(folder)
+            continue
+        if level >= depth:
+            continue
+        try:
+            entries = sorted(os.scandir(folder), key=lambda e: e.name.lower())
+        except OSError:
+            continue
+        for entry in entries:
+            try:
+                if entry.is_dir(follow_symlinks=False) and entry.name.lower() not in _SKIP_DIRS:
+                    stack.append((entry.path, level + 1))
+            except OSError:
+                continue
+    return hits
+
+
+def _steam_libraries():
+    libs = []
+    for base in filter(None, (os.environ.get("PROGRAMFILES(X86)"),
+                              os.environ.get("PROGRAMFILES"))):
+        vdf = os.path.join(base, "Steam", "steamapps", "libraryfolders.vdf")
+        try:
+            with open(vdf, encoding="utf-8", errors="replace") as f:
+                text = f.read()
+        except OSError:
+            continue
+        for match in re.finditer(r'"path"\s*"([^"]+)"', text):
+            libs.append(os.path.join(match.group(1).replace("\\\\", "\\"),
+                                     "steamapps", "common"))
+    return libs
+
+
+def _registry_installs():
+    if os.name != "nt":
+        return []
+    import winreg
+    out = []
+    places = [(winreg.HKEY_LOCAL_MACHINE,
+               r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"),
+              (winreg.HKEY_LOCAL_MACHINE,
+               r"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"),
+              (winreg.HKEY_CURRENT_USER,
+               r"Software\Microsoft\Windows\CurrentVersion\Uninstall")]
+    for hive, path in places:
+        try:
+            parent = winreg.OpenKey(hive, path)
+        except OSError:
+            continue
+        with parent:
+            for index in range(winreg.QueryInfoKey(parent)[0]):
+                try:
+                    with winreg.OpenKey(parent, winreg.EnumKey(parent, index)) as sub:
+                        name = winreg.QueryValueEx(sub, "DisplayName")[0]
+                        if "triad" not in str(name).lower():
+                            continue
+                        try:
+                            location = winreg.QueryValueEx(sub, "InstallLocation")[0]
+                        except OSError:
+                            continue
+                        out.append(str(location).strip('"'))
+                except OSError:
+                    continue
+    return out
+
+
+def search_places(root):
+    """Folders worth looking in, nearest first."""
+    places = [root, os.path.dirname(os.path.abspath(root))]
+    home = os.path.expanduser("~")
+    places += [os.path.join(home, name) for name in
+               ("Desktop", "Downloads", "Documents", "Games", "Triad Wars", "TriadWars")]
+    drive = os.environ.get("SYSTEMDRIVE", "C:")
+    places += [os.path.join(drive, "Games")]
+    places += [os.environ.get("PROGRAMFILES"), os.environ.get("PROGRAMFILES(X86)"),
+               os.environ.get("PROGRAMW6432")]
+    places += _steam_libraries()
+    places += _registry_installs()
+    seen, ordered = set(), []
+    for place in places:
+        if not place:
+            continue
+        place = os.path.normpath(place)
+        key = os.path.normcase(place)
+        if key in seen or not os.path.isdir(place):
+            continue
+        seen.add(key)
+        ordered.append(place)
+    return ordered
+
+
+def locate_game(root, budget=3000):
+    """(folder with TriadWars.exe or None, how it was found, where we looked)."""
+    if game_in(root):
+        return root, "here", []
+    saved = saved_game_folder()
+    if saved:
+        return saved, "remembered", []
+    looked = search_places(root)
+    hits = []
+    for index, place in enumerate(looked):
+        # The two nearest places get a real look; Program Files only a shallow one.
+        depth = 3 if index < 2 else 1
+        hits += _walk_for_game(place, depth, budget)
+        if len(hits) >= 5:
+            break
+    if not hits:
+        return None, "", looked
+    # Shortest path first, then the most recently touched executable.
+    def rank(folder):
+        try:
+            touched = os.path.getmtime(game_exe(folder))
+        except OSError:
+            touched = 0
+        return (folder.count(os.sep), -touched)
+    hits.sort(key=rank)
+    return hits[0], "found nearby", looked
 
 
 def patch_state(root):
@@ -375,7 +537,8 @@ def crash_files(root, since):
     return found
 
 
-def build_report(root, port, found, note, exit_code=None, alive=None, safe=False):
+def build_report(root, port, found, note, exit_code=None, alive=None, safe=False,
+                 looked=None):
     env = useroptions_environment(root)
     exe = game_exe(root)
     requests, total = request_lines(found)
@@ -424,6 +587,9 @@ def build_report(root, port, found, note, exit_code=None, alive=None, safe=False
         row("Crash patch", patch_state(root))
     else:
         row("TriadWars.exe", "NOT FOUND")
+        if looked:
+            row("", "looked in: " + ", ".join(looked[:6])
+                + (" ..." if len(looked) > 6 else ""))
     row("Port %d" % port, "%s (IPv4), %s (IPv6)"
         % ("answering" if port_open("127.0.0.1", port) else "closed",
            "answering" if port_open("::1", port) else "closed"))
@@ -475,13 +641,32 @@ def notify(title, text):
         pass
 
 
+def missing_game_message(root, looked):
+    places = "\n".join("  " + p for p in looked[:8]) or "  (nothing to search)"
+    return (
+        "This folder holds the local server, not the game.\n\n"
+        "TriadWars.exe is not in\n  %s\n\n"
+        "and I could not find it in the usual places either:\n%s\n\n"
+        "This zip is about 2 MB - it is only the server. TriadWars.exe is the game\n"
+        "itself (roughly 1.5 GB). Extract this zip *inside the folder that already\n"
+        "holds TriadWars.exe*, then run Play-TriadWars.bat again.\n\n"
+        "If the game is somewhere unusual, point the launcher at it once:\n"
+        "  python \"%s\" --root \"D:\\path\\to\\TriadWars\"\n"
+        "or drag that folder onto Play-TriadWars.bat. The launcher remembers it\n"
+        "in LocalServer\\game-folder.txt from then on."
+        % (root, places, os.path.join(HERE, "launch.py")))
+
+
 # -- modes -------------------------------------------------------------------
 
 def diagnose(root, port, safe):
     state, found = server_state(port)
     note = {"ours": "running (this build)", "stale": "running (an older build)",
             "other": "another program holds the port", "free": "not running"}[state]
-    report = build_report(root, port, found, note, safe=safe)
+    folder, how, looked = locate_game(root)
+    if folder:
+        root = folder
+    report = build_report(root, port, found, note, safe=safe, looked=looked)
     with open(REPORT, "w", encoding="utf-8") as f:
         f.write(report + "\n")
     say(report)
@@ -492,10 +677,17 @@ def diagnose(root, port, safe):
 def play(root, port, safe, watch, game=None):
     say("Triad Wars local server - launcher")
     say("")
-    if not os.path.isfile(game_exe(root)) and not game:
-        raise SystemExit("TriadWars.exe is not in this folder:\n  %s\n"
-                         "Put Play-TriadWars.bat, the LocalServer folder and TriadWars.exe "
-                         "in the same folder." % root)
+    if not game:
+        folder, how, looked = locate_game(root)
+        if folder is None:
+            raise SystemExit(missing_game_message(root, looked))
+        if os.path.abspath(folder) != os.path.abspath(root):
+            say("The game is not in this folder; using %s (%s)." % (folder, how))
+            say("(Extracting the zip there would keep everything together.)")
+            say("")
+            if how == "found nearby":
+                save_game_folder(folder)
+        root = folder
 
     before, note = point_client_at_localhost(root)
     if before is None:
@@ -555,8 +747,15 @@ def main(argv=None):
     ap.add_argument("--watch", type=int, default=WATCH_SECONDS,
                     help="seconds to watch the game before leaving it alone")
     ap.add_argument("--game", default=None, help="executable to start instead of TriadWars.exe")
+    argv = list(sys.argv[1:] if argv is None else argv)
+    for arg in list(argv):
+        if not arg.startswith("-") and os.path.isdir(arg):
+            argv.remove(arg)                       # dropping the game folder on the .bat
+            argv += ["--root", arg]
     args = ap.parse_args(argv)
     root = os.path.abspath(args.root)
+    if game_in(root):
+        save_game_folder(root)
 
     if args.mode == "diagnose":
         return diagnose(root, args.port, args.safe)

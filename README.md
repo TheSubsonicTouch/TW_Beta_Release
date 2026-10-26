@@ -9,14 +9,19 @@ WHAT YOU NEED
 
 HOW TO INSTALL
 --------------
-1. Extract this zip straight into your game folder. Afterwards you should see
-   these next to TriadWars.exe:
+1. Extract this zip straight into your game folder - the folder that already
+   contains TriadWars.exe (about 1.5 GB of game; this zip is only 2 MB).
+   Afterwards you should see these next to TriadWars.exe:
 
        LocalServer\            (folder)
        Play-TriadWars.bat
        README.txt
 
 2. Double-click Play-TriadWars.bat.
+
+If you extracted it somewhere else by mistake, run Play-TriadWars.bat anyway:
+it looks for the game and says where it found it. To point it at a copy it did
+not find, drag that folder onto Play-TriadWars.bat once - it remembers.
 
 That's it. The launcher points the game at your PC, starts the server in a
 small minimised window, then starts the game. Leave the server window open

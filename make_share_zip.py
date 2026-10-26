@@ -29,8 +29,8 @@ INCLUDE = [
     "LocalServer/tools/*.py",
     "LocalServer/devdata/*",
 ]
-# Never ship a profile, a log, a launch report or a crash dump.
-SKIP = {"state.json", "last-launch.txt"}
+# Never ship a profile, a log, a launch report, a remembered game folder or a dump.
+SKIP = {"state.json", "last-launch.txt", "game-folder.txt"}
 
 
 def main(out=DEFAULT_OUT):
