@@ -64,6 +64,13 @@ CHALLENGES = CHALLENGE_DB.get("challenges") or []
 CHALLENGE_TUNERS = CHALLENGE_DB.get("tuners") or {}
 CHALLENGE_ROTATION_SECONDS = int(CHALLENGE_DB.get("rotationDays", 7)) * 86400
 
+EXPORT_DB = _load_data("exports.json", {})
+EXPORT_COMMODITIES = EXPORT_DB.get("commodities") or []
+EXPORT_BY_UID = {c["uid"]: c for c in EXPORT_COMMODITIES}
+EXPORT_FACE_PERCENT = EXPORT_DB.get("facePercentOfMoney") or []
+EXPORT_MARKUP = EXPORT_DB.get("blackMarketMarkup") or []
+EXPORT_MISSION_TYPES = EXPORT_DB.get("missionTypes") or []
+
 # Store catalogues: store UID -> {"name", "type", "items": [store item UIDs]}. Built by
 # tools/store_items.py; stores that are not listed have nothing for sale.
 with open(os.path.join(HERE, "data", "store_items.json"), encoding="utf-8") as f:
@@ -109,12 +116,29 @@ def racket_instance(type_uid, level=1, block=0, slot=0, state=0, staff=0):
             "NoStaffSpawn": 0,
         },
     }
+    # Production1..10 is the racket type's per-level output table; CurrentProduction is
+    # what has piled up since the last collection (see settle_production).
+    outputs = racket_outputs(type_uid)
     for n in range(1, 11):
-        r["Production%d" % n] = 0
+        r["Production%d" % n] = outputs[n - 1] if n - 1 < len(outputs) else 0
     return r
 
 
 SAFEHOUSE_BLOCK = -1      # BlockIndex of the safehouse / warehouse / temple (off the grid)
+
+
+def racket_outputs(type_uid):
+    """mOutput1Amount per racket level (level 1 first): units made per production cycle."""
+    return [int(level.get("mOutput1Amount") or 0)
+            for level in (RACKET_TYPES.get(type_uid, {}).get("mLevels") or [])]
+
+
+def racket_cycle_seconds(type_uid, level):
+    """How long one production cycle takes at this level."""
+    levels = RACKET_TYPES.get(type_uid, {}).get("mLevels") or []
+    if not levels:
+        return 0
+    return int(levels[min(max(level - 1, 0), len(levels) - 1)].get("mProdTimeSeconds") or 0)
 
 
 def new_turf(location, template_index=0, level=1):
@@ -166,6 +190,8 @@ def new_player(player_id, name, triad_index, location, template_index=0, account
         # serialised into mDataBags (see State.bags).
         "ErrandsBag": new_errand_bag(),
         "TrialsBag": new_trial_bag(),
+        # Export board. The client's ExportRewardsBag is built from this on the fly.
+        "ExportBag": new_export_bag(),
     }
 
 
@@ -280,14 +306,27 @@ JOB_REWARD_TYPES = {"Gold": JOB_REWARD_GOLD, "DirtyMoney": JOB_REWARD_CASH,
                     "Face": JOB_REWARD_FACE, "Favour": JOB_REWARD_FAVOUR}
 
 
+# The job board does not turn over at midnight: UFG::MetagameInfoWrapper says which UTC
+# hour it refreshes (10:00 in build 1.6.0.0), and how long a repeatable job stays off the
+# board once it has been paid (96 hours).
+ERRAND_REFRESH_HOUR_UTC = int(METAGAME.get("mErrandRefreshHourUTC", 0) or 0)
+ERRAND_REPEATABLE_COOLDOWN_HOURS = int(METAGAME.get("mRepeatableErrandCooldownHours", 0) or 0)
+# The turf stops at this safehouse level (one upgrade cost per level), but four enabled
+# errands in build 1.6.0.0 ask for safehouse 15 - a level the shipped game cannot reach.
+# Their requirement is clamped so they stay part of the ladder instead of being stranded.
+MAX_SAFEHOUSE_LEVEL = len(METAGAME.get("mSafehouseUpgradeCosts") or []) or 10
+
+
 def utc_day(now=None):
-    return time.strftime("%Y-%m-%d", time.gmtime(time.time() if now is None else now))
+    """The job board's day: it changes at mErrandRefreshHourUTC, not at midnight."""
+    shifted = (time.time() if now is None else now) - ERRAND_REFRESH_HOUR_UTC * 3600
+    return time.strftime("%Y-%m-%d", time.gmtime(shifted))
 
 
 def seconds_to_refresh(now=None):
-    """Seconds until the job board rolls over (next UTC midnight)."""
-    t = time.gmtime(time.time() if now is None else now)
-    return max(1, 86400 - (t.tm_hour * 3600 + t.tm_min * 60 + t.tm_sec))
+    """Seconds until the job board rolls over (the next mErrandRefreshHourUTC)."""
+    shifted = (time.time() if now is None else now) - ERRAND_REFRESH_HOUR_UTC * 3600
+    return max(1, 86400 - int(shifted % 86400))
 
 
 def xp_level(player):
@@ -360,24 +399,54 @@ def favour_pool(errand, level=1):
     return pool
 
 
-def errand_available(bag, errand, level, safehouse):
+def errand_available(bag, errand, level, safehouse, now=None, ignore_cooldown=False):
     if not errand.get("enabled"):
         return False
-    if errand.get("xpLevel", 0) > level or errand.get("safehouseLevel", 0) > safehouse:
+    required_safehouse = min(int(errand.get("safehouseLevel", 0) or 0), MAX_SAFEHOUSE_LEVEL)
+    if errand.get("xpLevel", 0) > level or required_safehouse > safehouse:
         return False
     # mErrandLinks are the errands that must have been completed first ("Raid 2 Rivals"
     # links to "Raid A Rival"). With one link only the tutorial's first job is on offer.
-    if any(link not in bag["Completed"] for link in errand.get("links") or []):
-        return False
+    # A link to an errand the game itself disables is ignored: nothing can ever complete
+    # it, so honouring it would strand every errand below it (two in build 1.6.0.0 hang
+    # off the disabled "Finish a raid").
+    for link in errand.get("links") or []:
+        if link in bag["Completed"]:
+            continue
+        if ERRANDS_BY_UID.get(link, {}).get("enabled", True):
+            return False
     done = bag["Completed"].get(errand["uid"])
-    return not (done and not errand.get("repeatable"))
+    if not done:
+        return True
+    if not errand.get("repeatable"):
+        return False
+    # A repeatable job stays off the board for mRepeatableErrandCooldownHours after paying.
+    if ignore_cooldown or not ERRAND_REPEATABLE_COOLDOWN_HOURS:
+        return True
+    now = time.time() if now is None else now
+    return now - int(done.get("Last") or 0) >= ERRAND_REPEATABLE_COOLDOWN_HOURS * 3600
 
 
-def errand_pool(player, bag, exclude=()):
+def errand_pool(player, bag, exclude=(), now=None):
+    """Eligible errands, best first.
+
+    The cooldown on repeatable jobs is dropped rather than handing the player an empty
+    Jobs screen: with one safehouse level and a fresh profile only a handful of jobs are
+    unlocked, and a 96 hour cooldown could otherwise empty all three slots.
+    """
     level, safehouse = xp_level(player), safehouse_level(player)
     pool = [e for e in ERRANDS
-            if e["uid"] not in exclude and errand_available(bag, e, level, safehouse)]
-    pool.sort(key=lambda e: (-e["priority"], e["name"]))
+            if e["uid"] not in exclude
+            and errand_available(bag, e, level, safehouse, now)]
+    if not pool:
+        pool = [e for e in ERRANDS
+                if e["uid"] not in exclude
+                and errand_available(bag, e, level, safehouse, now, ignore_cooldown=True)]
+    # Jobs the player has never done come before repeats: the one-time upgrade chain
+    # ("Safehouse II", "Racket IV", "Warehouse III", ...) is the game's story progression,
+    # and a repeatable job with a high priority would otherwise keep crowding it off the
+    # board for ever.
+    pool.sort(key=lambda e: (e["uid"] in bag["Completed"], -e["priority"], e["name"]))
     return pool
 
 
@@ -530,6 +599,354 @@ def completed_errands(player):
     return out
 
 
+# ---- "Exports" ------------------------------------------------------------------
+# The warehouse screen (and the map's export markers) run on export missions. The client
+# keeps them in a data bag called ExportRewardsBag - OperationManager::PopulateFromExport
+# RewardsBag in the client builds one mission per record - and starts/finishes them with
+# export/startmission/<uid> and export/endmission/<uid>/<result>.
+#
+# What a mission is, is in the game's own data (data/exports.json, built by
+# tools/exports.py):
+#   * a commodity (UFG::CommodityType), made by one racket (mRacketOutput),
+#   * the units to move: mExportAmounts[XP level] of that commodity,
+#   * the money: units x the commodity's floor/ceiling price x the black market markup
+#     for the level (mBlackMarketSellMarkupForMoneyReward),
+#   * the face: the money x mFaceRewardPercentageOfMoneyReward[XP level] / 100.
+# How many missions a player holds follows the warehouse level, which is what the client's
+# "Upgrading your warehouse will increase your export targets" message is about.
+EXPORT_SLOT_CAP = 10
+EXPORT_UID_BASE = 900000000000000000       # our mission ids; far from any real object uid
+# How the mission list is shaped inside the ExportRewardsBag. Empty = a bare array (the
+# shape FavoursBag and InventoryBag use). The client's own string table has a symbol called
+# ExportMissionSlots right next to the mission's member names, so if the warehouse screen
+# stays empty this is the one line to change: "ExportMissionSlots".
+EXPORT_BAG_MEMBER = ""
+
+
+def new_export_bag():
+    return {"Day": "", "NextUID": 0, "Missions": [], "Paid": [], "Attempts": 0, "Successes": 0}
+
+
+def exports(player):
+    bag = player.setdefault("ExportBag", new_export_bag())
+    for key, value in new_export_bag().items():
+        bag.setdefault(key, value)
+    return bag
+
+
+def export_level(player):
+    """XP level clamped to the reward tables (they are authored for levels 1..10)."""
+    return max(1, min(xp_level(player), len(EXPORT_FACE_PERCENT) or 10))
+
+
+def export_slots(player):
+    """Missions the player can hold at once: the warehouse's racket level."""
+    warehouse = player["TurfBag"]["Turf"].get("Warehouse") or {}
+    return max(1, min(int(warehouse.get("RacketLevel", 1) or 1), EXPORT_SLOT_CAP))
+
+
+def _table_at(table, level, default):
+    if not table:
+        return default
+    return table[min(max(level - 1, 0), len(table) - 1)]
+
+
+def export_reward(commodity, level):
+    """(units, money, face) for exporting this commodity at this level."""
+    amounts = commodity.get("amounts") or []
+    units = int(_table_at(amounts, level, 0))
+    markup = float(_table_at(EXPORT_MARKUP, level, 1.0) or 1.0)
+    money = int(round(units * float(commodity.get("price") or 0) * markup))
+    percent = float(_table_at(EXPORT_FACE_PERCENT, level, 0.0) or 0.0)
+    face = int(round(money * percent / 100.0))
+    return units, money, face
+
+
+def export_commodity_pool(player):
+    """Commodities an export can be built from.
+
+    A load has to fit in the warehouse at its current level (the client will not start an
+    export whose units are not there), and the units have to be non-zero at this XP level
+    (car parts have no export amount until level 3). Racket-made commodities come first.
+    """
+    level = export_level(player)
+    fits = [c for c in EXPORT_COMMODITIES
+            if _table_at(c["amounts"], level, 0) > 0
+            and warehouse_capacity(player, c["uid"]) >= _table_at(c["amounts"], level, 0)]
+    built = {r.get("RacketTypeUID") for r in player["TurfBag"].get("Rackets") or []}
+    own = [c for c in fits if (c.get("racket") or {}).get("uid") in built]
+    return own or fits
+
+
+def new_export_mission(player, commodity, now=None, index=0):
+    level = export_level(player)
+    units, money, face = export_reward(commodity, level)
+    # Stage the load in the warehouse: this is the "N exports currently ready" the hub
+    # reports, and what the client checks before letting the export start.
+    warehouse_set(player, commodity, max(units, warehouse_amount(player, commodity["uid"])))
+    bag = exports(player)
+    bag["NextUID"] = int(bag.get("NextUID", 0)) + 1
+    uid = str(EXPORT_UID_BASE + bag["NextUID"])
+    seconds = 300 + 60 * level
+    return {
+        # The client reads mCommodity1UID/mCommodity1Amount (its own strings); the rest is
+        # what the screen needs to draw a card and what we need to pay it out.
+        "ExportMissionUID": uid,
+        "mExportMissionUID": uid,
+        "mCommodity1UID": commodity["uid"],
+        "mCommodity1Amount": units,
+        "mCommodity2UID": "0",
+        "mCommodity2Amount": 0,
+        "mCommodityName": commodity.get("name", ""),
+        "mCommodityTitle": commodity.get("title", ""),
+        "mCommodityIconName": commodity.get("icon", ""),
+        "mMoneyReward": money,
+        "mFaceReward": face,
+        "mLevel": level,
+        "mOperationType": _table_at(EXPORT_MISSION_TYPES, 1 + (index % max(1, len(EXPORT_MISSION_TYPES))), ""),
+        "mRacketTypeUID": (commodity.get("racket") or {}).get("uid", "0"),
+        "mDurationSeconds": seconds,
+        "mStartSeconds": int(time.time() if now is None else now),
+        "mStarted": 0,
+    }
+
+
+def export_missions(player, now=None):
+    """The ExportRewardsBag contents: top the board up to the warehouse's slot count."""
+    now = time.time() if now is None else now
+    bag = exports(player)
+    bag["Day"] = utc_day(now)
+    pool = export_commodity_pool(player)
+    if not pool:
+        return []
+    wanted = export_slots(player)
+    # Keep missions in progress; drop paid ones so a fresh offer takes their place.
+    bag["Missions"] = [m for m in bag["Missions"] if m and not m.get("Paid")]
+    used = {m.get("mCommodity1UID") for m in bag["Missions"]}
+    index = len(bag["Missions"])
+    while len(bag["Missions"]) < wanted:
+        choices = [c for c in pool if c["uid"] not in used] or pool
+        commodity = choices[index % len(choices)]
+        mission = new_export_mission(player, commodity, now, index)
+        bag["Missions"].append(mission)
+        used.add(commodity["uid"])
+        index += 1
+    return bag["Missions"]
+
+
+def _find_export(bag, uid):
+    """Locate a mission by mission id, then by commodity id (which one the client sends
+    is not pinned down; both are u64s in the request path)."""
+    uid = str(uid)
+    for mission in bag["Missions"]:
+        if str(mission.get("ExportMissionUID")) == uid:
+            return mission
+    for mission in bag["Missions"]:
+        if str(mission.get("mCommodity1UID")) == uid:
+            return mission
+    return None
+
+
+def start_export(player, uid, now=None):
+    """The client has begun an export mission. Returns the mission (or None)."""
+    missions = export_missions(player, now)
+    mission = _find_export(exports(player), uid)
+    if mission is None and missions:
+        mission = missions[0]
+    if mission is not None:
+        mission["mStarted"] = 1
+        mission["mStartSeconds"] = int(time.time() if now is None else now)
+    return mission
+
+
+def end_export(player, uid, success=True, now=None):
+    """Pay an export mission. Returns (mission, money, face); all zero when it cannot pay.
+
+    A mission is paid exactly once. Its record leaves the board once it is paid, so a
+    repeat of the same request arrives with a mission id that no longer exists - the paid
+    id list is what stops that from paying whatever mission replaced it.
+    """
+    bag = exports(player)
+    export_missions(player, now)          # the board must exist before it can be paid
+    if str(uid) in [str(u) for u in bag.get("Paid") or []]:
+        return None, 0, 0
+    mission = _find_export(bag, uid)
+    if mission is None:
+        return None, 0, 0
+    bag["Attempts"] = int(bag.get("Attempts", 0)) + 1
+    if not success:
+        mission["mStarted"] = 0
+        return mission, 0, 0
+    money = int(mission.get("mMoneyReward") or 0)
+    face = int(mission.get("mFaceReward") or 0)
+    if money:
+        _credit(player["CurrencyBag"], "DirtyMoney", money)
+    if face:
+        pdb = player["PlayerDataBag"]
+        pdb["Face"] = str(int(pdb.get("Face", "0")) + face)
+    commodity = EXPORT_BY_UID.get(str(mission.get("mCommodity1UID")))
+    if commodity is not None:
+        left = warehouse_amount(player, commodity["uid"]) - int(mission.get("mCommodity1Amount") or 0)
+        warehouse_set(player, commodity, max(0, left))
+    bag["Successes"] = int(bag.get("Successes", 0)) + 1
+    bag["Paid"] = ([str(uid)] + [str(u) for u in bag.get("Paid") or []])[:50]
+    mission["Paid"] = 1
+    mission["mStarted"] = 0
+    return mission, money, face
+
+
+def _credit(bag, key, amount):
+    bag[key] = str(int(bag.get(key, "0")) + int(amount))
+
+
+# How much of each commodity the warehouse holds, per warehouse level. The client's own
+# message is "You don't have room in your warehouse for this commodity."; the numbers are
+# UFG::MetagameInfoWrapper.mWarehouseStorageInfo (index = warehouse level - 1).
+WAREHOUSE_STORAGE = {}
+for _entry in METAGAME.get("mWarehouseStorageInfo") or []:
+    _handle = (_entry.get("mWarehouseCommodityType") or {}).get("$handle")
+    if _handle:
+        WAREHOUSE_STORAGE[_handle] = [int(n) for n in _entry.get("mMaxStorage") or []]
+
+
+def warehouse_level(player):
+    warehouse = player["TurfBag"]["Turf"].get("Warehouse") or {}
+    return max(1, int(warehouse.get("RacketLevel", 1) or 1))
+
+
+def warehouse_capacity(player, commodity_uid):
+    """Units of this commodity the warehouse can hold at its current level."""
+    return int(_table_at(WAREHOUSE_STORAGE.get(str(commodity_uid)) or [], warehouse_level(player), 0))
+
+
+def warehouse(player):
+    """The TurfBag's Commodities array: what the warehouse holds right now."""
+    return player["TurfBag"].setdefault("Commodities", [])
+
+
+def warehouse_amount(player, commodity_uid):
+    for record in warehouse(player):
+        if str(record.get("CommodityUID") or record.get("mCommodityUID") or "") == str(commodity_uid):
+            return int(record.get("Amount") or record.get("mAmount") or 0)
+    return 0
+
+
+def warehouse_set(player, commodity, amount):
+    """Set the stored units of one commodity (0 removes the record)."""
+    uid = str(commodity["uid"])
+    records = warehouse(player)
+    amount = max(0, int(amount))
+    for record in records:
+        if str(record.get("CommodityUID") or record.get("mCommodityUID") or "") == uid:
+            record["Amount"] = amount
+            record["mAmount"] = amount
+            if amount == 0:
+                records.remove(record)
+            return
+    if amount:
+        # The client's own key for the count is mAmount; the uid/name spellings below are
+        # the ones its other screens use. It ignores members it does not declare.
+        records.append({"CommodityUID": uid, "mCommodityUID": uid,
+                        "CommodityName": commodity.get("name", ""),
+                        "Amount": amount, "mAmount": amount})
+
+
+def commodity_of_racket(player, type_uid):
+    """The commodity a built racket type produces, if any."""
+    for commodity in EXPORT_COMMODITIES:
+        if (commodity.get("racket") or {}).get("uid") == str(type_uid):
+            return commodity
+    return None
+
+
+def settle_production(player, now=None):
+    """Let idle rackets produce.
+
+    A racket makes mOutput1Amount units every mProdTimeSeconds (both from its own type and
+    level); CurrentProduction is what has piled up since the warehouse last collected it.
+    Two cycles' worth is kept, so a player who leaves the game running does not come back
+    to an unlimited pile.
+    """
+    now = time.time() if now is None else now
+    changed = False
+    for racket in player["TurfBag"].get("Rackets") or []:
+        type_uid = racket.get("RacketTypeUID")
+        level = int(racket.get("RacketLevel", 1) or 1)
+        if racket.get("RacketState"):
+            continue                          # busy building or upgrading
+        seconds = racket_cycle_seconds(type_uid, level)
+        per_cycle = int(_table_at(racket_outputs(type_uid), level, 0))
+        if seconds <= 0 or per_cycle <= 0:
+            continue
+        if not racket.get("_prod_at"):
+            racket["_prod_at"] = now          # start the clock the first time we look
+            changed = True
+            continue
+        cycles = int((now - int(racket["_prod_at"])) // seconds)
+        if cycles <= 0:
+            continue
+        current = int(racket.get("CurrentProduction") or 0)
+        racket["CurrentProduction"] = min(per_cycle * 2, current + cycles * per_cycle)
+        racket["_prod_at"] = int(racket["_prod_at"]) + cycles * seconds
+        changed = True
+    return changed
+
+
+def move_to_warehouse(player, type_uid, amount=None, now=None):
+    """Move a racket's production into the warehouse.
+
+    Returns (moved, sold, earnings): whatever does not fit is sold on the black market at
+    the commodity's price (its mFloorPrice/mCeilingPrice midpoint), which is what the
+    client's mCommoditySold/mCommoditySoldEarnings report.
+    """
+    settle_production(player, now)
+    racket = None
+    for candidate in player["TurfBag"].get("Rackets") or []:
+        if str(candidate.get("RacketTypeUID")) == str(type_uid):
+            racket = candidate
+            break
+    if racket is None:
+        return 0, 0, 0
+    commodity = commodity_of_racket(player, type_uid)
+    if commodity is None:
+        return 0, 0, 0
+    available = int(racket.get("CurrentProduction") or 0)
+    wanted = available if not amount else min(int(amount), available)
+    if wanted <= 0:
+        return 0, 0, 0
+    room = max(0, warehouse_capacity(player, commodity["uid"]) - warehouse_amount(player, commodity["uid"]))
+    moved = min(wanted, room)
+    sold = wanted - moved
+    if moved:
+        warehouse_set(player, commodity, warehouse_amount(player, commodity["uid"]) + moved)
+        racket["CurrentProduction"] = available - moved
+    earnings = 0
+    if sold:
+        earnings = int(round(sold * float(commodity.get("price") or 0)))
+        _credit(player["CurrencyBag"], "DirtyMoney", earnings)
+        racket["CurrentProduction"] = int(racket.get("CurrentProduction") or 0) - sold
+    return moved, sold, earnings
+
+
+def sync_export_slots(player):
+    """Keep the warehouse's export slot count where the client looks for it.
+
+    "You have %d exports currently ready. Upgrading your warehouse will increase your
+    export targets." - the number follows the warehouse level. Which class holds the
+    member is not in the client's string table, so it is set on the turf record, the turf
+    object and the warehouse racket; unknown members are ignored by the bag parsers.
+    """
+    slots = export_slots(player)
+    turf_bag = player.get("TurfBag") or {}
+    turf_bag["ExportMissionSlots"] = slots
+    turf = turf_bag.get("Turf") or {}
+    turf["ExportMissionSlots"] = slots
+    warehouse = turf.get("Warehouse")
+    if isinstance(warehouse, dict):
+        warehouse["ExportMissionSlots"] = slots
+    return slots
+
+
 # ---- "Challenges" (community trials) -------------------------------------------
 # UIScreenTrials pages through trial containers - the previous, current and next
 # challenge. The client tracks challenge progress itself (the trial names are ordinary
@@ -679,7 +1096,7 @@ def default_state():
     grant_starting_favours(player)
     grant_starting_inventory(player)
     return {
-        "version": 6,
+        "version": 7,
         "created": int(time.time()),
         "player": player,
         "opponents": [
@@ -740,7 +1157,12 @@ class State:
                 owner.setdefault("ErrandsBag", new_errand_bag())
                 owner.setdefault("TrialsBag", new_trial_bag())
                 owner.setdefault("CurrencyBag", {}).setdefault("Gold", "0")
-        self.data["version"] = 6
+        if version < 7:
+            # Export missions: same idea as the job board, kept off the data bags.
+            for owner in [player] + [o["data"] for o in self.data.get("opponents", [])]:
+                owner.setdefault("ExportBag", new_export_bag())
+                sync_export_slots(owner)
+        self.data["version"] = 7
         self.save()
 
     def save(self):
@@ -763,8 +1185,19 @@ class State:
                          (BAG_TURF, "TurfBag"), (BAG_INVENTORY, "InventoryBag"),
                          (BAG_ENFORCER_UPGRADES, "EnforcerUpgradesBag")):
             if mask & bit and key in player:
+                if key == "TurfBag":
+                    sync_export_slots(player)      # "N exports currently ready"
                 out[key] = copy.deepcopy(player[key])
                 have |= bit
+        # The export board is generated, not stored: the client's ExportRewardsBag is a
+        # list of missions (see new_export_mission). It rides along with the turf bags too,
+        # because the warehouse screen and the map's export markers are turf screens and
+        # which masks the client asks for there is not pinned down.
+        if mask & (BAG_EXPORT_REWARDS | BAG_TURF):
+            missions = copy.deepcopy(export_missions(player))
+            out["ExportRewardsBag"] = ({EXPORT_BAG_MEMBER: missions}
+                                       if EXPORT_BAG_MEMBER else missions)
+            have |= BAG_EXPORT_REWARDS
         out["mRequestedBags"] = have
         return out
 

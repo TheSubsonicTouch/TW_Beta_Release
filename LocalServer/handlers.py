@@ -608,7 +608,7 @@ def _all_rackets(turf):
 
 
 def _settle_turf(turf=None):
-    """Finish any construction or upgrade whose timer has run out."""
+    """Finish any construction or upgrade whose timer has run out, then let rackets produce."""
     turf = turf or _player()["TurfBag"]
     now = time.time()
     changed = False
@@ -621,6 +621,10 @@ def _settle_turf(turf=None):
             del r["_ready_at"]
             r.pop("_total", None)
             changed = True
+    # Rackets also fill up with production over time (see state.settle_production); the
+    # warehouse screen and the export missions read CurrentProduction.
+    if state.settle_production(_player(), now):
+        changed = True
     return changed
 
 
@@ -810,7 +814,27 @@ def turf_temple_info(req, method, parts, body, query):
 
 @route("game", "turf/movetowarehouse")
 def turf_move_to_warehouse(req, method, parts, body, query):
-    return _turf_action(action=ACTION_MOVE_TO_WAREHOUSE)
+    # turf/movetowarehouse/<racket type uid>/<units>: collect a racket's production into
+    # the warehouse. Whatever does not fit is sold on the black market, which is what
+    # mCommoditySold / mCommoditySoldEarnings report. A unit count of 0 means "all of it".
+    type_uid = parts[2] if len(parts) > 2 else "0"
+    amount = _int(parts[3] if len(parts) > 3 else None, 0)
+    with STATE.lock:
+        player = _player()
+        racket = None
+        for candidate in player["TurfBag"].get("Rackets") or []:
+            if str(candidate.get("RacketTypeUID")) == str(type_uid):
+                racket = candidate
+                break
+        if racket is None:
+            return _turf_error("That racket is not on this turf.", ACTION_MOVE_TO_WAREHOUSE)
+        moved, sold, earnings = state.move_to_warehouse(player, type_uid, amount or None)
+    STATE.save()
+    out = _turf_action(racket, ACTION_MOVE_TO_WAREHOUSE)
+    out["mCommodityMoved"] = moved
+    out["mCommoditySold"] = sold
+    out["mCommoditySoldEarnings"] = earnings
+    return out
 
 
 # ---- game service: single opponent / profiles -----------------------------------
@@ -1108,20 +1132,50 @@ def end_operation(req, method, parts, body, query):
     return _ok_bags(mRewardType=0, mReward="0")
 
 
+def _export_bags():
+    return _bags(ALL_OWN | state.BAG_EXPORT_REWARDS)
+
+
+def _export_payload(mission):
+    """The mission as an ExportRewardsBag record (the client's own member names first)."""
+    return schema.conform(mission, "GameService ExportMissionData")
+
+
 @route("game", "export/startmission")
 def export_start(req, method, parts, body, query):
-    return _ok_bags()
+    # export/startmission/<mission uid>: the client has picked an export off the map.
+    uid = parts[2] if len(parts) > 2 else "0"
+    with STATE.lock:
+        mission = state.start_export(_player(), uid)
+        bags = _export_bags()
+    STATE.save()
+    if mission is None:
+        return ok(mReturnCode=1, mMessage="There is no export mission available.",
+                  mDataBags=bags)
+    return ok(mDataBags=bags, mExportMissionUID=str(mission.get("ExportMissionUID")),
+              mCommodity1UID=str(mission.get("mCommodity1UID")),
+              mCommodity1Amount=int(mission.get("mCommodity1Amount") or 0),
+              mMoneyReward=int(mission.get("mMoneyReward") or 0),
+              mFaceReward=int(mission.get("mFaceReward") or 0))
 
 
 @route("game", "export/endmission")
 def export_end(req, method, parts, body, query):
-    # export/endmission/<mission uid>/<result>
-    success = _int(parts[3] if len(parts) > 3 else None) != 0
-    money = 2500 if success else 0
+    # export/endmission/<mission uid>/<result>: 0 = failed, anything else = a clean run.
+    uid = parts[2] if len(parts) > 2 else "0"
+    success = _int(parts[3] if len(parts) > 3 else None, 1) != 0
     with STATE.lock:
-        _money("DirtyMoney", money)
+        mission, money, face = state.end_export(_player(), uid, success)
+        bags = _export_bags()
     STATE.save()
-    return _ok_bags(mFaceReward=0, mMoneyReward=money)
+    if mission is None:
+        return ok(mFaceReward=0, mMoneyReward=0, mDataBags=bags)
+    print("export: %s %s -> %d money, %d face"
+          % (mission.get("mCommodityTitle"), "ok" if success else "failed", money, face),
+          flush=True)
+    return ok(mReward="0", mRewardType=state.JOB_REWARD_CASH,
+              mFaceReward=face, mMoneyReward=money, mSucceeded=bool(success),
+              mExportMissionUID=str(mission.get("ExportMissionUID")), mDataBags=bags)
 
 
 @route("game", "worldencounter/endencounter")
