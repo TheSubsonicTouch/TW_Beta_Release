@@ -133,15 +133,57 @@ def store_access(req, method, parts, body, query):
     return {"mHasAccess": True}
 
 
-# ---- list endpoints that are legitimately empty for a fresh solo profile ------
+# ---- crime scenes: the loot the player's own fights leave in the world ----------
 @route("game", "openworldcrimescene")
 def open_world_crime_scenes(req, method, parts, body, query):
-    return {"CrimeScenes": []}
+    """openworldcrimescene/<x>/<y>/<z>/<id> reports a scene; a bare GET lists them.
+
+    The client is the only thing that knows where anything happened, so the server records
+    what it reports and hands the same coordinates back. Nothing is placed by the server.
+    Each collected scene pays CRIME_SCENE_FACE (state.py).
+    """
+    if method in ("POST", "PUT") and len(parts) > 4:
+        # parts = ["openworldcrimescene", x, y, z, id]
+        coords = [_int(parts[i], 0) for i in (1, 2, 3)]
+        with STATE.lock:
+            scene = state.add_crime_scene(_player(), coords[0], coords[1], coords[2], parts[4])
+            STATE.save()
+        return ok(mCrimeSceneAdded=bool(scene),
+                  mCrimeSceneID=scene["OpenWorldCrimeSceneID"] if scene else "0")
+    with STATE.lock:
+        scenes = state.crime_scenes(_player())
+        changed = state.prune_crime_scenes(_player())
+    if changed:
+        STATE.save()
+    return {"mReturnCode": 0, "mMessage": "", "CrimeScenes": scenes}
+
+
+@route("game", "openworldcrimescenecollection")
+def open_world_crime_scene_collection(req, method, parts, body, query):
+    # openworldcrimescenecollection/<scene id>: the player has walked to the scene and
+    # taken what was there. The reply's FaceCollected is what the HUD credits.
+    scene_id = parts[1] if len(parts) > 1 else "0"
+    with STATE.lock:
+        scene, face = state.collect_crime_scene(_player(), scene_id)
+        bags = _bags(ALL_OWN)
+    STATE.save()
+    if scene is None:
+        return ok(mReturnCode=1, mMessage="That crime scene is no longer there.",
+                  CrimeSceneID=str(scene_id), FaceCollected=0, mDataBags=bags)
+    return ok(CrimeSceneID=scene["OpenWorldCrimeSceneID"], FaceCollected=face, mDataBags=bags)
 
 
 @route("game", "raidcrimescene")
 def raid_crime_scenes(req, method, parts, body, query):
-    return {"CrimeScenes": []}
+    # Raid crime scenes are reported only during a raid (raidcrimescene/<room>/<...>); the
+    # raid itself is the activity there, so the list stays empty.
+    return {"mReturnCode": 0, "mMessage": "", "CrimeScenes": []}
+
+
+@route("game", "raidcrimescenecompletion")
+def raid_crime_scene_completion(req, method, parts, body, query):
+    # raidcrimescenecompletion/<scene id>/<racket>: its parser declares mDataBags too.
+    return _ok_bags(CrimeSceneID=parts[1] if len(parts) > 1 else "0", FaceCollected=0)
 
 
 @route("game", "worldencounter/list")
@@ -1131,7 +1173,23 @@ def blackmarket_trade(req, method, parts, body, query):
 # ---- game service: operations, exports, encounters, crime scenes, errands, trials --
 @route("game", "operation/endoperation")
 def end_operation(req, method, parts, body, query):
-    return _ok_bags(mRewardType=0, mReward="0")
+    # operation/endoperation/<operation name>/<completed>/<successful>: the client has
+    # finished one of the game's open-world activities (Catch, Defeat, Photo, Deliver,
+    # Collect, Destroy, Hijack - its own UFG::OperationType objects). The activity is the
+    # client's; the payout is ours, from the game's face/money ladders at the player's
+    # level. A failed run pays nothing.
+    name = parts[2] if len(parts) > 2 else ""
+    successful = _int(parts[4] if len(parts) > 4 else None, 1) != 0
+    with STATE.lock:
+        paid = state.pay_operation_reward(_player(), name, successful)
+        STATE.save()
+    if paid["amount"]:
+        print("operation: %s %s -> +%d %s" % (paid["operation"],
+                                              "ok" if successful else "failed",
+                                              paid["amount"], paid["kind"]), flush=True)
+    return _ok_bags(mRewardType=paid["reward_type"],
+                    mReward=str(paid["amount"]), mOperation=paid["operation"],
+                    mSuccessful=paid["successful"])
 
 
 @route("game", "export/startmission")
@@ -1152,17 +1210,17 @@ def export_end(req, method, parts, body, query):
 
 @route("game", "worldencounter/endencounter")
 def end_world_encounter(req, method, parts, body, query):
-    return _ok_bags(mRewardType=0, mReward="0")
-
-
-@route("game", "openworldcrimescenecollection")
-def collect_open_world_crime_scene(req, method, parts, body, query):
-    return _ok_bags(CrimeSceneID=parts[1] if len(parts) > 1 else "0", FaceCollected=0)
-
-
-@route("game", "raidcrimescenecompletion")
-def complete_raid_crime_scene(req, method, parts, body, query):
-    return _ok_bags(CrimeSceneID=parts[1] if len(parts) > 1 else "0", FaceCollected=0)
+    # worldencounter/endencounter/<encounter type>/<result>: one of the client's own
+    # random street events has finished. It pays face from the game's low ladder; the
+    # reply carries the same mRewardType/mReward pair the activity payouts use.
+    kind = parts[2] if len(parts) > 2 else "?"
+    result = _int(parts[3] if len(parts) > 3 else None, 1)
+    with STATE.lock:
+        paid = state.pay_world_encounter_reward(_player(), result)
+        STATE.save()
+    if paid["amount"]:
+        print("world encounter: %s -> +%d %s" % (kind, paid["amount"], paid["kind"]))
+    return _ok_bags(mRewardType=paid["reward_type"], mReward=str(paid["amount"]))
 
 
 # ---- game service: jobs ("errands") ------------------------------------------------

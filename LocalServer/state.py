@@ -262,6 +262,32 @@ ERRAND_COLLECTED = 2    # reward paid
 # False: the three slots are fixed for the day and only the UTC rollover replaces them.
 ERRAND_REFILL_COLLECTED = True
 
+# The safehouse has ten levels (mSafehouseUpgradeCosts), but four errands ask for a
+# "safehouse 15" that never existed in the shipped game - they are unreachable as written,
+# so the requirement is read as "the top level". They are ordinary raid/combat jobs.
+ERRAND_SAFEHOUSE_CAP = len(METAGAME.get("mSafehouseUpgradeCosts") or []) or 10
+# A finished repeatable job comes back after the game's own cooldown
+# (UFG::MetagameInfoWrapper.mRepeatableErrandCooldownHours, 96 hours).
+ERRAND_REPEATABLE_COOLDOWN = int(METAGAME.get("mRepeatableErrandCooldownHours") or 0) * 3600
+
+# Stats this build cannot produce. The server does not run the export chain, so the two
+# errands that ask for completed exports can never be finished - and 49 other jobs list
+# "Complete 3 Exports" as a prerequisite, so that one hole used to hide most of the ladder.
+# Those jobs are skipped as board entries and skipped as prerequisites. Everything else the
+# client counts itself (kills, raids, rackets, crimes scenes, operations, purchases).
+ERRAND_UNSUPPORTED_STATS = {"ExportsCompleted"}
+ERRAND_UNSUPPORTED = {e["uid"] for e in ERRANDS
+                      if any((c or {}).get("stat") in ERRAND_UNSUPPORTED_STATS
+                             for c in e.get("conditions") or [])}
+
+# 29 errands are switched off in the game data (mEnabled = false): the combat-tutorial
+# variants ("Sweep Kicks", "Roundhouse Kicks", ...), the commodity collectors and a few
+# others. Nothing about them is broken - the client still counts their objectives - they
+# were simply never handed out in the beta. Once every enabled job has been done, the
+# board falls back to them instead of going empty, which is how the ladder keeps going
+# after the story runs out. Set to False to keep the board to the game's own 87.
+ERRAND_BONUS_JOBS = True
+
 RARITY_ORDER = ["Common", "Rare", "VeryRare", "Epic"]
 
 # Reward type -> (what it pays, which ErrandRewards table it reads).
@@ -376,23 +402,70 @@ def favour_pool(errand, level=1):
     return pool
 
 
-def errand_available(bag, errand, level, safehouse):
-    if not errand.get("enabled"):
+def _errand_record(bag, uid):
+    """(times done, when it was last paid) for one errand - both formats the bag used."""
+    record = bag["Completed"].get(uid)
+    if record is None:
+        return 0, 0
+    if isinstance(record, dict):
+        return int(record.get("Times") or 0), int(record.get("Last") or 0)
+    return int(record or 0), 0          # an early profile kept just a count
+
+
+def errand_requirement(errand, field):
+    """The level/safehouse an errand asks for, with the impossible 15 read as the top."""
+    value = int(errand.get(field) or 0)
+    if field == "safehouseLevel":
+        return min(value, ERRAND_SAFEHOUSE_CAP)
+    return value
+
+
+def errand_available(bag, errand, level, safehouse, now=None, bonus=False):
+    """Can this errand be put on the board?
+
+    `bonus` allows the errands the game data switches off (see ERRAND_BONUS_JOBS); those
+    also ignore their mErrandLinks, which point at other switched-off jobs.
+    """
+    enabled = bool(errand.get("enabled"))
+    if errand["uid"] in ERRAND_UNSUPPORTED:
         return False
-    if errand.get("xpLevel", 0) > level or errand.get("safehouseLevel", 0) > safehouse:
+    if not enabled and not (bonus and ERRAND_BONUS_JOBS):
+        return False
+    if errand_requirement(errand, "xpLevel") > level:
+        return False
+    if errand_requirement(errand, "safehouseLevel") > safehouse:
         return False
     # mErrandLinks are the errands that must have been completed first ("Raid 2 Rivals"
     # links to "Raid A Rival"). With one link only the tutorial's first job is on offer.
-    if any(link not in bag["Completed"] for link in errand.get("links") or []):
+    if enabled and any(link not in bag["Completed"] and link not in ERRAND_UNSUPPORTED
+                       for link in errand.get("links") or []):
         return False
-    done = bag["Completed"].get(errand["uid"])
-    return not (done and not errand.get("repeatable"))
+    times, last = _errand_record(bag, errand["uid"])
+    if not times:
+        return True
+    if not errand.get("repeatable"):
+        return False
+    now = time.time() if now is None else now
+    if ERRAND_REPEATABLE_COOLDOWN and now - last < ERRAND_REPEATABLE_COOLDOWN:
+        return False
+    return True
 
 
-def errand_pool(player, bag, exclude=()):
+def errand_pool(player, bag, exclude=(), now=None, bonus=True):
+    """The errands the board can offer right now.
+
+    The game's own (enabled) jobs come first. If none of them is available - the story
+    ladder is finished, or every open job is on cooldown - the switched-off bonus jobs
+    fill in, so the Jobs screen never runs dry.
+    """
     level, safehouse = xp_level(player), safehouse_level(player)
     pool = [e for e in ERRANDS
-            if e["uid"] not in exclude and errand_available(bag, e, level, safehouse)]
+            if e["uid"] not in exclude and e["enabled"]
+            and errand_available(bag, e, level, safehouse, now)]
+    if not pool and bonus:
+        pool = [e for e in ERRANDS
+                if e["uid"] not in exclude and not e["enabled"]
+                and errand_available(bag, e, level, safehouse, now, bonus=True)]
     pool.sort(key=lambda e: (-e["priority"], e["name"]))
     return pool
 
@@ -415,7 +488,7 @@ def fill_errands(player, bag, now=None):
     for index, slot in enumerate(bag["Slots"]):
         if slot:
             continue
-        pool = errand_pool(player, bag, exclude=slotted)
+        pool = errand_pool(player, bag, exclude=slotted, now=now)
         if not pool:
             return
         bag["Slots"][index] = new_errand_slot(player, pool[0], now, index)
@@ -454,7 +527,7 @@ def change_errand(player, index, now=None):
     if slot is None:
         return None, "There is no job in that slot."
     slotted = {errand_uid(s) for s in bag["Slots"] if s}
-    pool = errand_pool(player, bag, exclude=slotted)
+    pool = errand_pool(player, bag, exclude=slotted, now=now)
     if not pool:
         return None, "No jobs available to change."
     fresh = new_errand_slot(player, pool[0], now, index)
@@ -544,6 +617,159 @@ def completed_errands(player):
                     "last": int(record.get("Last", 0))})
     out.sort(key=lambda r: -r["last"])
     return out
+
+
+# ---- World activities (operations) ----------------------------------------------
+# The client runs the open-world activities itself and reports each one when it ends:
+# operation/endoperation/<name>/<completed>/<successful>. The names are the game's own
+# UFG::OperationType objects - Catch, Defeat, Photo, Deliver, Collect, Destroy, Hijack -
+# so nothing here is invented; only the payout is the server's, and it uses the game's
+# face/dirty-money ladders at the player's XP level (UFG::ErrandRewards).
+OPERATION_TYPES = {o["$uid"]: o.get("mOperationTypeName", "")
+                   for o in DB.get("UFG::OperationType") or []}
+OPERATION_REWARDS = {
+    "Catch": "REWARD_FACE_LOW",        # bring someone in alive
+    "Defeat": "REWARD_MONEY_MID",      # clear a group of thugs
+    "Photo": "REWARD_FACE_MID",        # photograph the scene
+    "Deliver": "REWARD_MONEY_LOW",     # drive a package across town
+    "Collect": "REWARD_MONEY_LOW",     # pick up a drop
+    "Destroy": "REWARD_MONEY_MID",     # wreck the marked vehicles
+    "Hijack": "REWARD_MONEY_MID",      # steal a specific vehicle
+}
+
+
+def operation_name(value):
+    """'Catch' / 'catch' / the type's own UID -> the operation's name."""
+    text = str(value or "").strip()
+    if text in OPERATION_TYPES:
+        return OPERATION_TYPES[text]
+    for name in OPERATION_REWARDS:
+        if text.lower() == name.lower():
+            return name
+    return text
+
+
+def pay_operation_reward(player, name, successful=True):
+    """Credit one finished activity and return what was paid (for the reply)."""
+    name = operation_name(name)
+    reward = OPERATION_REWARDS.get(name, "REWARD_MONEY_LOW")
+    kind, table = ERRAND_REWARD_TABLES.get(reward, ("DirtyMoney", "mRewardDirtyMoneyLow"))
+    amount = _table_amount(table, xp_level(player)) if successful else 0
+    if amount:
+        if kind == "Face":
+            pdb = player["PlayerDataBag"]
+            pdb["Face"] = str(int(pdb.get("Face", "0")) + amount)
+        else:
+            bag = player["CurrencyBag"]
+            bag[kind] = str(int(bag.get(kind, "0")) + amount)
+    return {"operation": name, "kind": kind, "amount": amount, "successful": bool(successful),
+            "reward_type": JOB_REWARD_TYPES.get(kind, JOB_REWARD_CASH)}
+
+
+# ---- Crime scenes -----------------------------------------------------------------
+# Corpses and loot the client leaves in the world after a fight. The server never invents a
+# position: it records the scene the client reports (openworldcrimescene/<x>/<y>/<z>/<id>)
+# and hands the same coordinates back in the CrimeScenes list, so a player's own fights
+# become collectible crime scenes. Collecting one pays face
+# (openworldcrimescenecollection/<scene id> -> FaceCollected).
+CRIME_SCENE_FACE = 10
+CRIME_SCENE_LIMIT = 24          # markers kept at once; the oldest drops off
+CRIME_SCENE_TTL = 60 * 60       # an hour, then the scene is gone
+CRIME_SCENE_UID_BASE = 7000000000000000000
+
+
+def crime_scene_bag(player):
+    bag = player.setdefault("CrimeSceneBag", {})
+    bag.setdefault("Scenes", [])
+    bag.setdefault("NextUID", 0)
+    return bag
+
+
+def prune_crime_scenes(player, now=None):
+    """Forget scenes older than CRIME_SCENE_TTL. Returns True if anything went."""
+    now = time.time() if now is None else now
+    bag = crime_scene_bag(player)
+    keep = [s for s in bag["Scenes"] if int(s.get("Created") or 0) + CRIME_SCENE_TTL > now]
+    if len(keep) == len(bag["Scenes"]):
+        return False
+    bag["Scenes"] = keep
+    return True
+
+
+def add_crime_scene(player, x, y, z, victim="", now=None):
+    """Record a scene the client reported. Returns the record, or None if it already had it."""
+    now = time.time() if now is None else now
+    bag = crime_scene_bag(player)
+    prune_crime_scenes(player, now)
+    for scene in bag["Scenes"]:
+        # The client reports the same corpse again as it stays in the world; one marker is
+        # enough. 4 units is about a body's width on the map.
+        if abs(int(scene["DeathX"]) - int(x)) <= 4 and abs(int(scene["DeathY"]) - int(y)) <= 4:
+            return None
+    bag["NextUID"] = int(bag.get("NextUID") or 0) + 1
+    scene = {"OpenWorldCrimeSceneID": str(CRIME_SCENE_UID_BASE + bag["NextUID"]),
+             "DeathX": int(x), "DeathY": int(y), "DeathZ": int(z),
+             "VictimPlayerDataIDString": str(victim or "0"),
+             "Collected": False, "Created": int(now)}
+    bag["Scenes"].append(scene)
+    del bag["Scenes"][:-CRIME_SCENE_LIMIT]
+    return scene
+
+
+def crime_scenes(player, now=None):
+    """The scenes the client should draw: everything not collected yet."""
+    prune_crime_scenes(player, now)
+    return [dict(s) for s in crime_scene_bag(player)["Scenes"] if not s.get("Collected")]
+
+
+def collect_crime_scene(player, scene_id, now=None):
+    """Collect one scene and pay its face. Returns (scene, face); (None, 0) if not found."""
+    prune_crime_scenes(player, now)
+    for scene in crime_scene_bag(player)["Scenes"]:
+        if str(scene.get("OpenWorldCrimeSceneID")) == str(scene_id) and not scene.get("Collected"):
+            scene["Collected"] = True
+            scene["CollectedAt"] = int(time.time() if now is None else now)
+            pdb = player["PlayerDataBag"]
+            pdb["Face"] = str(int(pdb.get("Face", "0")) + CRIME_SCENE_FACE)
+            return scene, CRIME_SCENE_FACE
+    return None, 0
+
+
+# ---- World encounters --------------------------------------------------------------
+# The street events the client's own manager runs (Skookum TWWorldEncounterManager spawns
+# the units; the server only hears about them when one ends, at
+# worldencounter/endencounter/<type>/<result>). The list endpoint stays empty on purpose:
+# the encounters are the client's, and handing it entries it did not spawn itself is the
+# one way to get an invisible or mismatched one. Paying for the ones it does run turns the
+# free-roam events into something worth stopping for - the game's own face ladder, capped
+# so the street cannot out-earn the Jobs screen.
+WORLD_ENCOUNTER_REWARD = "REWARD_FACE_LOW"
+WORLD_ENCOUNTER_LIMIT = 6                   # payouts ...
+WORLD_ENCOUNTER_WINDOW = 60 * 60            # ... per hour of play
+
+
+def world_encounter_bag(player):
+    bag = player.setdefault("WorldEncounterBag", {})
+    bag.setdefault("Paid", [])
+    return bag
+
+
+def pay_world_encounter_reward(player, result=1, now=None):
+    """Credit one finished street encounter; returns what was paid (for the reply)."""
+    now = time.time() if now is None else now
+    kind, table = ERRAND_REWARD_TABLES.get(WORLD_ENCOUNTER_REWARD, ("Face", "mRewardFaceLow"))
+    amount = _table_amount(table, xp_level(player)) if str(result) != "0" else 0
+    bag = world_encounter_bag(player)
+    recent = [t for t in bag["Paid"] if now - int(t) < WORLD_ENCOUNTER_WINDOW]
+    bag["Paid"] = recent
+    if amount and len(recent) >= WORLD_ENCOUNTER_LIMIT:
+        amount = 0                  # enough for now; the street keeps its own pace
+    if amount:
+        bag["Paid"].append(int(now))
+        pdb = player["PlayerDataBag"]
+        pdb["Face"] = str(int(pdb.get("Face", "0")) + amount)
+    return {"kind": kind, "amount": amount,
+            "reward_type": JOB_REWARD_TYPES.get(kind, JOB_REWARD_FACE)}
 
 
 # ---- "Challenges" (community trials) -------------------------------------------

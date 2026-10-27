@@ -192,6 +192,35 @@ board and the payout, not the progress:
    The board rolls over at UTC midnight (unclaimed rewards survive it), and
    `mSecondsToRefresh` says how long is left.
 
+#### The ladder, all of it
+
+Until this round the board only ever offered the tutorial jobs and a handful of others
+behind them: **17 of 87** enabled jobs could be reached. Three things were in the way, and
+each is handled in `state.py` instead of editing the game's data:
+
+* **49 jobs list "Complete 3 Exports" as a prerequisite**, and this build does not run the
+  export chain, so that one job could never be finished and everything behind it stayed
+  locked. Stats the build cannot produce are named in `ERRAND_UNSUPPORTED_STATS`; the jobs
+  that ask for them never appear on the board and are skipped as prerequisites too, so the
+  ladder opens up around them instead of waiting for them.
+* **Four jobs ask for safehouse level 15**; the safehouse has ten levels
+  (`mSafehouseUpgradeCosts`). `ERRAND_SAFEHOUSE_CAP` reads those as "the top level".
+* **Repeatable jobs come back on the game's own cooldown** -
+  `mRepeatableErrandCooldownHours`, 96 hours - not instantly.
+
+That leaves **85 of the 87** enabled jobs playable, in the order the data intends; the two
+left out are exactly the two export jobs. When the enabled ladder runs out, the board falls
+back to the **29 jobs the game data switches off** (`mIsEnabled` false: the combat-tutorial
+variants such as "Sweep Kicks", the commodity collectors, ...). They are ordinary jobs the
+client still counts - they were simply never handed out in the beta. Set
+`ERRAND_BONUS_JOBS = False` to keep the board to the game's own 87.
+
+    python tools/storyline.py          what can be reached, in the order it unlocks
+    python tools/storyline.py --check  exit 1 if a job that should be playable is not
+
+The tool walks a whole playthrough - level 1 to 50, safehouse 1 to 10, an hour of game time
+per step - and reports what is left over and why.
+
 Favour rewards are picked from `data/favour_upgrades.json` (every favour that
 grants an enforcer upgrade) by the rarity range and tag list on the errand, and
 are granted to the FavoursBag, so a job reward is always a card the player can
@@ -213,6 +242,53 @@ A slot record is a `GameService ErrandSlotData`:
 not pin down whether it reads the state inside `mErrand` or at the root (and it
 ignores members it does not declare), so both are filled in. `mRewardType` in
 the claim reply is the job reward card - 0 gold, 1 cash, 2 face, 3 favour.
+
+### Open-world activities (`game/operation/endoperation`)
+
+The city's repeatable activities - Catch, Defeat, Photo, Deliver, Collect, Destroy, Hijack -
+are `UFG::OperationType` objects in the game data. The client runs them; when one ends it
+reports `game/operation/endoperation/<operation>/<completed>/<successful>`. The server used
+to answer with a zero reward. It now pays from the same `UFG::ErrandRewards` ladders the
+jobs use, indexed by XP level:
+
+| Activity | Pays | At level 1 |
+| --- | --- | --- |
+| Catch | face, low | 20 face |
+| Photo | face, medium | 40 face |
+| Defeat, Destroy, Hijack | dirty money, medium | 65 |
+| Deliver, Collect | dirty money, low | 35 |
+
+A failed run (`<successful>` = 0) pays nothing. The reply is `mRewardType`, `mReward` (the
+amount as a string), `mOperation`, `mSuccessful` and the bags. The operation can be named or
+sent as its own UID - the route's format string is `%s`, and the handler resolves both.
+
+### Crime scenes (`game/openworldcrimescene`)
+
+After a fight the client leaves the bodies in the world and tells the server where:
+`game/openworldcrimescene/<x>/<y>/<z>/<victim player data id>`. The server records the
+scene and hands the same coordinates back from a bare `GET`, so the player's own fights
+become collectable crime scene markers. Walking to one and taking it
+(`openworldcrimescenecollection/<scene id>`) pays 10 face, once: the reply carries the
+scene's id and `FaceCollected`, which is what the HUD credits.
+
+* 24 markers are kept at a time, the oldest drops off;
+* a scene expires an hour after it was reported;
+* the same corpse reported again within 4 units is the same scene.
+
+The server never places a scene itself - the client is the only thing that knows where
+anything happened, so there is no invented position to get wrong.
+
+### Street events (`game/worldencounter/...`)
+
+The random events the world spawns - a mugging, a shakedown - are run by the client's own
+`TWWorldEncounterManager` (Skookum). The server only hears about them when one ends:
+`game/worldencounter/endencounter/<type>/<result>`. It now pays 20 face (the game's low
+face ladder) for a successful one, at most six times an hour, so the street is worth
+stopping for without out-earning the Jobs screen.
+
+`worldencounter/list` stays empty on purpose: the encounters, their units and their
+positions belong to the client, and handing it entries it did not spawn is how you get an
+invisible or mismatched one. There is nothing for the server to fill in there.
 
 ### Challenges (`game/trialsscreenvisits`, `game/trial/reportprogress`)
 
@@ -246,6 +322,7 @@ plain JSON - edit them freely.
                                    # rollover, trial report/opt-in/tiers, restart
     python tools/test_shops.py     # every catalogue, every purchase path, the model
     python tools/test_looks.py     # the lookbook: real UIDs, slots, every look applies
+    python tools/test_activities.py  # operations, crime scenes, street events, restart
 
 The test scripts build a throw-away profile in a temp folder, so they never touch
 `state.json`. `tools/smoke_test.py` runs the same screens over HTTPS against a running
@@ -307,14 +384,17 @@ Implemented from the client's response parsers but not yet exercised in play
 (values are simple approximations of the original server's rules):
 
 * death penalty, money laundering, racket removal, warehouse/temple upgrades
-* export missions, world encounters, crime scenes
+* export missions
 
 Added on top of the original server (see "Jobs and challenges" below):
 
 * the Jobs screen: three daily jobs from the game's own errand list, with the
-  prerequisites, level and safehouse gates the original data describes
+  prerequisites, level and safehouse gates the original data describes, and the
+  29 jobs the game data switches off as a fallback once the ladder is finished
 * the Challenges screen: a rotating community trial with progress, opt-in and
   tier rewards
+* payouts for the city's own activities: the seven operation types, crime scenes
+  and the random street encounters (below)
 
 Details that matter (each one was a hang or a crash before it was right):
 
@@ -468,13 +548,44 @@ Answered with an empty but valid result:
 * operations; notices and private messages
 * player-run triads (clans) and friends, which need other players
 
-Jobs and challenges are no longer in that list: `game/errands`,
-`game/completederrands`, `game/errands/end|claimreward|change`,
-`game/trialsscreenvisits`, `game/trial/reportprogress` and
-`game/trialinstance/optin` all have real handlers now.
+Jobs, challenges and the world's activities are no longer in that list:
+`game/errands`, `game/completederrands`, `game/errands/end|claimreward|change`,
+`game/trialsscreenvisits`, `game/trial/reportprogress`, `game/trialinstance/optin`,
+`game/operation/endoperation`, `game/openworldcrimescene` and
+`game/openworldcrimescenecollection` all have real handlers now.
 
 Not emulated: the separate "bombd" game-server layer used for multiplayer
 sessions. Everything here is single-player.
+
+## The free camera
+
+This is the one part of the round that is **not** delivered, and it is not something the
+local server can do.
+
+The camera belongs entirely to the client. There is no camera endpoint in the protocol -
+`devdata/endpoints.txt` has none - and every camera symbol in the executable is an engine
+internal: `UFG::DebugCameraComponent` (with its RTTI name and `qNode`), the director's
+`DebugCamera` and `DebugCamera1` objects, `FollowCameraDebugSlowMo`, and `InvertDebugCamera`,
+which is a `HostInfo.xml` build flag, not a key binding. Nothing the server sends reaches
+the view: the protocol carries the player's turf site and the camera is the client's own
+follow rig.
+
+A Caps Lock free camera has to live in the game process, the same way
+`tools/patch_exe.py` fixes the shadow crash - either a byte patch that binds the engine's
+existing debug camera, or a small external tool that holds the render camera's transform
+while the player stands still. Both need `TriadWars.exe` in this folder: the code sites,
+the camera component's layout and the input hook cannot be derived from the string dump
+alone.
+
+With the executable next to `Play-TriadWars.bat` (the same file `patch_exe.py` patches),
+the work is:
+
+1. `python tools/twre.py xref DebugCameraComponent` and `xref DebugCamera` - find what
+   activates the director's debug camera, and what puts it back;
+2. find where the game reads Caps Lock (`GetAsyncKeyState(VK_CAPITAL)`, `0x14`) or add a
+   code cave that polls it and toggles that camera;
+3. leave the player's own input alone while the camera is detached - the engine's debug
+   camera already works that way.
 
 ## Problems already solved
 

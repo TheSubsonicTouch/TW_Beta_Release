@@ -64,10 +64,11 @@ The game crashes a few seconds after the world loads
     This is a known random bug in the game itself (about 1 launch in 7).
     Just start it again.
 
-Some shops are empty
-    The vehicle shop, the hub's bundle shop and the health/gold stores have
-    nothing in them yet. Avoid the garage shop: opening an empty shop can
-    crash the game.
+Can I get a free camera, like the Sleeping Dogs free cam mod?
+    Not yet. The camera is part of the game itself, and nothing the local
+    server sends can detach it - a Caps Lock free camera needs a patch to
+    TriadWars.exe. LocalServer\README.md ("The free camera") lists what is
+    known about the game's built-in debug camera and what the patch has to do.
 
 Multiplayer, clans and friends do not work. Prices, rewards and timers are
 best guesses, because the real values were on the original servers.
@@ -92,10 +93,17 @@ The local server stands in for every part of the single-player game: the intro
 and tutorials, raids, turf and rackets, the wardrobe and the favour shops, XP
 and ranks.
 
+The city's own activities pay out too: the seven open-world jobs (Catch,
+Defeat, Photo, Deliver, Collect, Destroy, Hijack), the crime scenes your fights
+leave behind, and the random street events (muggings, shakedowns) - so walking
+around and getting into trouble is worth something.
+
 The hub's Jobs screen and the Challenges (community trial) screen are emulated
 too. Jobs come from the game's own errand data - three daily slots, each with
 the original prerequisites, level and safehouse gates and its own reward
-(gold, dirty money, face or a favour card). The challenge rotates through the
+(gold, dirty money, face or a favour card). The board now runs the whole
+ladder: 85 of the game's 87 enabled jobs, then the 29 the game data switches
+off, so the Jobs screen does not run dry. The challenge rotates through the
 client's trials with progress, opt-in and tier rewards. LocalServer\README.md
 explains how both work, what is exact and what is this server's own design,
 and how to change it.

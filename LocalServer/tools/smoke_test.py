@@ -86,6 +86,21 @@ def main():
         assert isinstance(r.get("mErrands"), list), r
         return "%d completed job(s)" % len(r["mErrands"])
 
+    def crime_scenes():
+        r = get("game/api/v1/openworldcrimescene")
+        assert r["mReturnCode"] == 0 and isinstance(r["CrimeScenes"], list), r
+        for scene in r["CrimeScenes"]:
+            assert scene["OpenWorldCrimeSceneID"].isdigit(), scene
+            assert isinstance(scene["DeathX"], int), scene
+        return "%d scene(s) on the map" % len(r["CrimeScenes"])
+
+    def street_events():
+        # The client's own manager spawns these; the server only pays them when they end,
+        # so the list it asks for stays empty.
+        r = get("game/api/v1/worldencounter/list")
+        assert r["WorldEncounters"] == [], r
+        return "empty on purpose"
+
     def challenges():
         r = get("game/api/v1/trialsscreenvisits")
         progress = r["mPlayerProgress"]
@@ -116,6 +131,8 @@ def main():
     check("black market quotes", quotes)
     check("jobs board", jobs)
     check("completed jobs", job_history)
+    check("crime scenes", crime_scenes)
+    check("street events", street_events)
     check("challenges", challenges)
     check("shop catalogues", stores)
     print("%d check(s) failed" % len(failed) if failed else "all checks passed")
