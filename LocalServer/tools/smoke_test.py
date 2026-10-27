@@ -67,9 +67,6 @@ def main():
         assert len(get("game/api/v1/playerdata/facetiers")) == 10
         return "10 tiers"
 
-    def quotes():
-        assert isinstance(get("game/api/v1/blackmarket/quotes"), list)
-
     def jobs():
         r = get("game/api/v1/errands")
         assert r["mReturnCode"] == 0 and isinstance(r["mErrands"], list)
@@ -94,6 +91,26 @@ def main():
         return "%s, %d/%d" % (progress.get("mTrial") or "no challenge",
                               progress.get("mProgress", 0), progress.get("mTarget", 0))
 
+    def exports():
+        bags = get("game/api/v1/playerdata/serializedplayerdata/%d" % 0x0800)
+        board = bags.get("ExportRewardsBag")
+        assert isinstance(board, list), bags.keys()
+        assert board, "no export missions"
+        mission = board[0]
+        for key in ("ExportMissionUID", "mCommodity1UID", "mCommodity1Amount"):
+            assert key in mission, mission
+        return "%d export(s), first %s" % (len(board), mission["mCommodity1UID"])
+
+    def blackmarket():
+        quotes = get("game/api/v1/blackmarket/quotes")
+        assert isinstance(quotes, list), type(quotes)
+        assert quotes, "no black market quotes"
+        for quote in quotes:
+            assert quote["CommodityUID"] and quote["SellPrice"] > 0, quote
+            assert quote["BuyPrice"] >= quote["SellPrice"], quote
+        return "%d commodities, %s at %s" % (len(quotes), quotes[0]["CommodityName"],
+                                             quotes[0]["SellPrice"])
+
     def stores():
         with open(os.path.join(DATA, "store_items.json"), encoding="utf-8") as f:
             catalogues = json.load(f)
@@ -113,10 +130,11 @@ def main():
     check("player data", player)
     check("rivals", rivals)
     check("face tiers", face_tiers)
-    check("black market quotes", quotes)
     check("jobs board", jobs)
     check("completed jobs", job_history)
     check("challenges", challenges)
+    check("export missions", exports)
+    check("black market quotes", blackmarket)
     check("shop catalogues", stores)
     print("%d check(s) failed" % len(failed) if failed else "all checks passed")
     return 1 if failed else 0

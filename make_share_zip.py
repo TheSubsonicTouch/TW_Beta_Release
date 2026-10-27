@@ -14,6 +14,7 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_OUT = os.path.join(ROOT, "TriadWars-LocalServer-Share.zip")
 INCLUDE = [
     "README.txt",
+    "HANDOFF.txt",
     "Play-TriadWars.bat",
     "Change-Look.bat",
     "LocalServer/README.md",

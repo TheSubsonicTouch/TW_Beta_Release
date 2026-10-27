@@ -1,0 +1,76 @@
+HANDOFF
+=======
+
+What this is
+------------
+A local stand-in for the Triad Wars server, so the single-player side of the game can be
+played offline. Everything it serves is either the game's own data (shipped in
+LocalServer\data, built by the scripts in LocalServer\tools) or the server's own design,
+which LocalServer\README.md marks as such. The game files are never modified - the only
+thing outside this folder that changes is UserOptions.dat, and `useroptions.py restore`
+puts that back.
+
+
+Checklist before you report a problem
+-------------------------------------
+1. TriadWars.exe is in the folder that contains Play-TriadWars.bat.
+2. Python 3.9 or newer is on PATH: open a command prompt and run `python --version`.
+3. Nothing else is listening on port 443 (Skype and some web servers do):
+       netstat -ano | findstr :443
+4. The server window (the small minimised one Play-TriadWars.bat opens) is still open
+   while you play, and LocalServer\logs has a log from today.
+
+
+Troubleshooting
+---------------
+"The server did not start listening on port 443"
+    Something else owns the port. Close it, or run the server on another port for a
+    look: python LocalServer\server.py --port 8443 (the game itself always wants 443).
+
+"Python was not found" / the Microsoft Store opens
+    Install Python from python.org and tick "Add python.exe to PATH".
+
+The game closes the moment it starts
+    Two client-side crashes are known and are fixed by patching the executable (see
+    LocalServer\README.md, "Optional: shadow-crash patch"):
+
+        python LocalServer\tools\patch_exe.py status
+        python LocalServer\tools\patch_exe.py apply
+
+    `restore` undoes it. Keep a copy of TriadWars.exe before patching if you care.
+
+A screen is empty or does nothing
+    Open LocalServer\logs\*.log. Requests the server has no handler for are logged as
+    UNHANDLED, and every reply is one line. That log is the first thing to look at.
+
+My save is broken / I want to start over
+    Close the game and the server, then delete LocalServer\state.json. A new profile is
+    created on the next launch. Old profiles migrate themselves; the current schema
+    version is at the top of state.json.
+
+I changed a look and the game shows the old one
+    The model is read when the game logs in. Change it, then start the game again.
+
+
+Everyday things
+---------------
+Change your outfit        Change-Look.bat, with the game and the server closed. It lists
+                          40 looks (gang, zombie, swat, tactical, suit, triad, no
+                          clothes) and puts the one you pick on your enforcer. The same
+                          thing from a command prompt:
+                              python LocalServer\tools\playermodel.py looks
+                              python LocalServer\tools\playermodel.py set "swat pointman"
+                          Every piece of every look is already owned, so the wardrobe can
+                          rebuild or tweak any of them in the game.
+
+Money                     LocalServer\README.md explains the shops, the warehouse and the
+                          export loop. The warehouse screen trades all eight commodities
+                          (buy/sell) and the export missions pay dirty money and face.
+
+Check the server          python LocalServer\tools\smoke_test.py --port 443
+                          (needs the server to be running)
+
+Run the test suites       python LocalServer\tools\test_jobs.py
+                          python LocalServer\tools\test_shops.py
+                          python LocalServer\tools\test_looks.py
+                          python LocalServer\tools\test_exports.py

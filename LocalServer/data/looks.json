@@ -291,6 +291,102 @@
    ]
   },
   {
+   "id": "dockside-crew",
+   "name": "Dockside Crew",
+   "theme": "Gang",
+   "blurb": "Puffer vest, work boots, hands in your pockets. The docks remember you.",
+   "pieces": [
+    {
+     "uid": "559933808173005777",
+     "name": "Puffy Vest",
+     "data_name": "Puffy Vest",
+     "part": "Puffer Vest",
+     "slot": "torso",
+     "category": "Tops|Street"
+    },
+    {
+     "uid": "2031482769695578890",
+     "name": "Grubby",
+     "data_name": "Grubby",
+     "part": "P_Grubby",
+     "slot": "legs",
+     "category": "Pants|Casual"
+    },
+    {
+     "uid": "823118146677005466",
+     "name": "Worksite Boots",
+     "data_name": "Worksite Boots",
+     "part": "Worker Boots",
+     "slot": "feet",
+     "category": "Shoes|Casual"
+    },
+    {
+     "uid": "1267736645795388472",
+     "name": "Striped Toque",
+     "data_name": "Striped Toque",
+     "part": "H_Toque",
+     "slot": "head",
+     "category": "Hats"
+    },
+    {
+     "uid": "6843351049092404611",
+     "name": "Disguise!",
+     "data_name": "Disguise!",
+     "part": "G_Disguise",
+     "slot": "glasses",
+     "category": "Accessories|Glasses"
+    }
+   ]
+  },
+  {
+   "id": "wolf-pack",
+   "name": "Wolf Pack",
+   "theme": "Gang",
+   "blurb": "Leather, dark denim, boots, face covered. Ride in, ride out.",
+   "pieces": [
+    {
+     "uid": "1067957723435158197",
+     "name": "Leather Jacket",
+     "data_name": "Leather Jacket",
+     "part": "Leather Jacket",
+     "slot": "torso",
+     "category": "Tops|Casual"
+    },
+    {
+     "uid": "9520430282433543558",
+     "name": "Douche Jeans",
+     "data_name": "Douche Jeans",
+     "part": "Douche Jeans",
+     "slot": "legs",
+     "category": "Pants|Casual"
+    },
+    {
+     "uid": "12982242303449263853",
+     "name": "Combat Boots",
+     "data_name": "Combat Boots",
+     "part": "Classic Boot",
+     "slot": "feet",
+     "category": "Shoes|Casual"
+    },
+    {
+     "uid": "1703950963863878836",
+     "name": "Balaclava - Puma",
+     "data_name": "Balaclava - Puma",
+     "part": "H_Balaclava",
+     "slot": "mask",
+     "category": "Accessories|Masks"
+    },
+    {
+     "uid": "12732632209857274979",
+     "name": "Leather Bands",
+     "data_name": "Leather Bands",
+     "part": "W_LeatherBands",
+     "slot": "wrist_right",
+     "category": "Accessories|Right Wrist"
+    }
+   ]
+  },
+  {
    "id": "fresh-zombie",
    "name": "Fresh Zombie",
    "theme": "Zombie",
@@ -419,6 +515,102 @@
    ]
   },
   {
+   "id": "zombie-riot",
+   "name": "Zombie Riot",
+   "theme": "Zombie",
+   "blurb": "One of the dead, still in tactical trousers, respirator over the jaw.",
+   "pieces": [
+    {
+     "uid": "15875951399060713218",
+     "name": "Zombie Torso",
+     "data_name": "T_TorsoZombie - Tint [0]",
+     "part": "T_TorsoZombie",
+     "slot": "torso",
+     "category": ""
+    },
+    {
+     "uid": "12315043469558292059",
+     "name": "Tactical Trousers (Camo Urban)",
+     "data_name": "P_Tactical - Set [CamoUrban] - Tint [0]",
+     "part": "P_Tactical",
+     "slot": "legs",
+     "category": "Pants"
+    },
+    {
+     "uid": "4984498245435107797",
+     "name": "Zombie Feet",
+     "data_name": "Zombie Feet - Tint [0]",
+     "part": "Zombie Feet",
+     "slot": "feet",
+     "category": ""
+    },
+    {
+     "uid": "558951936869560608",
+     "name": "Zombie Head",
+     "data_name": "H_HeadZombie - Tint [0]",
+     "part": "H_HeadZombie",
+     "slot": "head",
+     "category": "NOT READY FOR STORE YET"
+    },
+    {
+     "uid": "8489974217967628507",
+     "name": "Air Filter - Old",
+     "data_name": "Air Filter - Old",
+     "part": "G_Sars",
+     "slot": "mask",
+     "category": "Accessories|Masks"
+    }
+   ]
+  },
+  {
+   "id": "zombie-biker",
+   "name": "Zombie Biker",
+   "theme": "Zombie",
+   "blurb": "Dead, leather trousers, still wearing the wristbands from the crash.",
+   "pieces": [
+    {
+     "uid": "15875951399060713218",
+     "name": "Zombie Torso",
+     "data_name": "T_TorsoZombie - Tint [0]",
+     "part": "T_TorsoZombie",
+     "slot": "torso",
+     "category": ""
+    },
+    {
+     "uid": "138259547798409634",
+     "name": "Leather Pants",
+     "data_name": "Leather Pants",
+     "part": "P_Leather",
+     "slot": "legs",
+     "category": "Pants|Casual"
+    },
+    {
+     "uid": "4984498245435107797",
+     "name": "Zombie Feet",
+     "data_name": "Zombie Feet - Tint [0]",
+     "part": "Zombie Feet",
+     "slot": "feet",
+     "category": ""
+    },
+    {
+     "uid": "558951936869560608",
+     "name": "Zombie Head",
+     "data_name": "H_HeadZombie - Tint [0]",
+     "part": "H_HeadZombie",
+     "slot": "head",
+     "category": "NOT READY FOR STORE YET"
+    },
+    {
+     "uid": "12732632209857274979",
+     "name": "Leather Bands",
+     "data_name": "Leather Bands",
+     "part": "W_LeatherBands",
+     "slot": "wrist_right",
+     "category": "Accessories|Right Wrist"
+    }
+   ]
+  },
+  {
    "id": "swat-pointman",
    "name": "Swat Pointman",
    "theme": "Swat",
@@ -543,6 +735,54 @@
      "part": "G_Sars Variations",
      "slot": "mask",
      "category": "Accessories|Masks"
+    }
+   ]
+  },
+  {
+   "id": "swat-nightwatch",
+   "name": "Swat Nightwatch",
+   "theme": "Swat",
+   "blurb": "Swat plate and boots, super swat helmet, aviators under the visor.",
+   "pieces": [
+    {
+     "uid": "16273401764728846913",
+     "name": "Swat Armour",
+     "data_name": "T_Swat - Tint [0]",
+     "part": "T_Swat",
+     "slot": "torso",
+     "category": "Chest"
+    },
+    {
+     "uid": "18141634147670383446",
+     "name": "Swat Trousers",
+     "data_name": "P_Swat - Tint [0]",
+     "part": "P_Swat",
+     "slot": "legs",
+     "category": "Pants"
+    },
+    {
+     "uid": "18312718196983068682",
+     "name": "Swat Boots",
+     "data_name": "S_Swat - Tint [0]",
+     "part": "S_Swat",
+     "slot": "feet",
+     "category": "Shoes"
+    },
+    {
+     "uid": "15871111262910322960",
+     "name": "Super Swat Helmet",
+     "data_name": "H_SuperSwat - Tint [0]",
+     "part": "H_SuperSwat",
+     "slot": "head",
+     "category": "NOT READY FOR STORE YET"
+    },
+    {
+     "uid": "695730325841499403",
+     "name": "Aspirazone Aviators",
+     "data_name": "Aspirazone Aviators",
+     "part": "G_Thin",
+     "slot": "glasses",
+     "category": "Accessories|Glasses"
     }
    ]
   },
@@ -947,6 +1187,54 @@
    ]
   },
   {
+   "id": "consigliere",
+   "name": "Consigliere",
+   "theme": "Suit",
+   "blurb": "Black suit, brogues, glasses. You do the talking, someone else does the rest.",
+   "pieces": [
+    {
+     "uid": "2308714266357873960",
+     "name": "Suit Jacket, closed",
+     "data_name": "Suit Jacket, closed",
+     "part": "Suit Jacket Closed",
+     "slot": "torso",
+     "category": "Tops|Formal"
+    },
+    {
+     "uid": "1023727507595887391",
+     "name": "Slacks",
+     "data_name": "Slacks",
+     "part": "Slacks",
+     "slot": "legs",
+     "category": "Pants|Formal"
+    },
+    {
+     "uid": "1057084004659078346",
+     "name": "Couronne Brogue Loafer",
+     "data_name": "Couronne Brogue Loafer",
+     "part": "Brogue Loafer",
+     "slot": "feet",
+     "category": "Shoes|Formal"
+    },
+    {
+     "uid": "9816439658666107284",
+     "name": "Classic Couronne",
+     "data_name": "Classic Couronne",
+     "part": "G_Dogs",
+     "slot": "glasses",
+     "category": "Accessories|Glasses"
+    },
+    {
+     "uid": "15221748838187233067",
+     "name": "Couronne Speedster Watch",
+     "data_name": "Couronne Speedster Watch",
+     "part": "W_MetalRound",
+     "slot": "wrist_left",
+     "category": "Accessories|Left Wrist"
+    }
+   ]
+  },
+  {
    "id": "red-pole",
    "name": "Red Pole",
    "theme": "Triad",
@@ -1223,6 +1511,70 @@
      "part": "H_Hair_Grey",
      "slot": "hair",
      "category": "Body|Hair"
+    }
+   ]
+  },
+  {
+   "id": "golden-koi",
+   "name": "Golden Koi",
+   "theme": "Triad",
+   "blurb": "Golden koi on the chest, silk below, jade at the wrist.",
+   "pieces": [
+    {
+     "uid": "5226119746428292755",
+     "name": "Golden Koi - Black",
+     "data_name": "Golden Koi - Black",
+     "part": "TShirt Printed",
+     "slot": "torso",
+     "category": "Tops|Street"
+    },
+    {
+     "uid": "8661534591348969886",
+     "name": "P_ShenZen",
+     "data_name": "P_ShenZen - Tint [0]",
+     "part": "P_ShenZen",
+     "slot": "legs",
+     "category": "Pants"
+    },
+    {
+     "uid": "5342130653007064297",
+     "name": "Martial Arts Sneaker",
+     "data_name": "Shoes_MartialArts",
+     "part": "Martial Arts Sneaker",
+     "slot": "feet",
+     "category": "Shoes"
+    },
+    {
+     "uid": "16583764754201198744",
+     "name": "Jade Pendant",
+     "data_name": "Jade Pendant",
+     "part": "N_Jade",
+     "slot": "neck",
+     "category": "Accessories|Neck"
+    }
+   ]
+  },
+  {
+   "id": "bare-minimum",
+   "name": "Bare Minimum",
+   "theme": "No clothes",
+   "blurb": "Green plaid boxers and a bracelet. It's a look.",
+   "pieces": [
+    {
+     "uid": "11008857385903306360",
+     "name": "Boxers: Green Plaid",
+     "data_name": "Boxers: Green Plaid",
+     "part": "P_UWBoxers",
+     "slot": "legs",
+     "category": "Pants|Formal"
+    },
+    {
+     "uid": "3646758454203304018",
+     "name": "Digital Bracelet",
+     "data_name": "Digital Bracelet",
+     "part": "Digital Bracelet",
+     "slot": "wrist_left",
+     "category": "Accessories|Left Wrist"
     }
    ]
   },
