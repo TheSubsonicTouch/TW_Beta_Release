@@ -202,13 +202,13 @@ static void test_matrices(void)
     fc_mat_identity(&m);
     CHECK(fc_mat_valid(&m), "identity is a valid transform");
 
-    /* world matrix, looking along -Z */
+    /* world matrix, looking along +Y in a Z-up world */
     fc_mat_from_pose(&m, pos, 0.0f, 0.0f, 0);
     CHECK(NEAR(m.m[12], 10.0f, 1e-5) && NEAR(m.m[13], 20.0f, 1e-5) && NEAR(m.m[14], -30.0f, 1e-5),
           "position lands in row 3");
-    CHECK(NEAR(m.m[8], 0.0f, 1e-5) && NEAR(m.m[9], 0.0f, 1e-5) && NEAR(m.m[10], -1.0f, 1e-5),
-          "forward row is -Z at yaw 0 (got %f %f %f)", m.m[8], m.m[9], m.m[10]);
-    CHECK(NEAR(m.m[0], 1.0f, 1e-5) && NEAR(m.m[5], 1.0f, 1e-5), "right is +X, up is +Y");
+    CHECK(NEAR(m.m[8], 0.0f, 1e-5) && NEAR(m.m[9], -1.0f, 1e-5) && NEAR(m.m[10], 0.0f, 1e-5),
+          "the third row is backwards: -Y at yaw 0 (got %f %f %f)", m.m[8], m.m[9], m.m[10]);
+    CHECK(NEAR(m.m[0], 1.0f, 1e-5) && NEAR(m.m[6], 1.0f, 1e-5), "right is +X, up is +Z");
     CHECK(fc_mat_valid(&m), "a built world matrix is valid");
 
     /* and back out again */
@@ -218,25 +218,26 @@ static void test_matrices(void)
 
     /* quarter turn to the left: yaw = +90 degrees looks along -X */
     fc_mat_from_pose(&m, pos, (float)(TEST_PI / 2.0), 0.0f, 0);
-    CHECK(NEAR(m.m[8], -1.0f, 1e-4) && NEAR(m.m[10], 0.0f, 1e-4), "yaw +90 looks along -X");
+    CHECK(NEAR(m.m[8], 1.0f, 1e-4) && NEAR(m.m[9], 0.0f, 1e-4), "yaw +90 looks along -X");
     CHECK(fc_mat_to_pose(&m, back, &yaw, &pitch, 0) == 1 && NEAR(yaw, (float)(TEST_PI / 2.0), 1e-4),
           "yaw round trips");
 
     /* pitch up */
     fc_mat_from_pose(&m, pos, 0.0f, 0.5f, 0);
-    CHECK(NEAR(m.m[9], sinf(0.5f), 1e-4), "pitch tilts the forward row up");
+    CHECK(NEAR(m.m[10], -sinf(0.5f), 1e-4), "pitch tilts the backwards row down");
     CHECK(fc_mat_to_pose(&m, back, &yaw, &pitch, 0) == 1 && NEAR(pitch, 0.5f, 1e-4),
           "pitch round trips");
 
-    /* view matrix: a camera at (0,0,10) looking down -Z sees the origin 10 ahead */
+    /* view matrix: a camera at (0,-10,0) looking along +Y sees the origin 10 ahead */
     {
-        float eye[3] = { 0.0f, 0.0f, 10.0f };
+        float eye[3] = { 0.0f, -10.0f, 0.0f };
         fc_mat v;
         fc_mat_from_pose(&v, eye, 0.0f, 0.0f, 1);
         CHECK(fc_mat_valid(&v), "a view matrix is valid");
-        CHECK(NEAR(v.m[14], -10.0f, 1e-4), "view translation is -dot(basis, eye)");
+        CHECK(NEAR(v.m[13], 0.0f, 1e-4) && NEAR(v.m[14], -10.0f, 1e-4),
+              "view translation is -dot(row, eye) (got %f %f %f)", v.m[12], v.m[13], v.m[14]);
         CHECK(fc_mat_to_pose(&v, back, &yaw, &pitch, 1) == 1, "decompose a view matrix");
-        CHECK(NEAR(back[2], 10.0f, 1e-4), "view position round trips");
+        CHECK(NEAR(back[1], -10.0f, 1e-4), "view position round trips");
     }
 
     /* nonsense is rejected before it can be written into the game */
@@ -322,12 +323,12 @@ static void test_movement(void)
     fc_mat_from_pose(&cam, pos, 0.0f, 0.0f, 0);
     fc_toggle(&st, &cam);
 
-    /* W for a tenth of a second at 10 m/s: 1 m along -Z */
+    /* W for a tenth of a second at 10 m/s: 1 m along +Y */
     st.keys[FC_FORWARD] = 1;
     CHECK(fc_step(&st, 0.1f, 0.0f, 0.0f, &out) == 1, "a step is produced");
-    CHECK(NEAR(st.pos[2], -1.0f, 1e-3), "forward is -Z at yaw 0 (got %f)", st.pos[2]);
-    CHECK(NEAR(st.pos[0], 0.0f, 1e-3) && NEAR(st.pos[1], 0.0f, 1e-3), "no sideways drift");
-    CHECK(NEAR(out.m[14], -1.0f, 1e-3), "the written matrix carries the new position");
+    CHECK(NEAR(st.pos[1], 1.0f, 1e-3), "forward is +Y at yaw 0 (got %f)", st.pos[1]);
+    CHECK(NEAR(st.pos[0], 0.0f, 1e-3) && NEAR(st.pos[2], 0.0f, 1e-3), "no sideways drift");
+    CHECK(NEAR(out.m[13], 1.0f, 1e-3), "the written matrix carries the new position");
 
     /* D strafes along +X */
     st.keys[FC_FORWARD] = 0;
@@ -339,26 +340,26 @@ static void test_movement(void)
     /* Space climbs */
     st.keys[FC_UP] = 1;
     fc_step(&st, 0.1f, 0.0f, 0.0f, &out);
-    CHECK(NEAR(st.pos[1], 1.0f, 1e-3), "up climbs (got %f)", st.pos[1]);
+    CHECK(NEAR(st.pos[2], 1.0f, 1e-3), "up climbs (got %f)", st.pos[2]);
     st.keys[FC_UP] = 0;
 
     /* shift multiplies the step */
     {
-        float before = st.pos[2];
+        float before = st.pos[1];
         st.keys[FC_FORWARD] = 1;
         st.keys[FC_SPRINT] = 1;
         fc_step(&st, 0.1f, 0.0f, 0.0f, &out);
-        CHECK(NEAR(st.pos[2] - before, -4.0f, 1e-3), "sprint is 4x (moved %f)", st.pos[2] - before);
+        CHECK(NEAR(st.pos[1] - before, 4.0f, 1e-3), "sprint is 4x (moved %f)", st.pos[1] - before);
         st.keys[FC_SPRINT] = 0;
         st.keys[FC_FORWARD] = 0;
     }
 
     /* a long stall must not teleport the camera */
     {
-        float before = st.pos[2];
+        float before = st.pos[1];
         st.keys[FC_FORWARD] = 1;
         fc_step(&st, 5.0f, 0.0f, 0.0f, &out);   /* five seconds of hitch */
-        CHECK(NEAR(st.pos[2] - before, -1.0f, 1e-3), "dt is clamped to 0.1 s (moved %f)", st.pos[2] - before);
+        CHECK(NEAR(st.pos[1] - before, 1.0f, 1e-3), "dt is clamped to 0.1 s (moved %f)", st.pos[1] - before);
         st.keys[FC_FORWARD] = 0;
     }
 
@@ -424,6 +425,119 @@ static void test_look(void)
     CHECK(fc_mat_valid(&out), "the clamped matrix is still valid");
 }
 
+/* The pose of the game's own camera, straight out of TW_MenuLog.txt. This is the test
+ * that would have caught the Y-up/Z-up mistake: with the wrong up axis the extracted
+ * pose reproduced a camera rolled 180 degrees. */
+static void test_game_camera_matrix(void)
+{
+    fc_mat v = { { -0.996f, -0.014f, 0.086f, 0.000f,
+                    0.087f, -0.155f, 0.984f, 0.000f,
+                   -0.000f,  0.988f, 0.156f, 0.000f,
+                 1477.117f, -111.211f, 684.829f, 1.000f } };
+    fc_mat rebuilt;
+    float pos[3] = { 0, 0, 0 }, yaw = 0.0f, pitch = 0.0f;
+    int sign = 0, k;
+
+    CHECK(fc_mat_valid(&v), "the game's camera matrix is a view matrix");
+    CHECK(fc_pose_from_view(&v, pos, &yaw, &pitch, &sign) == 1, "its pose comes out");
+    CHECK(sign == 1, "with row 2 holding -forward");
+
+    CHECK(NEAR(pos[0], 1410.8f, 0.1f) && NEAR(pos[1], -819.6f, 0.1f) && NEAR(pos[2], 3.0f, 0.1f),
+          "eye at %.1f %.1f %.1f", pos[0], pos[1], pos[2]);
+    CHECK(NEAR(pitch, -0.157f, 0.01f), "looking 9 degrees down (pitch %.1f deg)",
+          pitch * 57.29578f);
+    CHECK(fabsf(yaw - 3.0543f) < 0.02f, "yaw 175 degrees (%.1f deg)", yaw * 57.29578f);
+
+    /* and the rebuild reproduces it, which is what says the basis is the right one.
+     * The log prints three decimals, and a translation component is the dot of a
+     * basis row with an eye 1400 units out, so those can be half a unit off. */
+    fc_mat_from_pose(&rebuilt, pos, yaw, pitch, sign);
+    {
+        float worst = 0.0f, worstT = 0.0f;
+        for (k = 0; k < 12; k++) {
+            float d = rebuilt.m[k] - v.m[k];
+            if (d < 0.0f) d = -d;
+            if (d > worst) worst = d;
+        }
+        for (k = 12; k < 15; k++) {
+            float d = rebuilt.m[k] - v.m[k];
+            if (d < 0.0f) d = -d;
+            if (d > worstT) worstT = d;
+        }
+        CHECK(worst < 0.01f, "the rebuilt rotation matches the game's (worst %f)", worst);
+        CHECK(worstT < 1.0f, "and so does its translation (worst %f)", worstT);
+    }
+
+    /* the camera's world matrix, logged at the same moment from +0x80 */
+    {
+        fc_mat world = { { -0.996f, 0.087f, -0.000f, 0.000f,
+                           -0.014f, -0.155f, 0.988f, 0.000f,
+                            0.086f, 0.984f, 0.156f, 0.000f,
+                         1411.382f, -819.282f, 3.070f, 1.000f } };
+        float wp[3] = { 0, 0, 0 }, wyaw = 0.0f, wpitch = 0.0f;
+
+        CHECK(fc_mat_valid(&world), "the game's world matrix is a rigid transform");
+        CHECK(fc_mat_to_pose(&world, wp, &wyaw, &wpitch, 0) == 1, "and gives the same pose");
+        CHECK(NEAR(wp[0], 1411.4f, 0.1f) && NEAR(wp[1], -819.3f, 0.1f) && NEAR(wp[2], 3.1f, 0.1f),
+              "camera at %.1f %.1f %.1f", wp[0], wp[1], wp[2]);
+        CHECK(NEAR(wyaw, yaw, 0.02f) && NEAR(wpitch, pitch, 0.02f),
+              "looking the same way as the view says (%.1f %.1f deg)",
+              wyaw * 57.29578f, wpitch * 57.29578f);
+        CHECK(fc_view_sign(&world, &v) == 1, "and the two are a world/view pair");
+    }
+}
+
+/* Freezing holds the pose while the player gets on with it. */
+static void test_freeze(void)
+{
+    fc_config cfg;
+    fc_state st;
+    fc_mat cam, out;
+    float pos[3] = { 1.0f, 2.0f, 3.0f };
+
+    fc_config_defaults(&cfg);
+    fc_init(&st, &cfg);
+    fc_mat_from_pose(&cam, pos, 0.2f, -0.1f, 0);
+    fc_toggle(&st, &cam);
+
+    CHECK(!fc_frozen(&st), "not frozen to begin with");
+    fc_freeze(&st, 1);
+    CHECK(fc_frozen(&st), "frozen after O");
+
+    /* every key pressed, mouse moving: the pose must not change */
+    st.keys[FC_FORWARD] = 1;
+    st.keys[FC_RIGHT] = 1;
+    fc_step(&st, 0.5f, 40.0f, -25.0f, &out);
+    CHECK(NEAR(st.pos[0], 1.0f, 1e-5) && NEAR(st.pos[1], 2.0f, 1e-5),
+          "a frozen camera ignores the keys (%.3f %.3f)", st.pos[0], st.pos[1]);
+    CHECK(NEAR(st.yaw, 0.2f, 1e-5) && NEAR(st.pitch, -0.1f, 1e-5), "and the mouse");
+    CHECK(fc_mat_valid(&out), "but it still hands out a pose to draw");
+
+    /* switching free cam off and on again must never come back frozen */
+    fc_freeze(&st, 1);
+    fc_set_active(&st, 0, NULL);
+    CHECK(!fc_frozen(&st), "switching free cam off thaws it");
+    fc_mat_from_pose(&cam, pos, 0.2f, -0.1f, 0);
+    fc_set_active(&st, 1, &cam);
+    CHECK(!fc_frozen(&st), "and switching it on starts unfrozen");
+
+    fc_freeze(&st, 0);
+    st.keys[FC_FORWARD] = 0;
+    st.keys[FC_RIGHT] = 0;
+    {
+        float before[3], f[3], r[3], u[3];
+        before[0] = st.pos[0]; before[1] = st.pos[1]; before[2] = st.pos[2];
+        fc_basis(0.2f, -0.1f, f, r, u);
+        st.keys[FC_FORWARD] = 1;
+        fc_step(&st, 0.1f, 0.0f, 0.0f, &out);
+        st.keys[FC_FORWARD] = 0;
+        CHECK(NEAR(st.pos[0] - before[0], f[0] * cfg.speed * 0.1f, 1e-3) &&
+              NEAR(st.pos[1] - before[1], f[1] * cfg.speed * 0.1f, 1e-3) &&
+              NEAR(st.pos[2] - before[2], f[2] * cfg.speed * 0.1f, 1e-3),
+              "flying again after unfreezing");
+    }
+}
+
 /* Following: the camera goes where the player goes, keeping whatever offset it had, and
  * manual movement still works on top of it. */
 static void test_follow(void)
@@ -452,11 +566,12 @@ static void test_follow(void)
     /* flying by hand while following adds to the follow, it does not fight it */
     st.cfg.speed = 10.0f;                 /* 0.1 s of flight is one unit */
     st.keys[FC_UP] = 1;
-    fc_step(&st, 0.1f, 0.0f, 0.0f, &out);
+    fc_step(&st, 0.1f, 0.0f, 0.0f, &out);      /* one unit up (+Z) */
     st.keys[FC_UP] = 0;
-    player[1] += 1.0f;
+    player[1] += 1.0f;                          /* and the player walks one unit (+Y) */
     fc_follow_update(&st, player);
-    CHECK(NEAR(st.pos[1], 22.0f, 1e-3), "manual movement and following add up (%f)", st.pos[1]);
+    CHECK(NEAR(st.pos[1], 21.0f, 1e-3) && NEAR(st.pos[2], 31.0f, 1e-3),
+          "manual movement and following add up (%f %f)", st.pos[1], st.pos[2]);
 
     fc_follow(&st, player, 0);
     player[0] += 100.0f;
@@ -761,17 +876,24 @@ static void test_pose_from_view_roll(void)
     int sign = 0, i;
 
     fc_mat_from_pose(&v, pos, 0.7f, 0.2f, 1);
-    for (i = 0; i < 3; i++) { r[i] = v.m[i]; u[i] = v.m[4 + i]; }
-    for (i = 0; i < 3; i++) { v.m[i] = r[i] * c + u[i] * sn; v.m[4 + i] = -r[i] * sn + u[i] * c; }
+    /* a view keeps the components of the basis in its rows, so rolling the camera about
+     * its backwards axis mixes columns 0 and 1 of every row */
+    for (i = 0; i < 3; i++) {
+        r[i] = v.m[4 * i]; u[i] = v.m[4 * i + 1];
+        v.m[4 * i] = r[i] * c + u[i] * sn;
+        v.m[4 * i + 1] = -r[i] * sn + u[i] * c;
+    }
     /* the translation has to follow the rolled basis, exactly as fc_mat_from_pose
      * writes it, or the matrix is not the view of any camera */
     for (i = 0; i < 3; i++) {
-        v.m[12 + i] = -(v.m[0 + i] * pos[0] + v.m[4 + i] * pos[1] + v.m[8 + i] * pos[2]);
+        v.m[12 + i] = -(v.m[i] * pos[0] + v.m[4 + i] * pos[1] + v.m[8 + i] * pos[2]);
     }
 
     CHECK(fc_mat_valid(&v), "a rolled view matrix is still rigid");
     CHECK(fc_pose_from_view(&v, got, &yaw, &pitch, &sign) == 1, "a rolled camera still gives a pose");
-    CHECK(fabsf(got[0] - pos[0]) < 0.05f && fabsf(got[2] - pos[2]) < 0.05f, "from the right place");
+    CHECK(fabsf(got[0] - pos[0]) < 0.05f && fabsf(got[1] - pos[1]) < 0.05f &&
+          fabsf(got[2] - pos[2]) < 0.05f, "from the right place (%.3f %.3f %.3f)",
+          got[0], got[1], got[2]);
     CHECK(fabsf(yaw - 0.7f) < 0.02f && fabsf(pitch - 0.2f) < 0.02f, "looking the right way");
     CHECK(sign == 1, "with the row sign it uses");
 }
@@ -785,6 +907,8 @@ static void test_transpose(void)
 
     fc_mat_from_pose(&v, pos, 0.9f, 0.3f, 1);
     fc_mat_transpose(&v, &t);
+    /* transposing a view puts the translation into the fourth column, which no rigid
+     * transform has, and that is exactly how a column-major engine is spotted */
     CHECK(!fc_mat_valid(&t), "the transposed view matrix is not a rigid transform");
     CHECK(fc_pose_from_view(&t, NULL, NULL, NULL, NULL) == 0, "so it is not read as one");
     fc_mat_transpose(&t, &back);
@@ -851,6 +975,8 @@ int main(void)
     test_toggle();
     test_movement();
     test_look();
+    test_game_camera_matrix();
+    test_freeze();
     test_follow();
     test_keyframes();
     test_keyframe_yaw_wrap();

@@ -21,6 +21,18 @@ std::string FreeCamSetActive(bool on);
 
 bool FreeCamActive();
 
+// One line of the little corner display: the key that was pressed and what it did.
+// alpha goes from 1 to 0 as the line gets old, so the display fades out by itself.
+struct FreeCamHudLine {
+    char key[8];
+    char text[44];
+    float alpha;
+};
+
+// Fills out[] with the hotkey presses still worth showing, newest first, and returns
+// how many there are. Safe to call when free cam has never been switched on.
+int FreeCamHudLines(FreeCamHudLine *out, int max);
+
 // Per-frame housekeeping. The camera also runs its own thread because the game
 // rewrites its matrices every frame and we have to win that race; this is here
 // so the render loop can nudge it (and is safe to call when free cam is off).

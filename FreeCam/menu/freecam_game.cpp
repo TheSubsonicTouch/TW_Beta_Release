@@ -1092,12 +1092,63 @@ struct Hotkey {
 Hotkey g_followKey{ 'P' };
 Hotkey g_keyKey{ 'L' };
 Hotkey g_playKey{ 'K' };
+Hotkey g_freezeKey{ 'O' };
+
+// --- the corner display ------------------------------------------------------
+//
+// Every hotkey that does something leaves a line here. The line is fully readable
+// for a moment and then fades out over the next second, so the display is empty
+// unless something was just pressed: a HUD that never goes away is clutter.
+
+struct HudNote {
+    char key[8];
+    char text[44];
+    DWORD at;       // GetTickCount when it was pressed
+};
+const int kHudSlots = 8;
+HudNote g_hud[kHudSlots];
+int g_hudNext = 0;
+
+void Hud(const char *key, const char *text) {
+    HudNote &n = g_hud[g_hudNext];
+    g_hudNext = (g_hudNext + 1) % (sizeof(g_hud) / sizeof(g_hud[0]));
+    std::snprintf(n.key, sizeof(n.key), "%s", key);
+    std::snprintf(n.text, sizeof(n.text), "%s", text);
+    n.at = GetTickCount();
+}
+
+// Public wrapper, defined outside the anonymous namespace below.
+int HudCollect(FreeCamHudLine *out, int max) {
+    if (!out || max <= 0) return 0;
+    const DWORD now = GetTickCount();
+    const DWORD hold = 900;     // fully visible for this long
+    const DWORD fade = 700;     // then gone within this
+    int n = 0;
+    // newest first, so a fresh press pushes the older ones down
+    for (int age = 0; age < kHudSlots && n < max; ++age) {
+        const HudNote &c = g_hud[(g_hudNext - 1 - age + kHudSlots * 2) % kHudSlots];
+        if (!c.key[0]) continue;
+        const DWORD dt = now - c.at;
+        if (dt > hold + fade) continue;
+        float a = 1.0f;
+        if (dt > hold) a = 1.0f - static_cast<float>(dt - hold) / static_cast<float>(fade);
+        if (a <= 0.01f) continue;
+        std::snprintf(out[n].key, sizeof(out[n].key), "%s", c.key);
+        std::snprintf(out[n].text, sizeof(out[n].text), "%s", c.text);
+        out[n].alpha = a;
+        ++n;
+    }
+    return n;
+}
 
 void PollInput(float *mouseX, float *mouseY) {
     static const int map[FC_KEY_COUNT] = { 'W', 'S', 'A', 'D', VK_SPACE, 'C', VK_SHIFT, VK_CONTROL, 0 };
     for (int i = 0; i < FC_KEY_COUNT; ++i) g_state.keys[i] = map[i] ? (KeyDown(map[i]) ? 1 : 0) : 0;
 
     *mouseX = *mouseY = 0.0f;
+    // while frozen the camera is not flying, so the right button belongs to the game
+    // and the cursor must stay where the player wants it
+    if (fc_frozen(&g_state)) { g_looking = false; return; }
     if (KeyDown(kLookKey)) {
         if (!g_looking) {
             GetCursorPos(&g_lookOrigin);
@@ -1122,12 +1173,33 @@ void HandleHotkeys(const float player[3], bool havePlayer) {
         } else if (fc_following(&g_state)) {
             fc_follow(&g_state, player, 0);
             TW_Log("FreeCam: no longer following the player; the camera stays here");
+            Hud("P", "follow off");
         } else if (!havePlayer) {
             TW_Log("FreeCam: cannot follow the player - its transform is not readable yet");
         } else {
             fc_follow(&g_state, player, 1);
+            Hud("P", "follow on");
             TW_Log("FreeCam: following the player (%.1f %.1f %.1f) - fly by hand and it keeps up; "
                    "P again to stop", player[0], player[1], player[2]);
+        }
+    }
+
+    if (g_freezeKey.Pressed()) {
+        if (fc_frozen(&g_state)) {
+            fc_freeze(&g_state, 0);
+            TW_Log("FreeCam: camera unfrozen; flying from %.1f %.1f %.1f", g_state.pos[0],
+                   g_state.pos[1], g_state.pos[2]);
+            Hud("O", "camera unfrozen");
+        } else {
+            // following would keep dragging the frozen view along with the player
+            if (fc_following(&g_state)) {
+                fc_follow(&g_state, player, 0);
+                TW_Log("FreeCam: no longer following the player (the camera is being frozen)");
+            }
+            fc_freeze(&g_state, 1);
+            TW_Log("FreeCam: camera frozen at %.1f %.1f %.1f - the player can move, fight and "
+                   "interact; O to unfreeze", g_state.pos[0], g_state.pos[1], g_state.pos[2]);
+            Hud("O", "camera frozen");
         }
     }
 
@@ -1146,6 +1218,11 @@ void HandleHotkeys(const float player[3], bool havePlayer) {
                        g_state.yaw * 57.2957795f, g_state.pitch * 57.2957795f,
                        n == 1 ? " - move the camera, then press L again" : "");
                 if (n == 2) TW_Log("FreeCam: press K to play the path back, in the time it was flown");
+                {
+                    char line[44];
+                    std::snprintf(line, sizeof(line), "keyframe %d", n);
+                    Hud("L", line);
+                }
             }
         }
     }
@@ -1154,9 +1231,15 @@ void HandleHotkeys(const float player[3], bool havePlayer) {
         if (fc_playing(&g_state)) {
             fc_play_stop(&g_state);
             TW_Log("FreeCam: playback stopped; the camera stays where the path reached");
+            Hud("K", "playback stopped");
         } else if (fc_play_start(&g_state)) {
             TW_Log("FreeCam: playing %d keyframes over %.1f seconds (K stops it)",
                    g_state.path_count, g_state.path[g_state.path_count - 1].time);
+            {
+                char line[44];
+                std::snprintf(line, sizeof(line), "playing %d keyframes", g_state.path_count);
+                Hud("K", line);
+            }
         } else {
             TW_Log("FreeCam: nothing to play yet - press L to record a keyframe "
                    "(at least two, with the camera in different places)");
@@ -1243,7 +1326,7 @@ DWORD WINAPI Loop(LPVOID) {
     ULONGLONG lastReport = GetTickCount64();
 
     timeBeginPeriod(1);
-    TW_Log("FreeCam: camera thread up (build 5: renderer-chosen camera, follow, keyframes)");
+    TW_Log("FreeCam: camera thread up (build 6: right-handed view layout, freeze, hotkey display)");
 
     for (;;) {
         if (g_quit) break;
@@ -1267,6 +1350,8 @@ DWORD WINAPI Loop(LPVOID) {
 
         if (KeyDown(VK_F10)) {
             TW_Log("FreeCam: panic key, putting the camera back and the accessor back");
+            Hud("F10", "free cam off");
+            fc_freeze(&g_state, 0);
             g_want = 0;
             if (g_live) StopFlying();
             RemoveDetour(g_viewAcc);
@@ -1358,7 +1443,9 @@ DWORD WINAPI Loop(LPVOID) {
             if (fc_following(&g_state)) {
                 if (PlayerPosition(player)) {
                     fc_follow_update(&g_state, player);
-                    fc_mat_from_pose(&world, g_state.pos, g_state.yaw, g_state.pitch, g_state.cfg.view);
+                    /* the matrix written to the camera's world slot is always a world
+                     * matrix, whatever fc_step was asked to produce */
+                    fc_mat_from_pose(&world, g_state.pos, g_state.yaw, g_state.pitch, 0);
                 }
             }
             got = fc_mat_valid(&world) != 0;
@@ -1433,6 +1520,8 @@ void EnsureThread() {
 }
 
 }  // namespace
+
+int FreeCamHudLines(FreeCamHudLine *out, int max) { return HudCollect(out, max); }
 
 bool FreeCamAvailable() {
     return Base() != 0 && Readable(reinterpret_cast<void *>(Base() + 0x1000), 16);

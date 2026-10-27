@@ -47,15 +47,23 @@ game carries on from its own camera and not from where you flew to.
 WHAT CHANGED IN THIS BUILD
 --------------------------
 
-The camera works now; this build adds the things that make it useful for pictures.
-
-  - P follows the player, so you can fly alongside a car or watch a fight from above
-    without steering after it;
-  - L records keyframes and K plays them back, which is the shot you cannot fly by
-    hand - a slow push through a street, a climb over a rooftop;
-  - the mouse is no longer inverted.
-
-Nothing about the hooking or the camera detection changed.
+  - The mouse is no longer inverted, and this time the cause is known. The game
+    keeps its camera matrix the other way round from how earlier builds wrote it:
+    the rows of the view matrix hold the camera's right, up and backwards axes, and
+    its world matrix holds the same three axes as rows - the two are inverses, which
+    is why the translation of one is not the position and the other's is. Writing a
+    world matrix into the view slot makes the picture look out of the back of the
+    camera, and every control then works backwards. The matrices are now built the way
+    the game's own camera builds them; the test suite checks the result against a
+    camera matrix copied out of a real TW_MenuLog.txt, and it is the picture, not a
+    sign in the mouse code, that is now right.
+  - O freezes the camera where it is. The view stays put while your character walks,
+    drives, fights and interacts - useful for watching a scene from a fixed angle. O
+    again hands the camera back, and F10 clears the freeze as well.
+  - A small hotkey display in the top-right corner shows what was just pressed (P, L,
+    K, O, F10). It fades away by itself after a moment, so the corner is empty while
+    you are just flying.
+  - P and the keyframes from the last build are unchanged.
 
 CONTROLS
 --------
@@ -71,6 +79,8 @@ CONTROLS
                         wherever the player goes; P again to stay put
     L                   record a keyframe where the camera is now
     K                   play the recorded keyframes back, at the speed they were flown
+    O                   freeze the camera where it is - the view stays put while the
+                        player moves, fights and interacts; O again to unfreeze
     F10                 panic: put the camera back and switch off, from anywhere
 
 The mouse is natural: push it forward and you look up, pull it back and you look down.
@@ -90,6 +100,22 @@ Follow and keyframes:
 
 While the path is playing, the mouse and movement keys are ignored: the path is driving.
 
+The freeze (O):
+
+  - The camera stops where it is and stays there. The player is untouched, so WASD,
+    attacking, driving and interacting all still work - you are just watching from a
+    fixed angle.
+  - While frozen, the mouse is not captured, so the right button goes to the game.
+  - Freezing stops a follow (P) and a playback (K): both would drag the view along.
+  - O again, F10, or switching free cam off all thaw it. Switching free cam off and on
+    always starts unfrozen.
+
+The hotkey display:
+
+  - Sits in the top-right corner, one line per key pressed, newest on top.
+  - Fades out a second after the press; nothing is drawn while it is empty.
+  - It is drawn by the same overlay as the menu, so it works with the menu closed.
+
 The menu's own keys (arrows, Enter, Backspace) still work, so you can open the menu
 while flying and switch it off from there.
 
@@ -101,7 +127,7 @@ TW_MenuLog.txt, next to TriadWars.exe, records everything. Load into the world
 first - the camera cannot be told apart on a loading screen - then toggle it and
 look for these lines, in this order:
 
-    FreeCam: camera thread up (build 4: the renderer is asked which camera it draws)
+    FreeCam: camera thread up (build 6: right-handed view layout, freeze, hotkey display)
     FreeCam: switched on, asking the renderer which camera it draws
     FreeCam: hooked the view accessor at 0000... with an absolute jump (original kept at ...)
     FreeCam: the renderer asked about 0000... for the first time

@@ -16,6 +16,52 @@ WHAT WAS ADDED
 
 Nothing else in the menu changed.
 
+THE MATRIX LAYOUT (build 6)
+--------------------------
+
+Builds 1 to 5 wrote the camera basis in the wrong order and the whole flight worked
+backwards because of it. The log settles it: at 14:10:09 the same camera prints both
+matrices, and they are inverses of each other.
+
+    +0x40 view   [ -0.996 -0.014  0.086 |  0.087 -0.155  0.984 | -0.000  0.988  0.156
+                   | 1477.117 -111.211 684.829 ]
+    +0x80 world  [ -0.996  0.087 -0.000 | -0.014 -0.155  0.988 |  0.086  0.984  0.156
+                   | 1411.382 -819.282 3.070 ]
+
+* In the world matrix the rows ARE the axes: right (-0.996 0.087 0), up
+  (-0.014 -0.155 0.988) and backwards (0.086 0.984 0.156), and the translation is the
+  eye - which is the player's position, 1411.382 -819.282 3.070.
+* In the view matrix the rows hold the COMPONENTS of those axes: row 0 is
+  (right.x, up.x, backwards.x). Its translation is minus each axis' dot with the eye,
+  so it is 1477.117 ..., not the position.
+* The third axis is backwards, not forward: the camera looks down its own -Z, so
+  forward = -(third axis). Decoded that way the camera looks 9 degrees down at a
+  player standing 3.5 units away, at yaw 175. That is a camera, and the numbers are
+  checked in tests/ (test_game_camera_matrix).
+
+Reading the third ROW as forward - builds 1 to 5 - happens to be right only when the
+camera faces exactly -Y, which the logged cameras all do; that is why the flight
+seemed to work while the picture came out of the back of the camera and the mouse
+felt inverted. Writing the world layout into the view slot did the same thing from
+the other side. Both are fixed: fc_basis gives a right-handed frame (right = forward
+x world up), fc_mat_from_pose writes both layouts, fc_pose_from_view reads the
+components out of the third block (m[2], m[6], m[10]) and only falls back to a
+forward-only comparison for a rolled camera.
+
+WHAT BUILD 6 ADDED
+------------------
+
+    fc_freeze(st, on) / fc_frozen(st)     hold the pose: fc_step ignores keys and mouse
+                                          and returns the same matrix. Freezing also
+                                          stops a playback and a follow (the follow is
+                                          cleared by the hotkey), and switching free
+                                          cam off clears the freeze.
+    O                                     the freeze key, in HandleHotkeys.
+    FreeCamHudLines / Hud()               eight slots of key + text, each with its own
+                                          fade; drawn by renderFrame() in the top-right
+                                          corner even when the menu is closed, and not
+                                          drawn at all when every line has faded.
+
 HOW THIS FINDS THE CAMERA
 -------------------------
 
@@ -103,9 +149,10 @@ Three additions, all in the portable half so they can be tested without Windows:
                                     and playback stops there; pressing the key again
                                     replays from the start.
 
-The mouse is natural now: Windows reports screen y downwards, so the pitch takes the
-movement off (fc_step did the opposite before build 5, which read as inverted). The
-existing invert_y setting flips it back for anyone who prefers it.
+The mouse is natural: Windows reports screen y downwards, so the pitch takes the
+movement off, and a mouse moving right lowers the yaw (which turns the camera right).
+This was already true in build 5 - what was still wrong was the matrix layout above.
+The existing invert_y setting flips the pitch back for anyone who prefers it.
 
 Everything is guarded: VirtualQuery before every read, SEH around the scan and the
 writes, the accessor located by RVA *and* by searching .text for its exact bytes (so a

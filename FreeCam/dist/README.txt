@@ -14,6 +14,9 @@ What it does
 * F10 is the panic key: the camera goes straight back where it came from.
 * Switching free cam off puts the matrix back exactly as it was, so the game carries on
   from where it was, not from where you flew to.
+* The mouse is natural: right is right, and pushing it forward looks up. (Until build 6
+  the camera matrices were built with the game's axes in the wrong slots, which made the
+  picture come out of the back of the camera and every control feel inverted.)
 
 Two modes, set in FreeCam.ini:
 

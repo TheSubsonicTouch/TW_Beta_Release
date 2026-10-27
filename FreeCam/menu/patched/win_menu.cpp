@@ -398,29 +398,74 @@ void initImGui(IDXGISwapChain* sc) {
     TW_Log("OK: ImGui initialized (hwnd=%p).", g_hwnd);
 }
 
+// The little hotkey display in the top-right corner. It only exists for a couple of
+// seconds after a key was pressed and then fades away, so it never sits on the screen
+// while the player is just flying around.
+void renderHotkeyHud() {
+    tw::game::FreeCamHudLine lines[8];
+    const int n = tw::game::FreeCamHudLines(lines, 8);
+    if (n <= 0) return;
+
+    float freshest = 0.0f;
+    for (int i = 0; i < n; ++i) if (lines[i].alpha > freshest) freshest = lines[i].alpha;
+
+    const ImGuiIO& io = ImGui::GetIO();
+    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - 14.0f, 14.0f), ImGuiCond_Always,
+                            ImVec2(1.0f, 0.0f));
+    ImGui::SetNextWindowBgAlpha(0.35f * freshest);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f, 5.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6.0f, 2.0f));
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.05f, 0.05f, 0.06f, 1.0f));
+    ImGui::Begin("##freecam_hud", nullptr,
+                 ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
+                 ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoNav |
+                 ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings |
+                 ImGuiWindowFlags_NoFocusOnAppearing);
+    for (int i = 0; i < n; ++i) {
+        const float a = lines[i].alpha;
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.87f, 0.35f, a));
+        ImGui::TextUnformatted(lines[i].key);
+        ImGui::PopStyleColor();
+        ImGui::SameLine();
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.92f, 0.94f, 0.97f, 0.9f * a));
+        ImGui::TextUnformatted(lines[i].text);
+        ImGui::PopStyleColor();
+    }
+    ImGui::End();
+    ImGui::PopStyleColor();
+    ImGui::PopStyleVar(2);
+}
+
 void renderFrame() {
-    if (!g_menu.visible()) return;
+    const bool menuOn = g_menu.visible();
+    tw::game::FreeCamHudLine probe[1];
+    const bool hudOn = tw::game::FreeCamHudLines(probe, 1) > 0;
+    if (!menuOn && !hudOn) return;
 
     ImGui_ImplDX11_NewFrame();
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
 
-    ImGui::SetNextWindowPos(ImVec2(20, 20), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(520, 0), ImGuiCond_FirstUseEver);
-    ImGui::Begin("Triad Wars Debug Menu", nullptr, ImGuiWindowFlags_NoCollapse);
-    for (const auto& line : g_menu.renderLines()) {
-        if (line.rfind("> ", 0) == 0) {
-            ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.2f, 1.0f), "%s", line.c_str());
-        } else if (line.rfind("Status: ", 0) == 0) {
-            ImGui::TextColored(ImVec4(0.6f, 0.9f, 1.0f, 1.0f), "%s", line.c_str());
-        } else {
-            ImGui::TextUnformatted(line.c_str());
+    if (menuOn) {
+        ImGui::SetNextWindowPos(ImVec2(20, 20), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2(520, 0), ImGuiCond_FirstUseEver);
+        ImGui::Begin("Triad Wars Debug Menu", nullptr, ImGuiWindowFlags_NoCollapse);
+        for (const auto& line : g_menu.renderLines()) {
+            if (line.rfind("> ", 0) == 0) {
+                ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.2f, 1.0f), "%s", line.c_str());
+            } else if (line.rfind("Status: ", 0) == 0) {
+                ImGui::TextColored(ImVec4(0.6f, 0.9f, 1.0f, 1.0f), "%s", line.c_str());
+            } else {
+                ImGui::TextUnformatted(line.c_str());
+            }
         }
+        ImGui::Separator();
+        ImGui::TextDisabled("Keyboard: Insert / arrows / Enter / Backspace");
+        ImGui::TextDisabled("Gamepad: Start / D-pad / A / B");
+        ImGui::End();
     }
-    ImGui::Separator();
-    ImGui::TextDisabled("Keyboard: Insert / arrows / Enter / Backspace");
-    ImGui::TextDisabled("Gamepad: Start / D-pad / A / B");
-    ImGui::End();
+
+    renderHotkeyHud();
 
     ImGui::Render();
     g_ctx->OMSetRenderTargets(1, &g_rtv, nullptr);

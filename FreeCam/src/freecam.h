@@ -75,6 +75,10 @@ typedef struct {
     float  last_player[3];       /* where the player was on the previous tick */
     int    have_last_player;
 
+    /* the camera is held exactly where it is: keys and mouse are ignored and the
+     * player gets to move, fight and interact while the view stays put */
+    int    frozen;
+
     /* a recorded path of poses, and the playback of it */
     int         path_count;
     fc_keyframe path[FC_MAX_KEYS];
@@ -165,6 +169,13 @@ int  fc_following(const fc_state *st);
 /* Move the camera by however far the player moved since the previous call. Call this
  * after fc_step, every tick, while following: manual movement still works on top. */
 void fc_follow_update(fc_state *st, const float player[3]);
+
+/* ---- freezing ---------------------------------------------------------------- */
+
+/* Hold the camera where it is. While frozen, fc_step ignores every key and the mouse
+ * and hands back the same pose, so the player is free to do anything. */
+void fc_freeze(fc_state *st, int on);
+int  fc_frozen(const fc_state *st);
 
 /* ---- keyframes -------------------------------------------------------------- */
 

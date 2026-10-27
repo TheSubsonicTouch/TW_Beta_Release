@@ -377,14 +377,29 @@ void fc_mat_identity(fc_mat *m)
     m->m[0] = m->m[5] = m->m[10] = m->m[15] = 1.0f;
 }
 
+/* The world is Z-up, which is what UFG's engine uses (it is why this file said
+ * "Y up" until build 6: with the wrong up axis every camera came out rolled 180
+ * degrees, and an upside-down picture makes every control feel inverted).
+ *
+ * The camera frame is right-handed: right = forward x world up, up = right x forward,
+ * and a camera looks down its own -Z, so the third axis of the frame is backwards,
+ * w = -forward. TW_MenuLog.txt proves it: the world matrix at camera +0x80 for the
+ * 14:10:09 camera reads
+ *     row 0  -0.996  0.087 -0.000     (right)
+ *     row 1  -0.014 -0.155  0.988     (up)
+ *     row 2   0.086  0.984  0.156     (backwards)
+ *     row 3  1411.382 -819.282 3.070  (eye)
+ * and the view matrix at +0x40 is exactly its inverse: rows (r_x,u_x,w_x) ...
+ *
+ * yaw 0, pitch 0 looks along +Y; positive yaw turns left (towards -X); positive
+ * pitch looks up (towards +Z). */
 void fc_basis(float yaw, float pitch, float forward[3], float right[3], float up[3])
 {
     float cy = cosf(yaw), sy = sinf(yaw);
     float cp = cosf(pitch), sp = sinf(pitch);
 
-    /* yaw 0, pitch 0 looks along -Z; positive yaw turns left */
-    forward[0] = -sy * cp; forward[1] = sp; forward[2] = -cy * cp;
-    right[0] = cy;         right[1] = 0.0f; right[2] = -sy;
+    forward[0] = -sy * cp; forward[1] = cy * cp; forward[2] = sp;
+    right[0] = cy;         right[1] = sy;        right[2] = 0.0f;
 
     /* up = right x forward, which is what a right-handed basis wants */
     up[0] = right[1] * forward[2] - right[2] * forward[1];
@@ -395,22 +410,32 @@ void fc_basis(float yaw, float pitch, float forward[3], float right[3], float up
 
 void fc_mat_from_pose(fc_mat *m, const float pos[3], float yaw, float pitch, int view)
 {
-    float f[3], r[3], u[3];
+    float f[3], r[3], u[3], w[3];
+    const float *rows[3];
     int i;
 
     fc_basis(yaw, pitch, f, r, u);
-    for (i = 0; i < 3; i++) {
-        m->m[0 + i] = r[i];
-        m->m[4 + i] = u[i];
-        /* view 1 keeps -forward in row 2, view 2 keeps +forward: engines differ */
-        m->m[8 + i] = (view == 0) ? f[i] : (view == 1 ? -f[i] : f[i]);
-    }
+    /* the third axis points backwards; view 2 is for engines that keep +forward */
+    for (i = 0; i < 3; i++) w[i] = (view == 2) ? f[i] : -f[i];
+
     if (view) {
-        /* a view matrix puts the camera at the origin: translation = -dot(basis, pos) */
+        /* A view matrix is the inverse of the camera's world matrix: each row holds
+         * the components of one basis vector, and the translation of a row is minus
+         * that basis vector's dot with the eye. */
+        rows[0] = r; rows[1] = u; rows[2] = w;
         for (i = 0; i < 3; i++) {
-            m->m[12 + i] = -(m->m[0 + i] * pos[0] + m->m[4 + i] * pos[1] + m->m[8 + i] * pos[2]);
+            m->m[0 + i] = rows[i][0];
+            m->m[4 + i] = rows[i][1];
+            m->m[8 + i] = rows[i][2];
+            m->m[12 + i] = -(rows[i][0] * pos[0] + rows[i][1] * pos[1] + rows[i][2] * pos[2]);
         }
     } else {
+        /* A world matrix keeps the basis as rows and the eye in the translation. */
+        for (i = 0; i < 3; i++) {
+            m->m[0 + i] = r[i];
+            m->m[4 + i] = u[i];
+            m->m[8 + i] = w[i];
+        }
         m->m[12] = pos[0];
         m->m[13] = pos[1];
         m->m[14] = pos[2];
@@ -422,29 +447,29 @@ void fc_mat_from_pose(fc_mat *m, const float pos[3], float yaw, float pitch, int
 int fc_mat_to_pose(const fc_mat *m, float pos[3], float *yaw, float *pitch, int view)
 {
     float f[3];
-    int i;
 
     if (!fc_mat_valid(m)) return 0;
-    for (i = 0; i < 3; i++) f[i] = m->m[8 + i];
-    if (view) { f[0] = -f[0]; f[1] = -f[1]; f[2] = -f[2]; }
-
     if (view) {
-        /* fc_mat_from_pose writes t = -(A^T * pos), so pos = -(A * t): each eye
-         * component is the negated dot of that matrix ROW with t. Using the columns
-         * here (as this did until build 4) is only right for an axis aligned camera. */
-        float t[3] = { m->m[12], m->m[13], m->m[14] };
-        pos[0] = -(m->m[0] * t[0] + m->m[1] * t[1] + m->m[2] * t[2]);
-        pos[1] = -(m->m[4] * t[0] + m->m[5] * t[1] + m->m[6] * t[2]);
-        pos[2] = -(m->m[8] * t[0] + m->m[9] * t[1] + m->m[10] * t[2]);
+        /* third block of a view matrix: the backwards axis, so forward = -it (view 2
+         * is the engine that keeps +forward there) */
+        f[0] = -m->m[2]; f[1] = -m->m[6]; f[2] = -m->m[10];
+        if (view == 2) { f[0] = -f[0]; f[1] = -f[1]; f[2] = -f[2]; }
+        /* each row of the view is a basis vector, so its eye component is the
+         * negated dot of that row with the translation */
+        pos[0] = -(m->m[0] * m->m[12] + m->m[1] * m->m[13] + m->m[2] * m->m[14]);
+        pos[1] = -(m->m[4] * m->m[12] + m->m[5] * m->m[13] + m->m[6] * m->m[14]);
+        pos[2] = -(m->m[8] * m->m[12] + m->m[9] * m->m[13] + m->m[10] * m->m[14]);
     } else {
+        /* row 2 of a world matrix is the backwards axis, so forward = -it */
+        f[0] = -m->m[8]; f[1] = -m->m[9]; f[2] = -m->m[10];
         pos[0] = m->m[12]; pos[1] = m->m[13]; pos[2] = m->m[14];
     }
     norm3(f);
-    if (pitch) *pitch = asinf(clampf(f[1], -1.0f, 1.0f));
+    /* forward = (-sin(yaw)cos(pitch), cos(yaw)cos(pitch), sin(pitch)), Z up */
+    if (pitch) *pitch = asinf(clampf(f[2], -1.0f, 1.0f));
     if (yaw) {
-        /* forward = (-sin(yaw)cos(pitch), sin(pitch), -cos(yaw)cos(pitch)) */
-        float flat = sqrtf(f[0] * f[0] + f[2] * f[2]);
-        *yaw = flat > 1e-5f ? atan2f(-f[0], -f[2]) : 0.0f;
+        float flat = sqrtf(f[0] * f[0] + f[1] * f[1]);
+        *yaw = flat > 1e-5f ? atan2f(-f[0], f[1]) : 0.0f;
     }
     return 1;
 }
@@ -456,10 +481,10 @@ int fc_pose_from_view(const fc_mat *view, float pos[3], float *yaw, float *pitch
 
     if (!view || !fc_mat_valid(view)) return 0;
 
-    /* Row 2 is -forward (sign 1) or +forward (sign 2). The eye does not depend on
-     * which: fc_mat_from_pose stores t = -(A^T * p), so p = -(A * t), one negated dot
-     * of a matrix ROW with t. Using the columns here (as this did before build 4) is
-     * only right for an axis aligned camera. */
+    /* The third block (m[2], m[6], m[10]) holds the camera's backwards axis, so
+     * forward = -it for sign 1 and +it for sign 2. The eye does not depend on the
+     * sign: each row of the view is a basis vector, so its eye component is the
+     * negated dot of that row with the translation. */
     eye[0] = -(view->m[0] * view->m[12] + view->m[1] * view->m[13] + view->m[2] * view->m[14]);
     eye[1] = -(view->m[4] * view->m[12] + view->m[5] * view->m[13] + view->m[6] * view->m[14]);
     eye[2] = -(view->m[8] * view->m[12] + view->m[9] * view->m[13] + view->m[10] * view->m[14]);
@@ -470,10 +495,10 @@ int fc_pose_from_view(const fc_mat *view, float pos[3], float *yaw, float *pitch
         float worst = 0.0f;
         int k;
 
-        for (k = 0; k < 3; k++) f[k] = (s == 1) ? -view->m[8 + k] : view->m[8 + k];
+        for (k = 0; k < 3; k++) f[k] = (s == 1) ? -view->m[2 + 4 * k] : view->m[2 + 4 * k];
         norm3(f);
-        pi = asinf(clampf(f[1], -1.0f, 1.0f));
-        y = (f[0] * f[0] + f[2] * f[2]) > 1e-10f ? atan2f(-f[0], -f[2]) : 0.0f;
+        pi = asinf(clampf(f[2], -1.0f, 1.0f));
+        y = (f[0] * f[0] + f[1] * f[1]) > 1e-10f ? atan2f(-f[0], f[1]) : 0.0f;
 
         fc_mat_from_pose(&want, eye, y, pi, s);
         for (k = 0; k < 16; k++) {
@@ -497,14 +522,14 @@ int fc_pose_from_view(const fc_mat *view, float pos[3], float *yaw, float *pitch
         float worst = 0.0f;
         int k;
 
-        for (k = 0; k < 3; k++) f[k] = (s == 1) ? -view->m[8 + k] : view->m[8 + k];
+        for (k = 0; k < 3; k++) f[k] = (s == 1) ? -view->m[2 + 4 * k] : view->m[2 + 4 * k];
         norm3(f);
-        pi = asinf(clampf(f[1], -1.0f, 1.0f));
-        y = (f[0] * f[0] + f[2] * f[2]) > 1e-10f ? atan2f(-f[0], -f[2]) : 0.0f;
+        pi = asinf(clampf(f[2], -1.0f, 1.0f));
+        y = (f[0] * f[0] + f[1] * f[1]) > 1e-10f ? atan2f(-f[0], f[1]) : 0.0f;
 
         fc_mat_from_pose(&want, eye, y, pi, s);
-        for (k = 8; k < 11; k++) {          /* the forward row only */
-            float d = want.m[k] - view->m[k];
+        for (k = 0; k < 3; k++) {           /* the forward (third) block only */
+            float d = want.m[2 + 4 * k] - view->m[2 + 4 * k];
             if (d < 0.0f) d = -d;
             if (d > worst) worst = d;
         }
@@ -610,15 +635,22 @@ int fc_view_sign(const fc_mat *world, const fc_mat *view)
     if (!fc_mat_to_pose(world, pos, &yaw, &pitch, 0)) return 0;
     for (sign = 1; sign <= 2; sign++) {
         fc_mat want;
-        float worst = 0.0f;
+        float worst = 0.0f, worstT = 0.0f;
         int k;
         fc_mat_from_pose(&want, pos, yaw, pitch, sign);
-        for (k = 0; k < 16; k++) {
+        for (k = 0; k < 12; k++) {
             float d = want.m[k] - view->m[k];
             if (d < 0.0f) d = -d;
             if (d > worst) worst = d;
         }
-        if (worst < 0.01f) return sign;
+        /* the translation is a dot with an eye that can be thousands of units out, so
+         * it gets its own tolerance: a wrong layout misses by hundreds, not by one */
+        for (k = 12; k < 15; k++) {
+            float d = want.m[k] - view->m[k];
+            if (d < 0.0f) d = -d;
+            if (d > worstT) worstT = d;
+        }
+        if (worst < 0.01f && worstT < 1.0f) return sign;
     }
     return 0;
 }
@@ -691,10 +723,14 @@ int fc_set_active(fc_state *st, int on, const fc_mat *target)
         fc_capture(st, target);
         if (!st->have_pose) return 0;
         st->active = 1;
+        st->frozen = 0;          /* a fresh flight is never frozen */
+
         st->keys[FC_FORWARD] = st->keys[FC_BACK] = st->keys[FC_LEFT] = st->keys[FC_RIGHT] = 0;
         st->keys[FC_UP] = st->keys[FC_DOWN] = 0;
     } else {
         st->active = 0;
+        st->frozen = 0;
+        st->playing = 0;
     }
     return 1;
 }
@@ -715,6 +751,12 @@ int fc_step(fc_state *st, float dt, float mouse_dx, float mouse_dy, fc_mat *out)
     /* a hitch must not teleport the camera across the map */
     if (!(dt > 0.0f)) return 0;
     if (dt > 0.1f) dt = 0.1f;
+
+    /* frozen: the pose stays exactly as it is, whatever is being pressed */
+    if (st->frozen) {
+        fc_mat_from_pose(out, st->pos, st->yaw, st->pitch, st->cfg.view);
+        return fc_mat_valid(out);
+    }
 
     if (mouse_dx || mouse_dy) {
         /* Natural: the mouse moving down looks down. Windows reports screen y growing
@@ -738,8 +780,8 @@ int fc_step(fc_state *st, float dt, float mouse_dx, float mouse_dy, fc_mat *out)
     if (st->keys[FC_BACK])    for (i = 0; i < 3; i++) st->pos[i] -= f[i] * step;
     if (st->keys[FC_RIGHT])   for (i = 0; i < 3; i++) st->pos[i] += r[i] * step;
     if (st->keys[FC_LEFT])    for (i = 0; i < 3; i++) st->pos[i] -= r[i] * step;
-    if (st->keys[FC_UP])      st->pos[1] += step;
-    if (st->keys[FC_DOWN])    st->pos[1] -= step;
+    if (st->keys[FC_UP])      st->pos[2] += step;   /* Z is up */
+    if (st->keys[FC_DOWN])    st->pos[2] -= step;
 
     /* Safety: a flying camera that drifts off the map is worse than one that stops. */
     {
@@ -799,6 +841,25 @@ void fc_follow_update(fc_state *st, const float player[3])
     for (i = 0; i < 3; i++) d[i] = player[i] - st->last_player[i];
     copy3(st->last_player, player);
     for (i = 0; i < 3; i++) st->pos[i] += d[i];
+}
+
+/* ---- freezing ---------------------------------------------------------------- */
+
+void fc_freeze(fc_state *st, int on)
+{
+    if (!st) return;
+    st->frozen = on ? 1 : 0;
+    if (st->frozen) {
+        /* a frozen camera does not move, so nothing it was flying to matters */
+        st->playing = 0;
+        st->play_time = 0.0f;
+        st->have_last_player = 0;
+    }
+}
+
+int fc_frozen(const fc_state *st)
+{
+    return st && st->frozen;
 }
 
 /* ---- keyframes -------------------------------------------------------------- */
