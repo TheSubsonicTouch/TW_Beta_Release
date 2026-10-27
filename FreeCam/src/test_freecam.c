@@ -626,6 +626,76 @@ static void test_projection(void)
     CHECK(!fc_mat_is_projection(&id), "nor is the identity");
 }
 
+/* The pose a view matrix was built from. Note that a world matrix also round trips
+ * as *some* view matrix - a view matrix is the same basis with a different row 3 - so
+ * the only real test is that the answer rebuilds the matrix it came from. */
+/* A camera with roll cannot be written as yaw and pitch, but the flight still has to
+ * start from the right place and look the right way. */
+static void test_pose_from_view_roll(void)
+{
+    fc_mat v;
+    float pos[3] = { 5.0f, 6.0f, 7.0f }, got[3] = { 0, 0, 0 };
+    float yaw = 0.0f, pitch = 0.0f, r[3], u[3], th = 0.35f, c = cosf(th), sn = sinf(th);
+    int sign = 0, i;
+
+    fc_mat_from_pose(&v, pos, 0.7f, 0.2f, 1);
+    for (i = 0; i < 3; i++) { r[i] = v.m[i]; u[i] = v.m[4 + i]; }
+    for (i = 0; i < 3; i++) { v.m[i] = r[i] * c + u[i] * sn; v.m[4 + i] = -r[i] * sn + u[i] * c; }
+    /* the translation has to follow the rolled basis, exactly as fc_mat_from_pose
+     * writes it, or the matrix is not the view of any camera */
+    for (i = 0; i < 3; i++) {
+        v.m[12 + i] = -(v.m[0 + i] * pos[0] + v.m[4 + i] * pos[1] + v.m[8 + i] * pos[2]);
+    }
+
+    CHECK(fc_mat_valid(&v), "a rolled view matrix is still rigid");
+    CHECK(fc_pose_from_view(&v, got, &yaw, &pitch, &sign) == 1, "a rolled camera still gives a pose");
+    CHECK(fabsf(got[0] - pos[0]) < 0.05f && fabsf(got[2] - pos[2]) < 0.05f, "from the right place");
+    CHECK(fabsf(yaw - 0.7f) < 0.02f && fabsf(pitch - 0.2f) < 0.02f, "looking the right way");
+    CHECK(sign == 1, "with the row sign it uses");
+}
+
+static void test_init_aliasing(void)
+{
+    fc_state st;
+
+    memset(&st, 0, sizeof(st));
+    fc_config_defaults(&st.cfg);
+    st.cfg.speed = 42.0f;
+    st.cfg.sensitivity = 0.5f;
+    fc_init(&st, &st.cfg);          /* the config lives inside the state */
+    CHECK(st.cfg.speed == 42.0f, "fc_init keeps a config that lives in the state");
+    CHECK(st.cfg.sensitivity == 0.5f, "all of it");
+    CHECK(st.active == 0, "and clears the state itself");
+}
+
+static void test_pose_from_view(void)
+{
+    fc_mat bad;
+    float pos[3] = { -12.5f, 3.25f, 47.0f }, got[3] = { 0, 0, 0 };
+    float yaw = 0.0f, pitch = 0.0f;
+    int s;
+
+    for (s = 1; s <= 2; s++) {
+        fc_mat v;
+        int sign = 0;
+
+        fc_mat_from_pose(&v, pos, 1.1f, -0.22f, s);
+        yaw = 0.0f; pitch = 0.0f;
+        CHECK(fc_pose_from_view(&v, got, &yaw, &pitch, &sign) == 1,
+              s == 1 ? "a view matrix gives its pose back" : "and so does the other row sign");
+        CHECK(sign == s, "the row sign is reported");
+        CHECK(fabsf(got[0] - pos[0]) < 0.01f && fabsf(got[1] - pos[1]) < 0.01f &&
+              fabsf(got[2] - pos[2]) < 0.01f, "the eye comes back, not just on an axis");
+        CHECK(fabsf(yaw - 1.1f) < 0.01f, "the yaw comes back");
+        CHECK(fabsf(pitch + 0.22f) < 0.01f, "the pitch comes back");
+    }
+
+    fc_mat_identity(&bad);
+    bad.m[0] = 2.0f;
+    CHECK(fc_pose_from_view(&bad, got, &yaw, &pitch, NULL) == 0,
+          "something that is not a rigid transform is refused");
+}
+
 int main(void)
 {
     test_defaults();
@@ -633,6 +703,9 @@ int main(void)
     test_chain_walk();
     test_world_view_pair();
     test_projection();
+    test_pose_from_view();
+    test_init_aliasing();
+    test_pose_from_view_roll();
     test_config();
     test_matrices();
     test_toggle();

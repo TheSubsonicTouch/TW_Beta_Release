@@ -421,20 +421,21 @@ void fc_mat_from_pose(fc_mat *m, const float pos[3], float yaw, float pitch, int
 
 int fc_mat_to_pose(const fc_mat *m, float pos[3], float *yaw, float *pitch, int view)
 {
-    float r[3], u[3], f[3];
+    float f[3];
     int i;
 
     if (!fc_mat_valid(m)) return 0;
-    for (i = 0; i < 3; i++) { r[i] = m->m[0 + i]; u[i] = m->m[4 + i]; f[i] = m->m[8 + i]; }
+    for (i = 0; i < 3; i++) f[i] = m->m[8 + i];
     if (view) { f[0] = -f[0]; f[1] = -f[1]; f[2] = -f[2]; }
 
     if (view) {
-        /* t = -dot(row_i, eye) for each of the three rows, and eye = -(sum row_i * t_i) */
+        /* fc_mat_from_pose writes t = -(A^T * pos), so pos = -(A * t): each eye
+         * component is the negated dot of that matrix ROW with t. Using the columns
+         * here (as this did until build 4) is only right for an axis aligned camera. */
         float t[3] = { m->m[12], m->m[13], m->m[14] };
-        float fr[3] = { m->m[8], m->m[9], m->m[10] };       /* the view row, not the flipped one */
-        pos[0] = -(r[0] * t[0] + u[0] * t[1] + fr[0] * t[2]);
-        pos[1] = -(r[1] * t[0] + u[1] * t[1] + fr[1] * t[2]);
-        pos[2] = -(r[2] * t[0] + u[2] * t[1] + fr[2] * t[2]);
+        pos[0] = -(m->m[0] * t[0] + m->m[1] * t[1] + m->m[2] * t[2]);
+        pos[1] = -(m->m[4] * t[0] + m->m[5] * t[1] + m->m[6] * t[2]);
+        pos[2] = -(m->m[8] * t[0] + m->m[9] * t[1] + m->m[10] * t[2]);
     } else {
         pos[0] = m->m[12]; pos[1] = m->m[13]; pos[2] = m->m[14];
     }
@@ -446,6 +447,76 @@ int fc_mat_to_pose(const fc_mat *m, float pos[3], float *yaw, float *pitch, int 
         *yaw = flat > 1e-5f ? atan2f(-f[0], -f[2]) : 0.0f;
     }
     return 1;
+}
+
+int fc_pose_from_view(const fc_mat *view, float pos[3], float *yaw, float *pitch, int *sign)
+{
+    float f[3], eye[3], y, pi;
+    int s;
+
+    if (!view || !fc_mat_valid(view)) return 0;
+
+    /* Row 2 is -forward (sign 1) or +forward (sign 2). The eye does not depend on
+     * which: fc_mat_from_pose stores t = -(A^T * p), so p = -(A * t), one negated dot
+     * of a matrix ROW with t. Using the columns here (as this did before build 4) is
+     * only right for an axis aligned camera. */
+    eye[0] = -(view->m[0] * view->m[12] + view->m[1] * view->m[13] + view->m[2] * view->m[14]);
+    eye[1] = -(view->m[4] * view->m[12] + view->m[5] * view->m[13] + view->m[6] * view->m[14]);
+    eye[2] = -(view->m[8] * view->m[12] + view->m[9] * view->m[13] + view->m[10] * view->m[14]);
+
+    /* An exact match first: the pose rebuilds the matrix it came from. */
+    for (s = 1; s <= 2; s++) {
+        fc_mat want;
+        float worst = 0.0f;
+        int k;
+
+        for (k = 0; k < 3; k++) f[k] = (s == 1) ? -view->m[8 + k] : view->m[8 + k];
+        norm3(f);
+        pi = asinf(clampf(f[1], -1.0f, 1.0f));
+        y = (f[0] * f[0] + f[2] * f[2]) > 1e-10f ? atan2f(-f[0], -f[2]) : 0.0f;
+
+        fc_mat_from_pose(&want, eye, y, pi, s);
+        for (k = 0; k < 16; k++) {
+            float d = want.m[k] - view->m[k];
+            if (d < 0.0f) d = -d;
+            if (d > worst) worst = d;
+        }
+        if (worst > 0.02f) continue;
+
+        if (pos) copy3(pos, eye);
+        if (yaw) *yaw = y;
+        if (pitch) *pitch = pi;
+        if (sign) *sign = s;
+        return 1;
+    }
+
+    /* Not exact: a camera with roll cannot be written as yaw and pitch, but its
+     * forward row still says which way it looks, which is what the flight needs. */
+    for (s = 1; s <= 2; s++) {
+        fc_mat want;
+        float worst = 0.0f;
+        int k;
+
+        for (k = 0; k < 3; k++) f[k] = (s == 1) ? -view->m[8 + k] : view->m[8 + k];
+        norm3(f);
+        pi = asinf(clampf(f[1], -1.0f, 1.0f));
+        y = (f[0] * f[0] + f[2] * f[2]) > 1e-10f ? atan2f(-f[0], -f[2]) : 0.0f;
+
+        fc_mat_from_pose(&want, eye, y, pi, s);
+        for (k = 8; k < 11; k++) {          /* the forward row only */
+            float d = want.m[k] - view->m[k];
+            if (d < 0.0f) d = -d;
+            if (d > worst) worst = d;
+        }
+        if (worst > 0.25f) continue;
+
+        if (pos) copy3(pos, eye);
+        if (yaw) *yaw = y;
+        if (pitch) *pitch = pi;
+        if (sign) *sign = s;
+        return 1;
+    }
+    return 0;
 }
 
 int fc_mat_valid(const fc_mat *m)
@@ -575,8 +646,10 @@ int fc_pick_world_view(const fc_mat *cands, int count, const float near[3], floa
 /* ---- state machine ---------------------------------------------------------- */
 void fc_init(fc_state *st, const fc_config *cfg)
 {
+    fc_config copy = *cfg;   /* cfg may point into st; read it before the memset */
+
     memset(st, 0, sizeof(*st));
-    st->cfg = *cfg;
+    st->cfg = copy;
     st->pitch = 0.0f;
     fc_mat_identity(&st->saved);
 }

@@ -97,6 +97,10 @@ int  fc_mat_is_projection(const fc_mat *m);            /* a projection, not a tr
 /* `view` is 0 for a world matrix, 1 or 2 for the two view-matrix conventions. */
 void fc_mat_from_pose(fc_mat *m, const float pos[3], float yaw, float pitch, int view);
 int  fc_mat_to_pose(const fc_mat *m, float pos[3], float *yaw, float *pitch, int view);
+/* The pose a view matrix was built from. A view matrix is all a renderer hands out,
+ * and its third row may be -forward (sign 1) or +forward (sign 2), so both are tried
+ * and the one that rebuilds the same matrix exactly wins. */
+int  fc_pose_from_view(const fc_mat *view, float pos[3], float *yaw, float *pitch, int *sign);
 void fc_basis(float yaw, float pitch, float forward[3], float right[3], float up[3]);
 void fc_mat_mul(const fc_mat *a, const fc_mat *b, fc_mat *out);   /* out = a * b */
 int  fc_mat_near_identity(const fc_mat *m, float tol);

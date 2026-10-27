@@ -16,96 +16,83 @@ WHAT WAS ADDED
 
 Nothing else in the menu changed.
 
-HOW THE GAME DRAWS ITS CAMERA
------------------------------
+HOW THIS FINDS THE CAMERA
+-------------------------
 
-Three facts, all read out of TriadWars.exe, decide the whole design.
+Guessing where the camera lives did not work. Build 2 scanned the heap for a camera
+near the player. Build 3 walked the camera manager at 0x23e0150 and took what its
++0x50 pointed at - the log from the retail build says that object is not a camera:
 
- 1. The renderer asks the camera manager for the camera it is about to draw:
+    FreeCam: the engine's camera at 00007FF436CD96A0 did not look like a camera
+    FreeCam: its first matrix [ 0.000 0.000 0.000 0.000 | ... ]
 
-        0x64220  call 0xcf9d0          rax = [0x23e0150], the manager
-        0x64225  mov  rdi, [rax+0x50]  rdi = the camera in use
-        0x64318  mov  rcx, rdi
-        0x64318  call 0xcfc30          the view accessor, called on rdi
+So build 4 stops guessing and asks the renderer instead.
 
-    One hop out of the manager is the component itself. The game keeps other
-    camera components alive as well - a camera near the player is not necessarily
-    the one being drawn - so this pointer is the only reliable answer.
+The engine draws with a small leaf function, the camera's view accessor:
 
- 2. A camera component keeps three 4x4s 0x40 apart, at +0x40, or at +0x110 when
-    the byte at +0x100 is set:
+    0xcfc30   80 b9 00 01 00 00 00    cmp byte ptr [rcx+0x100], 0
+              48 8d 81 10 01 00 00    lea rax, [rcx+0x110]
+              75 04                   jne +4
+              48 8d 41 40             lea rax, [rcx+0x40]
+              f3 c3                   ret
 
-        view matrix    +0x40   accessor 0xcfc30
-        world matrix   +0x80   accessor 0xcfc10
-        projection    +0xc0   accessor 0xcfbf0
+It is called directly - 17 call sites, none through a vtable - so patching the body
+catches every one of them, the renderer included. The first five bytes become a jump
+to our function, the original is copied into executable memory first and every other
+call still goes there.
 
-    the projection is the third one; the renderer copies the view and the
-    projection out and multiplies them.
+That hook is also the answer to "which object is the camera": the renderer calls it
+with the component in rcx, every frame. The hook records the object and how often it
+was asked about, and the camera thread picks the object that is asked about most, that
+stands near the player, and whose matrix really is a view matrix (a rigid, orthonormal
+3x3 with a row-3 translation, checked by rebuilding the pose and comparing).
 
- 3. The accessors are ordinary functions, called directly - 17 call sites for the
-    view one, none of them through a vtable. Patching the function body therefore
-    catches every caller, including the renderer.
+Nothing about the layout is assumed either: the view matrix sits at
 
-WHAT THIS DOES
---------------
+    view = (pointer the accessor returned) - (object)
 
-   1. Resolve the engine's camera: [0x23e0150] -> +0x50, and check it before
-      trusting it - its vtable has to be one of the nine camera vtables, one of its
-      three matrices has to be a projection, and the view has to be the world matrix
-      rebuilt from the same pose. Only then is anything hooked.
+and the world matrix is 0x40 after it, because that is where the sibling accessor
+0xcfc10 reads. Both come out of the game at run time.
 
-   2. Detour the view (and world) accessor of that function. While free cam is on, a
-      call for *that camera* returns a matrix rebuilt from our pose at the moment of
-      the call; every other call, and every call while free cam is off, runs the
-      original code from a copied trampoline. Detouring is what makes this work: the
-      game rewrites its matrices every frame, so simply storing values loses the race
-      to the frame that follows. An answer cannot be overwritten.
+WHAT THE FLIGHT DOES
+--------------------
 
-   3. Still write the same matrices into the object, so code that reads the memory
-      directly sees our pose too.
-
-   4. Follow the game when it swaps cameras (on foot, in a car, a cutscene): twice a
-      second the manager is read again, and our pose moves to the new object instead
-      of the flight silently ending.
-
-   5. If the engine path does not validate - a different game build, say - fall back
-      to the old heap scan for a camera vtable whose world matrix stands near the
-      player. That path still works without the hook, it just has to win the write
-      race; the log says which path was taken.
+   * while free cam is on, a call to the view accessor for that object returns a view
+     matrix built from our pose at the moment of the call. That is the whole trick:
+     the game rewrites its own camera every frame, so a stored matrix would be
+     overwritten before the frame that follows, but an answer cannot be;
+   * the same matrices are written into the object as well, for code that reads the
+     memory directly, and put back when the flight ends;
+   * if the game switches cameras (car, cutscene) a different object starts being asked
+     about and the flight carries on with it;
+   * if the renderer stops asking about the camera we picked, it was the wrong one:
+     it is put on a short ban list and another is chosen.
 
 Everything is guarded: VirtualQuery before every read, SEH around the scan and the
-writes, every detour byte-verified against the expected code before it is pinned, and
-the hook skipped (not forced) if the game does not match.
+writes, the accessor located by RVA *and* by searching .text for its exact bytes (so a
+game build with a different layout is survived rather than patched blind), a unique
+match required before anything is patched, and the hook skipped - not forced - when no
+match is found.
 
-WHY THE EARLIER BUILDS DID NOT MOVE THE CAMERA
-----------------------------------------------
+THE BUG THAT MADE EARLIER BUILDS DO NOTHING
+-------------------------------------------
 
-The first build searched the heap for a camera vtable and took the nearest one to the
-player. That object is drawn only if the engine happens to be using it - and it is not
-the one the renderer reads. It also wrote the matrices once per frame from its own
-thread, which the game's own camera update overwrote before the frame was drawn. Both
-mistakes are silent: correct-looking writes into memory nobody draws.
+    fc_config_defaults(&g_state.cfg);
+    fc_init(&g_state, &g_state.cfg);     /* wrong */
 
-The third build fixes both by never writing "somewhere": it goes through the pointer
-the renderer goes through, and answers at the moment the renderer asks.
+fc_init() memsets the whole state, cfg included, and then copies cfg in from the
+pointer - which points into the state that was just zeroed. Speed, sprint, sensitivity
+and max_distance all ended up 0, so even a camera that was found could never move or
+look. fc_init() now copies the config first, and the menu keeps its config in a
+separate object. The test suite has a case for exactly this.
 
 WHY IT DOES NOT FREEZE ANY MORE
 -------------------------------
 
 The menu calls its hooks from hkPresent, on the render thread, so nothing there may
-walk the heap. FreeCamSetActive() only sets a flag and returns. The searching, the
-flying and the restoring all happen on a thread of its own, a couple of milliseconds
-at a time:
-
-    SearchStep()         walks at most kScanBudgetMs (2 ms) per call, keeps a cursor
-                         in g_scanAddr and resumes exactly where it stopped, so no
-                         region is skipped when the budget runs out mid-region
-    ScanRegion()         walks one region in 64 KB fault-guarded chunks
-    ScanChunk()          __try/__except around the reads: a page released while we
-                         walk it skips one chunk instead of killing the process
-    ScanChunkInner()     the hot loop: one unsigned range compare per qword rejects
-                         almost everything, because the nine camera vtables all live
-                         in a 1.1 MB window of the exe
+walk the heap. FreeCamSetActive() only sets a flag and returns; the searching, the
+flying and the restoring happen on a thread of its own, two milliseconds at a time.
+The proxy hook only does a few pointer tests and a counter increment.
 
 BUILDING
 --------
@@ -120,21 +107,21 @@ did:
     D3DCOMPILER_47.dll!D3DCompile, d3d11.dll!D3D11CreateDeviceAndSwapChain,
     XINPUT1_3.dll!XInputGetState, WINMM.dll, and the three dinput8 exports.
 
-freecam_game.cpp is compiled with -fms-extensions so the scan can use __try/__except.
+freecam_game.cpp is compiled with -fms-extensions so it can use __try/__except.
 
 The build needs spawn_guard.S from the menu project, which is not in the TestingSkybox
 repository; the script uses a C fallback instead. Spawning is not reachable from the
 menu any more (those items were removed), so the guarded call is never taken.
 
-CAMERA VTABLES AND ACCESSOR ADDRESSES (this build of TriadWars.exe)
--------------------------------------------------------------------
+ADDRESSES (this build of TriadWars.exe)
+---------------------------------------
 
-    0x0182a800 Base          0x01936430 Chase       0x01937030 Script
-    0x0182a9a0 Debug         0x01936590 Follow      0x01937300 Progression
-    0x01936140 Game          0x01936ed0 Animated    0x01937da0 Turf
+    view accessor 0xcfc30    world accessor 0xcfc10   projection accessor 0xcfbf0
+    manager 0x23e0150 (+0x50)                        player 0x23f25f8 -> +0x58 -> +0x80
 
-    manager 0x23e0150 (+0x50 is the camera in use)     player 0x23f25f8 -> +0x58 -> +0x80
-    view accessor 0xcfc30    world accessor 0xcfc10    projection accessor 0xcfbf0
+    camera vtables  0x0182a800 Base     0x0182a9a0 Debug    0x01936140 Game
+                    0x01936430 Chase    0x01936590 Follow   0x01936ed0 Animated
+                    0x01937030 Script   0x01937300 Progress 0x01937da0 Turf
 
-Every one of those is checked before it is used; a mismatch is logged and the feature
-degrades (heap scan, or plain writes) rather than crashing.
+The accessors are found by their bytes, not only by these numbers; the vtables are
+used for naming a camera in the log and for the last-resort heap scan.
