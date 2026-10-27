@@ -48,6 +48,24 @@ x world up), fc_mat_from_pose writes both layouts, fc_pose_from_view reads the
 components out of the third block (m[2], m[6], m[10]) and only falls back to a
 forward-only comparison for a rolled camera.
 
+WHY K STOPPED WORKING, AND THE FIX
+----------------------------------
+
+Hotkey::Pressed() consumed the key's edge: the second call in the same tick always
+answered no. Build 8 added a frozen-camera guard that asked it twice
+
+    if (g_playKey.Pressed() && fc_frozen(&g_state)) { ... }
+    else if (g_playKey.Pressed()) { ... the playback ... }
+
+so when the camera was not frozen the first test ate the press and the second test saw
+nothing: K did nothing at all. Pressed() now latches its answer until NewFrame(), which
+the camera thread calls once per tick (BeginHotkeyFrame), so a key can be asked as often
+as the code likes. The same bug had already been fixed once by hand for P; latching
+means it cannot come back for any of them.
+
+K also thaws a frozen camera before playing, rather than refusing: a playback is the
+camera moving, so K means "show me the shot".
+
 WHAT BUILD 9 ADDED
 ------------------
 
@@ -58,10 +76,9 @@ K plays the path back as a camera move (fc_play_pose, used by fc_play_step):
     instead of the corner a straight-line lerp produced;
   * the yaw is unwound along the path first, so a pair that crosses +-180 degrees is a
     small turn instead of a full spin;
-  * the clock is eased (play_warp): a cubic over the first and last 12% of the path from
-    a standstill up to the middle's slope, linear between, C1 at both joins, W(0)=0 and
-    W(1)=1 - so the shot starts and settles gently and still lasts exactly as long as
-    the flight did (the middle runs about 16% faster to pay for the eased ends);
+  * the clock runs straight (the easing was removed in build 10: over a long path the
+    first second of an eased shot looked like the playback had not started), so the shot
+    lasts exactly as long as the flight did and moves from the first frame;
   * the two ends are the keys themselves, so a playback always begins and finishes on a
     recorded pose, and the pitch stays inside +-89 degrees.
 

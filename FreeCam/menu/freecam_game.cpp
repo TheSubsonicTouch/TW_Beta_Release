@@ -1147,16 +1147,26 @@ bool CameraStillThere() {
 bool KeyDown(int vk) { return (GetAsyncKeyState(vk) & 0x8000) != 0; }
 
 // A key that fires once per press, not once per frame it is held down.
+//
+// Pressed() latches its answer for the rest of the frame: asking twice returns the same
+// answer, not "yes" and then "no". It used to consume the edge, and one hotkey asking
+// twice - K, once to see whether the camera was frozen and again to play - meant the
+// second branch never ran. That is exactly how K stopped playing anything.
 struct Hotkey {
     int vk;
     bool was = false;
+    bool answered = false;      // already asked this frame
+    bool answer = false;
     bool Peek() const { return KeyDown(vk); }
     bool Pressed() {
+        if (answered) return answer;
         const bool down = KeyDown(vk);
-        const bool pressed = down && !was;
+        answer = down && !was;
         was = down;
-        return pressed;
+        answered = true;
+        return answer;
     }
+    void NewFrame() { answered = false; answer = false; }
 };
 
 Hotkey g_followKey{ 'P' };
@@ -1166,6 +1176,17 @@ Hotkey g_freezeKey{ 'O' };
 Hotkey g_clearKey{ 'M' };
 Hotkey g_slowerKey{ VK_LEFT };      // playback speed down
 Hotkey g_fasterKey{ VK_RIGHT };     // playback speed up
+
+// Start a new frame for every hotkey. One call per tick, before anything reads a key.
+void BeginHotkeyFrame() {
+    g_followKey.NewFrame();
+    g_keyKey.NewFrame();
+    g_playKey.NewFrame();
+    g_freezeKey.NewFrame();
+    g_clearKey.NewFrame();
+    g_slowerKey.NewFrame();
+    g_fasterKey.NewFrame();
+}
 
 // While the camera is flying, the player is not in control: the game's own input is
 // held back so the character stands still and does not swing or interact. O and P hand
@@ -1280,8 +1301,8 @@ void HandlePlaybackSpeed() {
 // P - follow the player, L - keyframe, K - play the path back, M - forget the path,
 // O - freeze, left/right - how fast the path plays.
 void HandleHotkeys(const float player[3], bool havePlayer) {
-    // One read of the key per tick: Pressed() consumes the edge, so a second call in the
-    // same tick would always answer no.
+    // Pressed() latches its answer for the frame, so reading a key more than once in a
+    // tick is safe - but each key is still asked once here, for clarity.
     if (g_followKey.Pressed()) {
         if (fc_frozen(&g_state)) {
             // Frozen: the camera stays exactly where it is and only pans, so the player
@@ -1379,18 +1400,22 @@ void HandleHotkeys(const float player[3], bool havePlayer) {
         }
     }
 
-    if (g_playKey.Pressed() && fc_frozen(&g_state)) {
-        TW_Log("FreeCam: the camera is frozen, so a playback would not be seen - press O to fly again");
-        Hud("K", "frozen: O to fly first");
-    } else if (g_playKey.Pressed()) {
+    if (g_playKey.Pressed()) {
+        if (fc_frozen(&g_state)) {
+            // A playback is the camera moving, so it cannot happen behind a freeze. Thaw
+            // and play rather than refusing: K means "show me the shot".
+            fc_freeze(&g_state, 0);
+            TW_Log("FreeCam: K on a frozen camera - thawing it first, so the playback can be seen");
+        }
         if (fc_playing(&g_state)) {
             fc_play_stop(&g_state);
             TW_Log("FreeCam: playback stopped; the camera stays where the path reached");
             Hud("K", "playback stopped");
         } else if (fc_play_start(&g_state)) {
-            TW_Log("FreeCam: playing %d keyframes over %.1f seconds like a camera move - through "
-                   "every key, eased in and out (K stops it)",
-                   g_state.path_count, g_state.path[g_state.path_count - 1].time);
+            TW_Log("FreeCam: playing %d keyframes over %.1f seconds at %.2fx - through every key, "
+                   "smooth, no corners (K stops it)",
+                   g_state.path_count, g_state.path[g_state.path_count - 1].time,
+                   static_cast<double>(fc_play_speed(&g_state)));
             {
                 char line[44];
                 std::snprintf(line, sizeof(line), "playing %d keyframes", g_state.path_count);
@@ -1493,7 +1518,7 @@ DWORD WINAPI Loop(LPVOID) {
     ULONGLONG lastReport = GetTickCount64();
 
     timeBeginPeriod(1);
-    TW_Log("FreeCam: camera thread up (build 9: cinematic keyframe playback)");
+    TW_Log("FreeCam: camera thread up (build 10: K plays the path, M clears it, frozen camera pans)");
 
     for (;;) {
         if (g_quit) break;
@@ -1600,6 +1625,7 @@ DWORD WINAPI Loop(LPVOID) {
         if (fc_following(&g_state) || g_followKey.Peek()) havePlayer = PlayerPosition(player);
 
         g_flightClock += dt;
+        BeginHotkeyFrame();
         HandleHotkeys(player, havePlayer);
 
         // The player only keeps control while the camera is frozen (O) or following (P).

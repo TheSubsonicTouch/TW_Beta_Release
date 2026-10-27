@@ -690,18 +690,17 @@ static void test_cinematic_playback(void)
               va[0], va[1], vb[0], vb[1]);
     }
 
-    /* eased in: the first moments are slower than the middle of the path */
+    /* it is moving from the first frame: the clock runs straight, so no part of the shot
+     * sits still waiting for the playback to start */
     {
-        const float e = 0.02f, mid = 1.0f;
-        float start_speed, mid_speed;
+        const float e = 0.05f;
         fc_play_pose(&st, 0.0f, a, NULL, NULL);
         fc_play_pose(&st, e, b, NULL, NULL);
-        start_speed = sqrtf((b[0] - a[0]) * (b[0] - a[0]) + (b[1] - a[1]) * (b[1] - a[1])) / e;
-        fc_play_pose(&st, mid, a, NULL, NULL);
-        fc_play_pose(&st, mid + e, b, NULL, NULL);
-        mid_speed = sqrtf((b[0] - a[0]) * (b[0] - a[0]) + (b[1] - a[1]) * (b[1] - a[1])) / e;
-        CHECK(start_speed < 0.35f * mid_speed, "the shot eases in (%.2f against %.2f)",
-              start_speed, mid_speed);
+        /* it starts along the first leg (+X), curving slightly toward the second early -
+         * that curve is the spline rounding the corner */
+        CHECK(b[0] - a[0] > 0.2f && fabsf(b[1] - a[1]) < 0.2f,
+              "the camera leaves the first key at once (%.3f %.3f in %.2f s)",
+              b[0] - a[0], b[1] - a[1], e);
     }
 
     /* the yaw takes the short way round a keyframe pair that crosses +-180 degrees */
@@ -864,14 +863,16 @@ static void test_keyframes(void)
     CHECK(fc_play_start(&st), "playback starts");
     CHECK(fc_playing(&st), "and says so");
 
-    CHECK(fc_play_step(&st, 0.5f, &out), "playback produces a pose");
-    CHECK(st.pos[0] > 0.2f && st.pos[0] < 2.5f,
-          "the shot has started and is still easing in (%f)", st.pos[0]);
+    /* The keys are evenly spaced in time and in space, so the smooth curve through them
+     * is the straight line they describe: the playback is exact, and it is moving from
+     * the very first frame. */
+    CHECK(fc_play_step(&st, 0.05f, &out), "playback produces a pose");
+    CHECK(st.pos[0] > 0.1f, "and the camera has already left the first key (%f)", st.pos[0]);
+    CHECK(fc_play_step(&st, 0.45f, &out), "still playing");
+    CHECK(NEAR(st.pos[0], 2.5f, 1e-3), "a quarter of the way through the first leg (%f)", st.pos[0]);
     CHECK(fc_play_step(&st, 0.5f, &out), "still playing");
-    CHECK(st.pos[0] > 2.5f && st.pos[0] < 5.0f,
-          "the eased clock is still behind the plain one (%f)", st.pos[0]);
-    /* the poses turn 0.4 rad while they travel 20 units, so the angle follows the place */
-    CHECK(NEAR(st.yaw, st.pos[0] * 0.02f, 0.01f), "and the angle follows the position (%f)", st.yaw);
+    CHECK(NEAR(st.pos[0], 5.0f, 1e-3), "halfway through the first leg (%f)", st.pos[0]);
+    CHECK(NEAR(st.yaw, 0.1f, 1e-3), "and the angle is interpolated too (%f)", st.yaw);
 
     /* run to the end */
     {

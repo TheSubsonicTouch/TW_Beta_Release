@@ -1058,33 +1058,6 @@ float fc_play_speed_shift(fc_state *st, int faster)
 
 /* ---- cinematic playback ------------------------------------------------------ */
 
-/* The clock is eased so the shot starts and settles from a standstill, which is what a
- * camera on a dolly does: a cubic over the first PLAY_WARP_EDGE of the path, linear in
- * between, and the same curve mirrored at the end. The middle takes up the slack so the
- * whole playback still lasts exactly as long as the flight did; the curve is C1 at both
- * joins, and W(0) = 0, W(1) = 1. */
-#define PLAY_WARP_EDGE 0.12f
-
-/* cubic from (0,0) with slope 0 to (a, a/2) with slope k */
-static float play_ease(float s, float a, float k)
-{
-    float c3 = (k - 1.0f) / (a * a);
-    float c2 = 0.5f / a - (k - 1.0f) / a;
-    return c3 * s * s * s + c2 * s * s;
-}
-
-static float play_warp(float s)
-{
-    const float a = PLAY_WARP_EDGE;
-    const float k = (1.0f - a) / (1.0f - 2.0f * a);   /* the slope the middle needs */
-
-    if (!(s > 0.0f)) return 0.0f;
-    if (s >= 1.0f) return 1.0f;
-    if (s > 1.0f - a) return 1.0f - play_ease(1.0f - s, a, k);
-    if (s < a) return play_ease(s, a, k);
-    return 0.5f * a + (s - a) * k;
-}
-
 /* One axis of the cubic through two keys, with the slopes at each end: this is what makes
  * the camera arrive at a keyframe still moving the way it was moving a moment before. */
 static float hermite(float p0, float p1, float m0, float m1, float h, float u)
@@ -1117,7 +1090,7 @@ int fc_play_pose(const fc_state *st, float clock, float pos[3], float *yaw, floa
 {
     float yawu[FC_MAX_KEYS], pitchv[FC_MAX_KEYS];
     const fc_keyframe *path;
-    float total, s, w;
+    float total, w;
     int n, i, c;
 
     if (!st || !pos) return 0;
@@ -1154,8 +1127,10 @@ int fc_play_pose(const fc_state *st, float clock, float pos[3], float *yaw, floa
         return 1;
     }
 
-    s = clock / total;
-    w = total * play_warp(s);          /* the eased clock */
+    /* The clock runs straight: the playback takes exactly as long as the flight did and
+     * the camera is already moving on the first frame. (An eased clock made the first
+     * second of a long path look like the playback had not started at all.) */
+    w = clock;
 
     for (i = 0; i + 1 < n; i++) {
         const fc_keyframe *a = &path[i];
