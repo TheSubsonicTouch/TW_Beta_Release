@@ -484,6 +484,19 @@ static void test_game_camera_matrix(void)
               "looking the same way as the view says (%.1f %.1f deg)",
               wyaw * 57.29578f, wpitch * 57.29578f);
         CHECK(fc_view_sign(&world, &v) == 1, "and the two are a world/view pair");
+
+        /* the world matrix has no such rounding problem: it rebuilds to the digit */
+        {
+            fc_mat wreb;
+            float worstW = 0.0f;
+            fc_mat_from_pose(&wreb, wp, wyaw, wpitch, 0);
+            for (k = 0; k < 16; k++) {
+                float d = wreb.m[k] - world.m[k];
+                if (d < 0.0f) d = -d;
+                if (d > worstW) worstW = d;
+            }
+            CHECK(worstW < 0.01f, "the world matrix rebuilds exactly (worst %f)", worstW);
+        }
     }
 }
 
