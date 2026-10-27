@@ -1,11 +1,32 @@
 Triad Wars - Free Camera
 ========================
 
-Copy dinput8.dll into the game folder (over the one that is already there), start
-the game, press Insert and choose "Free Camera". Same key turns it off.
+INSTALL
+-------
+
+  1. Extract this whole zip into your Triad Wars folder - the one with
+     TriadWars.exe and Play-TriadWars.bat in it. You should end up with
+     Install-FreeCam.bat and a FreeCam folder next to the game.
+
+  2. Double-click Install-FreeCam.bat.
+
+     It keeps the menu DLL you already have as dinput8.original.dll, then puts
+     the menu with the Free Camera entry in its place. If the game folder has no
+     menu installed yet, it just installs one.
+
+  3. Start the game with Play-TriadWars.bat as usual.
+
+  4. Once you are in the world (not the title screen or a loading screen), press
+     Insert. Arrow down to "Free Camera" and press Enter.
+
+To undo it, double-click Uninstall-FreeCam.bat - it puts your old dinput8.dll back.
+
+Nothing happens until you run the installer: extracting the zip only adds the
+FreeCam folder and two .bat files, it does not overwrite your menu.
 
 The standalone\ folder holds the older hot-key build if you would rather not replace
-the menu DLL. You do not need both.
+the menu DLL at all. It is a separate program (FreeCam-Inject.exe) and is not part of
+the menu install. You do not need both.
 
 
 WHAT THE FREE CAMERA DOES
