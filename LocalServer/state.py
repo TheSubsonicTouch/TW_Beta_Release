@@ -427,21 +427,25 @@ def errand_requirement(errand, field):
     return value
 
 
-def errand_available(bag, errand, level, safehouse, now=None, bonus=False):
+def errand_available(bag, errand, level, safehouse, now=None, bonus=False, ignore_gates=False):
     """Can this errand be put on the board?
 
     `bonus` allows the errands the game data switches off (see ERRAND_BONUS_JOBS); those
-    also ignore their mErrandLinks, which point at other switched-off jobs.
+    also ignore their mErrandLinks, which point at other switched-off jobs. `ignore_gates`
+    drops the level/safehouse requirement - the client checks the objective itself, so a
+    job whose gate is out of reach is still playable; the board only falls back to that
+    when nothing else is left (see errand_pool).
     """
     enabled = bool(errand.get("enabled"))
     if errand["uid"] in ERRAND_UNSUPPORTED:
         return False
     if not enabled and not (bonus and ERRAND_BONUS_JOBS):
         return False
-    if errand_requirement(errand, "xpLevel") > level:
-        return False
-    if errand_requirement(errand, "safehouseLevel") > safehouse:
-        return False
+    if not ignore_gates:
+        if errand_requirement(errand, "xpLevel") > level:
+            return False
+        if errand_requirement(errand, "safehouseLevel") > safehouse:
+            return False
     # mErrandLinks are the errands that must have been completed first ("Raid 2 Rivals"
     # links to "Raid A Rival"). With one link only the tutorial's first job is on offer.
     if enabled and any(link not in bag["Completed"] and link not in ERRAND_UNSUPPORTED
@@ -473,6 +477,16 @@ def errand_pool(player, bag, exclude=(), now=None, bonus=True):
         pool = [e for e in ERRANDS
                 if e["uid"] not in exclude and not e["enabled"]
                 and errand_available(bag, e, level, safehouse, now, bonus=True)]
+    if not pool and bonus:
+        # Everything the level and safehouse open is done or on cooldown. Rather than hand
+        # back an empty Jobs screen, offer the jobs whose prerequisites are met anyway,
+        # easiest requirement first - the client evaluates the objective from its own stat
+        # counters, so they can be played and finished.
+        pool = [e for e in ERRANDS if e["uid"] not in exclude
+                and errand_available(bag, e, level, safehouse, now, bonus=True, ignore_gates=True)]
+        pool.sort(key=lambda e: (errand_requirement(e, "xpLevel"),
+                                 errand_requirement(e, "safehouseLevel"), -e["priority"], e["name"]))
+        return pool
     pool.sort(key=lambda e: (-e["priority"], e["name"]))
     return pool
 

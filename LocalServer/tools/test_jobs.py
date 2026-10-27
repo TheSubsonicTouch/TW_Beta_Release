@@ -120,6 +120,30 @@ def main():
         assert gained == 50, gained                # HappyCat tier 0 is RewardType_CleanMoney, level 1
         return "3 tiers, 50 clean money"
 
+    def board_never_runs_dry():
+        # A level 1 / safehouse 1 profile: once every job its gates open is done, the board
+        # falls back to the jobs whose prerequisites are met anyway rather than going empty.
+        done, names = 0, []
+        for _ in range(30):
+            reply = handlers.errands(None, "GET", ["errands"], b"", {})
+            slots = [s for s in reply["mErrands"] if s["mState"] == state.ERRAND_ACTIVE]
+            assert slots, "the board went empty after %d jobs" % done
+            slot = slots[0]
+            errand = state.ERRANDS_BY_UID[slot["mErrandUID"]]
+            completed = state.errands(player)["Completed"]
+            # The game's own jobs keep their prerequisites; the switched-off ones ignore
+            # their links (see state.errand_available).
+            assert not errand["enabled"] or all(
+                link in completed or link in state.ERRAND_UNSUPPORTED
+                for link in errand["links"]), errand["links"]
+            handlers.errand_end(None, "POST", ["errands", "end", str(slot["mSlotIndex"])], b"", {})
+            claim = handlers.errand_claim(None, "POST",
+                                          ["errands", "claimreward", str(slot["mSlotIndex"])], b"", {})
+            assert claim["mReturnCode"] == 0, claim
+            done += 1
+            names.append(errand["name"])
+        return "%d jobs in one sitting, last %r" % (done, names[-1])
+
     def restart_keeps_progress():
         handlers.STATE.save()
         reloaded = state.State(os.path.join(workdir, "state.json"))
@@ -137,6 +161,7 @@ def main():
     check("challenge report", challenge)
     check("challenge opt-in", opt_in)
     check("tier rewards", tier_rewards)
+    check("board never runs dry", board_never_runs_dry)
     check("restart", restart_keeps_progress)
     print("%d check(s) failed" % len(failures) if failures else "all checks passed")
     return 1 if failures else 0

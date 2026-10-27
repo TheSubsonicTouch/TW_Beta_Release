@@ -215,6 +215,14 @@ variants such as "Sweep Kicks", the commodity collectors, ...). They are ordinar
 client still counts - they were simply never handed out in the beta. Set
 `ERRAND_BONUS_JOBS = False` to keep the board to the game's own 87.
 
+One more rule keeps the screen from going empty: when nothing the player's level and
+safehouse open is left (everything done, or waiting out a repeatable cooldown), the board
+falls back to the jobs whose prerequisites are met anyway, easiest requirement first. The
+client evaluates the objective from its own stat counters, so a job whose level gate is out
+of reach is still playable - and an empty Jobs screen is worse than an ambitious one. In a
+simulation a level 1, safehouse 1 profile can play **114 jobs back to back** before every job
+left is on cooldown.
+
     python tools/storyline.py          what can be reached, in the order it unlocks
     python tools/storyline.py --check  exit 1 if a job that should be playable is not
 
