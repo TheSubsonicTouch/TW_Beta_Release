@@ -48,6 +48,58 @@ x world up), fc_mat_from_pose writes both layouts, fc_pose_from_view reads the
 components out of the third block (m[2], m[6], m[10]) and only falls back to a
 forward-only comparison for a rolled camera.
 
+WHAT BUILD 7 ADDED
+------------------
+
+    input_block.h / input_block.cpp       holds the game's own controls back while the
+                                          camera flies (details below)
+    fc_follow_update_angles(st, y, p)     P turns the camera with the player's own camera
+    fc_play_set_speed / _shift / _speed   the arrow keys' playback speed, 0.1x to 4x
+                                          (fc_play_step multiplies dt by it)
+    M                                     fc_path_clear, which was already there
+
+WHY INPUT BLOCKING LOOKS THE WAY IT DOES
+----------------------------------------
+
+TriadWars.exe's import table says how it reads the controls: one GUID for DirectInput
+(GUID_SysKeyboard, at 0x1cc0480), one RegisterRawInputDevices call registering usage
+page 1 usage 2 (mouse) and nothing else, plus GetAsyncKeyState/GetKeyboardState.
+
+So input_block.cpp stands in front of all three:
+
+  * DirectInput keyboard. A throwaway keyboard device is created (on a hidden window,
+    background and non-exclusive) only to find its class's vtable; slot 9 of that vtable
+    is GetDeviceState and slot 10 GetDeviceData. Both are swapped for ours, which empty
+    every key except the camera's own. The vtable belongs to dinput8.dll and is shared by
+    every device of that class, so the game's own keyboard is covered even though it made
+    it before us. Nothing is guessed: the slot is only patched if the function lives in
+    dinput8.dll and answers a 256-byte keyboard request.
+  * Raw input. WM_INPUT is swallowed in the window procedure after ImGui has seen it, so
+    the mouse cannot turn the player, aim or fire. Key and button messages go too.
+  * The polling functions. Only the game module's import table entries for
+    GetAsyncKeyState and GetKeyboardState are redirected; this DLL's own calls still reach
+    the real ones, which is what lets the camera read W A S D and the hotkeys.
+
+All three are off unless a camera is flying, and O or P switch them off while it is.
+The three keys a player needs while flying (P, O, L, K, M, F10, Insert, arrows, Enter,
+Backspace, Escape, Tab) are passed through.
+
+FOLLOW THAT PANS
+----------------
+
+The camera turns with the player's camera by reading the camera component's world matrix
+whenever it is not the pose we last wrote - a value that is not ours is the game's own,
+so the turn it has made since the last one is the pan to copy (fc_follow_update_angles,
+short way round at +-180 degrees). While following, the mouse and WASD are not read for
+the camera: the player is driving.
+
+RESTORING WITHOUT A JUMP
+------------------------
+
+RestoreMatrices() now only writes the matrices saved when the flight started if the
+camera still holds ours. If the game has written its own pose since, that one is newer
+than the saved copy, and overwriting it is what made switching back and forth jump.
+
 WHAT BUILD 6 ADDED
 ------------------
 

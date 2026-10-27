@@ -79,6 +79,14 @@ typedef struct {
      * player gets to move, fight and interact while the view stays put */
     int    frozen;
 
+    /* following also turns the camera with the player's own camera, so the framing
+     * survives the player looking around */
+    int    have_last_angles;
+    float  last_player_yaw, last_player_pitch;
+
+    /* how fast a recorded path plays back; 1.0 is the speed it was flown at */
+    float  play_speed;
+
     /* a recorded path of poses, and the playback of it */
     int         path_count;
     fc_keyframe path[FC_MAX_KEYS];
@@ -167,8 +175,13 @@ void fc_follow(fc_state *st, const float player[3], int on);
 int  fc_following(const fc_state *st);
 
 /* Move the camera by however far the player moved since the previous call. Call this
- * after fc_step, every tick, while following: manual movement still works on top. */
+ * after fc_step, every tick, while following. */
 void fc_follow_update(fc_state *st, const float player[3]);
+
+/* Turn with the player. `yaw` and `pitch` are the player's own camera angles this tick;
+ * the camera turns by however much they changed since the previous call, so it keeps
+ * its framing while the player looks around. Call it next to fc_follow_update. */
+void fc_follow_update_angles(fc_state *st, float yaw, float pitch);
 
 /* ---- freezing ---------------------------------------------------------------- */
 
@@ -196,5 +209,16 @@ int  fc_playing(const fc_state *st);
  * `out`. The last keyframe is played and then playback stops, leaving the camera there,
  * so pressing the key again simply plays it again from the start. */
 int  fc_play_step(fc_state *st, float dt, fc_mat *out);
+
+/* How fast the path plays back: 1.0 is the speed it was flown at, 0.5 takes twice as
+ * long, 2.0 twice as short. Clamped to FC_PLAY_SPEED_MIN..FC_PLAY_SPEED_MAX. */
+#define FC_PLAY_SPEED_MIN 0.1f
+#define FC_PLAY_SPEED_MAX 4.0f
+void  fc_play_set_speed(fc_state *st, float speed);
+float fc_play_speed(const fc_state *st);
+
+/* One notch up (faster != 0) or down the ladder of speeds, from 0.1x to 4x. Returns the
+ * speed it landed on. Slowing down and speeding up again comes back to the same place. */
+float fc_play_speed_shift(fc_state *st, int faster);
 
 #endif /* FREECAM_H */

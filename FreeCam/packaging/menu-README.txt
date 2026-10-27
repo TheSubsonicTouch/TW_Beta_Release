@@ -47,6 +47,22 @@ game carries on from its own camera and not from where you flew to.
 WHAT CHANGED IN THIS BUILD
 --------------------------
 
+  - While the camera is flying, the player does not act any more. The character stands
+    still, does not swing, shoot or start conversations, and does not turn with the
+    mouse. The game's own controls are held back at three places (see below); nothing
+    else about the game changes, and they come back the instant you switch the camera
+    off or press O or P.
+  - P now pans as well as follows: the camera keeps its framing and turns with the
+    player's own camera, so walking and looking around stays where you framed it.
+  - M forgets every recorded keyframe, so the next L starts a new scene instead of
+    adding to the old one.
+  - The left and right arrow keys change how fast a recorded path plays back, from 0.1x
+    to 4x in steps (0.1, 0.2, 0.25, 0.33, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4). The speed is
+    shown in the top-right corner as it changes and stays set for the next playback.
+  - Switching back and forth no longer glitches: turning the camera off only puts the
+    old matrices back while the camera still holds ours, so a game pose written since
+    is never overwritten by a stale one.
+
   - The mouse is no longer inverted, and this time the cause is known. The game
     keeps its camera matrix the other way round from how earlier builds wrote it:
     the rows of the view matrix hold the camera's right, up and backwards axes, and
@@ -79,6 +95,9 @@ CONTROLS
                         wherever the player goes; P again to stay put
     L                   record a keyframe where the camera is now
     K                   play the recorded keyframes back, at the speed they were flown
+                        (or whatever the arrows were set to)
+    Left / Right arrow  play the path back slower / faster, 0.1x to 4x
+    M                   forget every keyframe, to start a new scene
     O                   freeze the camera where it is - the view stays put while the
                         player moves, fights and interacts; O again to unfreeze
     F10                 panic: put the camera back and switch off, from anywhere
@@ -88,8 +107,9 @@ Moving it right turns right.
 
 Follow and keyframes:
 
-  - P pins the camera to the player. Fly by hand while it is on and the two movements
-    add up; the camera keeps whatever offset it had when you pressed P.
+  - P pins the camera to the player: it keeps whatever offset it had when you pressed P,
+    follows the player wherever they go, and turns with them as they look around. While
+    P is on the player is in control; the camera is not flown by hand.
   - L records the camera's pose (where it is and where it looks). Press it again
     somewhere else. Two are enough; up to 64 are kept.
   - K plays them back, taking the same time the flight took, easing the position and
@@ -97,8 +117,28 @@ Follow and keyframes:
     or K while it is playing to stop and stay where it got to. Recording more keyframes
     adds to the same path until free cam is switched off - a path survives switching
     free cam off and on again, and is cleared when the game is restarted.
+  - The arrow keys set the speed of that playback, 0.1x to 4x, shown as you press them
+    (0.5x is slow motion, 2x is twice as fast). The speed you leave it at is kept.
+  - M clears the path completely, so the next keyframes are a new scene.
 
 While the path is playing, the mouse and movement keys are ignored: the path is driving.
+
+The player's controls:
+
+  - Free camera on, no O and no P: the camera is yours and the player's controls are
+    held back. The character cannot walk, drive, attack or interact, and the mouse does
+    not turn the character either. That is what makes the flight a camera and not a
+    puppet show.
+  - O (freeze) or P (follow) hand the controls straight back: move, fight, interact and
+    look around as usual, while the camera keeps watching.
+  - Switching free cam off, or F10, gives them back too - there is no state you can get
+    stuck in.
+  - How: the game reads the keyboard through DirectInput and the mouse through raw
+    input. The keyboard device's state is emptied of everything except the camera's own
+    keys, WM_INPUT (the raw mouse) is dropped before the game's window procedure sees
+    it, and the game's imports of GetAsyncKeyState/GetKeyboardState are redirected. The
+    DLL and the menu keep reading the real keyboard, which is why the hotkeys and the
+    menu still work.
 
 The freeze (O):
 
@@ -127,7 +167,7 @@ TW_MenuLog.txt, next to TriadWars.exe, records everything. Load into the world
 first - the camera cannot be told apart on a loading screen - then toggle it and
 look for these lines, in this order:
 
-    FreeCam: camera thread up (build 6: right-handed view layout, freeze, hotkey display)
+    FreeCam: camera thread up (build 7: player controls held back, follow pans, playback speed)
     FreeCam: switched on, asking the renderer which camera it draws
     FreeCam: hooked the view accessor at 0000... with an absolute jump (original kept at ...)
     FreeCam: the renderer asked about 0000... for the first time
@@ -163,8 +203,15 @@ The first two mean the accessor bytes were not found in your TriadWars.exe, or t
 does not call that function - send the log, it says what was looked for and where. The
 last two mean you are not in the world yet, or a camera is nowhere near the player.
 
-While flying the player still receives W A S D, so your character may walk around
-below you. That is the game reading its own input, not the camera.
+While flying, the player's controls are held back on purpose, so the character stays
+put. If the character does walk around anyway, the log says what was managed:
+
+    FreeCam: input blocking ready - 2 import(s) redirected, 2 keyboard device class(es) filtered
+    FreeCam: player controls held back (the camera is flying)
+    FreeCam: player controls given back (following the player)
+
+Zero keyboard device classes means DirectInput could not be reached on this machine; the
+raw mouse and the polling functions are still blocked, and P or O still work.
 
 
 IS THIS SAFE FOR MY GAME

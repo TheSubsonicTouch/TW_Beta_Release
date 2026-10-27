@@ -593,6 +593,108 @@ static void test_follow(void)
 }
 
 /* Keyframes: record, play back at the speed it was recorded, land on the last one. */
+/* The camera turns with the player's own camera, so the framing survives the player
+ * looking around. */
+static void test_follow_pan(void)
+{
+    fc_config cfg;
+    fc_state st;
+    fc_mat cam;
+    float pos[3] = { 10.0f, 20.0f, 30.0f };
+    float player[3] = { 8.0f, 20.0f, 28.0f };
+
+    fc_config_defaults(&cfg);
+    fc_init(&st, &cfg);
+    fc_mat_from_pose(&cam, pos, 0.5f, 0.0f, 0);
+    fc_toggle(&st, &cam);
+    fc_follow(&st, player, 1);
+
+    /* the first angles seen are the baseline, not a turn */
+    fc_follow_update_angles(&st, 1.0f, 0.0f);
+    CHECK(NEAR(st.yaw, 0.5f, 1e-5), "the first angle only sets the baseline (%f)", st.yaw);
+
+    /* the player's camera turns 0.2 rad to the left: so does the free camera */
+    fc_follow_update_angles(&st, 1.2f, 0.0f);
+    CHECK(NEAR(st.yaw, 0.7f, 1e-5), "the camera pans with the player (%f)", st.yaw);
+
+    /* and looking down tilts it down by the same amount */
+    fc_follow_update_angles(&st, 1.2f, -0.3f);
+    CHECK(NEAR(st.pitch, -0.3f, 1e-5), "and tilts with it (%f)", st.pitch);
+
+    /* the short way round: 3.10 to -3.10 is a 0.083 rad turn, not a full circle */
+    st.yaw = 0.0f;
+    st.last_player_yaw = 3.10f;
+    st.have_last_angles = 1;
+    fc_follow_update_angles(&st, -3.10f, 0.0f);
+    CHECK(NEAR(st.yaw, 0.083f, 1e-3), "a wrap past 180 degrees takes the short way (%f)", st.yaw);
+
+    /* no follow, no pan */
+    fc_follow(&st, player, 0);
+    st.yaw = 0.25f;
+    fc_follow_update_angles(&st, 2.0f, 1.0f);
+    CHECK(NEAR(st.yaw, 0.25f, 1e-6), "with following off the camera does not turn");
+
+    /* switching following back on starts a fresh baseline */
+    fc_follow(&st, player, 1);
+    fc_follow_update_angles(&st, 2.0f, 1.0f);
+    CHECK(NEAR(st.yaw, 0.25f, 1e-6), "and the first angle after switching on is a baseline again");
+}
+
+/* The arrow keys walk the playback speed up and down a ladder. */
+static void test_play_speed(void)
+{
+    fc_config cfg;
+    fc_state st;
+    fc_mat cam, out;
+    float pos[3] = { 1.0f, 2.0f, 3.0f };
+
+    fc_config_defaults(&cfg);
+    fc_init(&st, &cfg);
+    fc_mat_from_pose(&cam, pos, 0.0f, 0.0f, 0);
+    fc_toggle(&st, &cam);
+
+    CHECK(NEAR(fc_play_speed(&st), 1.0f, 1e-6), "the path plays at the speed it was flown");
+
+    CHECK(NEAR(fc_play_speed_shift(&st, 1), 1.25f, 1e-6), "one step faster is 1.25x");
+    CHECK(NEAR(fc_play_speed_shift(&st, 1), 1.5f, 1e-6), "then 1.5x");
+    fc_play_speed_shift(&st, 0);
+    fc_play_speed_shift(&st, 0);
+    CHECK(NEAR(fc_play_speed(&st), 1.0f, 1e-6), "and back down to 1x");
+
+    /* the ends are the ends */
+    for (int i = 0; i < 20; i++) fc_play_speed_shift(&st, 0);
+    CHECK(NEAR(fc_play_speed(&st), FC_PLAY_SPEED_MIN, 1e-6), "slowest is 0.1x (%f)",
+          fc_play_speed(&st));
+    for (int i = 0; i < 20; i++) fc_play_speed_shift(&st, 1);
+    CHECK(NEAR(fc_play_speed(&st), FC_PLAY_SPEED_MAX, 1e-6), "fastest is 4x (%f)",
+          fc_play_speed(&st));
+
+    /* and the speed really changes the playback: 2 s of path at 2x takes 1 s */
+    {
+        /* a keyframe records the pose the camera is in, so move it between takes */
+        st.path_count = 0;
+        st.pos[0] = 0.0f;
+        fc_key_add(&st, 0.0f);
+        st.pos[0] = 10.0f;
+        fc_key_add(&st, 2.0f);
+        CHECK(st.path_count == 2, "two keys recorded");
+
+        fc_play_set_speed(&st, 2.0f);
+        CHECK(fc_play_start(&st) == 1, "playback starts");
+        fc_play_step(&st, 0.5f, &out);          /* 1.0 s of path */
+        CHECK(NEAR(st.pos[0], 5.0f, 1e-3), "at 2x, half a second is a quarter of the path (%f)",
+              st.pos[0]);
+        CHECK(fc_playing(&st), "still playing");
+        fc_play_step(&st, 0.5f, &out);          /* 2.0 s of path: the end */
+        CHECK(NEAR(st.pos[0], 10.0f, 1e-3) && !fc_playing(&st), "and it lands on the last key");
+    }
+
+    /* clearing the path with M leaves nothing to play */
+    fc_path_clear(&st);
+    CHECK(st.path_count == 0 && !fc_playing(&st), "M clears the recorded path");
+    CHECK(fc_play_start(&st) == 0, "and there is nothing left to play");
+}
+
 static void test_keyframes(void)
 {
     fc_config cfg;
@@ -991,6 +1093,8 @@ int main(void)
     test_game_camera_matrix();
     test_freeze();
     test_follow();
+    test_follow_pan();
+    test_play_speed();
     test_keyframes();
     test_keyframe_yaw_wrap();
     test_restore();

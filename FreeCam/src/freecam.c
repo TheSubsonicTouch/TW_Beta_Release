@@ -693,6 +693,7 @@ void fc_init(fc_state *st, const fc_config *cfg)
     memset(st, 0, sizeof(*st));
     st->cfg = copy;
     st->pitch = 0.0f;
+    st->play_speed = 1.0f;
     fc_mat_identity(&st->saved);
 }
 
@@ -810,12 +811,14 @@ void fc_follow(fc_state *st, const float player[3], int on)
     if (!on) {
         st->follow = 0;
         st->have_last_player = 0;
+        st->have_last_angles = 0;
         return;
     }
     if (!player) return;
     st->follow = 1;
     copy3(st->last_player, player);
     st->have_last_player = 1;
+    st->have_last_angles = 0;      /* the first angle seen is the one to count from */
 }
 
 int fc_following(const fc_state *st)
@@ -841,6 +844,33 @@ void fc_follow_update(fc_state *st, const float player[3])
     for (i = 0; i < 3; i++) d[i] = player[i] - st->last_player[i];
     copy3(st->last_player, player);
     for (i = 0; i < 3; i++) st->pos[i] += d[i];
+}
+
+void fc_follow_update_angles(fc_state *st, float yaw, float pitch)
+{
+    float dy, dp;
+
+    if (!st || !st->follow) return;
+    if (!st->have_last_angles) {
+        st->last_player_yaw = yaw;
+        st->last_player_pitch = pitch;
+        st->have_last_angles = 1;
+        return;
+    }
+
+    /* the short way round, so a player looking past +-180 degrees does not spin the
+     * camera on the spot */
+    dy = yaw - st->last_player_yaw;
+    while (dy > FC_PI) dy -= 2.0f * FC_PI;
+    while (dy < -FC_PI) dy += 2.0f * FC_PI;
+    dp = pitch - st->last_player_pitch;
+    st->last_player_yaw = yaw;
+    st->last_player_pitch = pitch;
+
+    st->yaw += dy;
+    while (st->yaw > FC_PI) st->yaw -= 2.0f * FC_PI;
+    while (st->yaw < -FC_PI) st->yaw += 2.0f * FC_PI;
+    st->pitch = clampf(st->pitch + dp, -1.5533f, 1.5533f);
 }
 
 /* ---- freezing ---------------------------------------------------------------- */
@@ -918,6 +948,46 @@ void fc_play_stop(fc_state *st)
     st->play_time = 0.0f;
 }
 
+/* The ladder the arrow keys walk up and down. Small steps near 1x, bigger at the ends,
+ * so a press is always a visible change. */
+static const float kPlaySpeeds[] = {
+    0.1f, 0.2f, 0.25f, 0.33f, 0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f, 3.0f, 4.0f
+};
+#define FC_PLAY_SPEED_STEPS ((int)(sizeof(kPlaySpeeds) / sizeof(kPlaySpeeds[0])))
+
+void fc_play_set_speed(fc_state *st, float speed)
+{
+    if (!st) return;
+    if (!(speed > FC_PLAY_SPEED_MIN)) speed = FC_PLAY_SPEED_MIN;
+    if (speed > FC_PLAY_SPEED_MAX) speed = FC_PLAY_SPEED_MAX;
+    st->play_speed = speed;
+}
+
+float fc_play_speed(const fc_state *st)
+{
+    if (!st || !(st->play_speed > 0.0f)) return 1.0f;
+    return st->play_speed;
+}
+
+float fc_play_speed_shift(fc_state *st, int faster)
+{
+    float now;
+    int i, at = -1;
+
+    if (!st) return 1.0f;
+    now = fc_play_speed(st);
+
+    /* find the rung we are on: the closest one, so a speed set by hand still steps */
+    for (i = 0; i < FC_PLAY_SPEED_STEPS; i++) {
+        if (at < 0 || fabsf(now - kPlaySpeeds[i]) < fabsf(now - kPlaySpeeds[at])) at = i;
+    }
+    if (faster) { if (at < FC_PLAY_SPEED_STEPS - 1) at++; }
+    else        { if (at > 0) at--; }
+
+    st->play_speed = kPlaySpeeds[at];
+    return st->play_speed;
+}
+
 static float lerp_f(float a, float b, float t)
 {
     return a + (b - a) * t;
@@ -941,7 +1011,7 @@ int fc_play_step(fc_state *st, float dt, fc_mat *out)
     if (st->path_count < 2) { st->playing = 0; return 0; }
     if (!(dt > 0.0f)) dt = 0.0f;
 
-    st->play_time += dt;
+    st->play_time += dt * (st->play_speed > 0.0f ? st->play_speed : 1.0f);
     t = st->play_time;
 
     if (t >= st->path[st->path_count - 1].time) {

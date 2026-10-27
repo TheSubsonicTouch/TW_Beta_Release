@@ -19,6 +19,7 @@
 #include "../game_hooks.h"
 #include "../menu_core.h"
 #include "freecam_game.h"
+#include "input_block.h"
 #include "log.h"
 #include "spawn_guard.h"
 #include "win_menu.h"
@@ -286,6 +287,12 @@ LRESULT CALLBACK hkWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     if (g_imguiReady) ImGui_ImplWin32_WndProcHandler(hwnd, msg, wp, lp);
     // While the menu is open, keep keyboard keys from reaching the game.
     if (g_menu.visible() && (msg == WM_KEYDOWN || msg == WM_KEYUP || msg == WM_CHAR)) {
+        return 0;
+    }
+    // While the free camera is flying the character must not act: the raw mouse (WM_INPUT)
+    // and every key and click stop here. ImGui has already had the message above, and O or
+    // P switch this off so the player can move, fight and look around again.
+    if (tw::game::InputBlockSwallowMessage(msg)) {
         return 0;
     }
     return CallWindowProcW(g_oldWndProc, hwnd, msg, wp, lp);

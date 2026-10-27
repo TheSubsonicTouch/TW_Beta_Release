@@ -21,6 +21,12 @@ std::string FreeCamSetActive(bool on);
 
 bool FreeCamActive();
 
+// True while the free camera is flying and the player must not act: the game's input
+// is held back so the character cannot move, attack or interact. It is false while the
+// camera is frozen (O) or following the player (P), because then the player is meant to
+// be in control.
+bool FreeCamBlockingInput();
+
 // One line of the little corner display: the key that was pressed and what it did.
 // alpha goes from 1 to 0 as the line gets old, so the display fades out by itself.
 struct FreeCamHudLine {

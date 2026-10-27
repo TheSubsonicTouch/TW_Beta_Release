@@ -51,6 +51,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <tlhelp32.h>   // listing the other threads while code is patched
+#include "input_block.h"
 #include <mmsystem.h>   // timeBeginPeriod, for a 1 ms sleep while flying
 
 #include <cmath>
@@ -177,6 +178,14 @@ float    g_flightClock = 0.0f;     // seconds of flight, the keyframe clock
 // the path is kept across switching free cam off and on again
 fc_keyframe g_savedPath[FC_MAX_KEYS];
 int         g_savedPathCount = 0;
+float       g_playSpeed = 1.0f;         // playback speed, kept across on/off like the path
+
+// the matrices as they were the last time we wrote them, so a later read can tell our
+// pose from one the game has just put there itself
+fc_mat g_wroteWorld;
+fc_mat g_wroteView;
+int    g_haveWrote = 0;
+int    g_panSamples = 0;   // game camera poses seen while following (the turns copied)
 
 
 // the fresh answer the view detour hands out
@@ -1006,7 +1015,42 @@ bool EnsureDetours() {
     return InstallDetour(g_viewAcc, reinterpret_cast<void *>(&FreeCamViewAccessor));
 }
 
+// --- following the player's camera -------------------------------------------
+
+// While following, the camera turns with the player's own camera. The game keeps writing
+// its camera pose into the component every frame (from the player's look input) and this
+// writes over it; a read that is not what we last wrote is the game's own, and the turn
+// it has made since the last one is the pan to copy.
+void PeekGameCameraAngles() {
+    float pos[3], yaw = 0.0f, pitch = 0.0f;
+    fc_mat world, flipped;
+
+    if (!fc_following(&g_state) || !g_cam.obj) return;
+    if (!Readable(g_cam.obj + g_cam.worldOff, 64)) return;
+    std::memcpy(&world, g_cam.obj + g_cam.worldOff, 64);
+    if (g_cam.transposed) {
+        fc_mat_transpose(&world, &flipped);
+        world = flipped;
+    }
+
+    if (g_haveWrote) {
+        int same = 1;
+        for (int i = 0; i < 16; ++i) {
+            float d = world.m[i] - g_wroteWorld.m[i];
+            if (d < 0.0f) d = -d;
+            if (d > 0.01f) { same = 0; break; }
+        }
+        if (same) return;      // still our own pose; the game has not written since
+    }
+
+    if (!fc_mat_to_pose(&world, pos, &yaw, &pitch, 0)) return;
+    ++g_panSamples;      // the game rewrote its camera: this is a turn to copy
+    fc_follow_update_angles(&g_state, yaw, pitch);
+}
+
 // --- writing the matrices ----------------------------------------------------
+
+bool CameraStillThere();   // defined below; the restore has to ask first
 
 bool WriteRaw(const fc_mat &world, const fc_mat &view) {
     if (!g_cam.obj) return false;
@@ -1025,6 +1069,9 @@ bool WriteRaw(const fc_mat &world, const fc_mat &view) {
 
 // Our own matrices, written in whatever order the engine keeps them.
 bool WriteMatrices(const fc_mat &world, const fc_mat &view) {
+    g_wroteWorld = world;
+    g_wroteView = view;
+    g_haveWrote = 1;
     if (g_cam.transposed) {
         fc_mat w, v;
         fc_mat_transpose(&world, &w);
@@ -1036,6 +1083,26 @@ bool WriteMatrices(const fc_mat &world, const fc_mat &view) {
 
 void RestoreMatrices() {
     if (!g_cam.obj) return;
+    if (!CameraStillThere()) return;
+
+    // Only put the old bytes back while the camera still holds ours. If the game has
+    // written its own pose since, that one is newer than anything saved when the flight
+    // started: writing the old bytes over it is what made switching back and forth
+    // jump the picture, and would drag the camera back to where it was minutes ago.
+    if (g_haveWrote && Readable(g_cam.obj + g_cam.viewOff, 64)) {
+        fc_mat now, expect = g_wroteView;
+        std::memcpy(&now, g_cam.obj + g_cam.viewOff, 64);
+        if (g_cam.transposed) {
+            fc_mat t;
+            fc_mat_transpose(&expect, &t);
+            expect = t;
+        }
+        for (int i = 0; i < 16; ++i) {
+            float d = now.m[i] - expect.m[i];
+            if (d < 0.0f) d = -d;
+            if (d > 0.01f) return;      // the game's own pose is there: leave it alone
+        }
+    }
     WriteRaw(g_cam.savedWorld, g_cam.savedView);
 }
 
@@ -1093,6 +1160,16 @@ Hotkey g_followKey{ 'P' };
 Hotkey g_keyKey{ 'L' };
 Hotkey g_playKey{ 'K' };
 Hotkey g_freezeKey{ 'O' };
+Hotkey g_clearKey{ 'M' };
+Hotkey g_slowerKey{ VK_LEFT };      // playback speed down
+Hotkey g_fasterKey{ VK_RIGHT };     // playback speed up
+
+// While the camera is flying, the player is not in control: the game's own input is
+// held back so the character stands still and does not swing or interact. O and P hand
+// control back to the player, which is the whole point of those two.
+bool PlayerHasControl() {
+    return fc_frozen(&g_state) || fc_following(&g_state);
+}
 
 // --- the corner display ------------------------------------------------------
 //
@@ -1146,9 +1223,16 @@ void PollInput(float *mouseX, float *mouseY) {
     for (int i = 0; i < FC_KEY_COUNT; ++i) g_state.keys[i] = map[i] ? (KeyDown(map[i]) ? 1 : 0) : 0;
 
     *mouseX = *mouseY = 0.0f;
-    // while frozen the camera is not flying, so the right button belongs to the game
-    // and the cursor must stay where the player wants it
-    if (fc_frozen(&g_state)) { g_looking = false; return; }
+
+    // Frozen (O) or following (P): the player is driving, not the camera. The keys belong
+    // to the character and the mouse belongs to the game's own look - capturing the
+    // pointer here would fight it, and flying by hand would add to the follow.
+    if (PlayerHasControl()) {
+        for (int i = 0; i < FC_KEY_COUNT; ++i) g_state.keys[i] = 0;
+        g_looking = false;
+        return;
+    }
+
     if (KeyDown(kLookKey)) {
         if (!g_looking) {
             GetCursorPos(&g_lookOrigin);
@@ -1165,9 +1249,39 @@ void PollInput(float *mouseX, float *mouseY) {
     }
 }
 
-// P - follow the player, L - keyframe, K - play the path back.
+// "0.1x", "1.25x", "2x": the playback speed as it is shown in the corner
+void SpeedText(float speed, char *out, size_t n) {
+    char buf[16];
+    std::snprintf(buf, sizeof(buf), "%.2f", static_cast<double>(speed));
+    size_t len = std::strlen(buf);
+    while (len > 3 && buf[len - 1] == '0') buf[--len] = '\0';
+    std::snprintf(out, n, "%sx", buf);
+}
+
+// Left and right arrows change how fast a recorded path plays back.
+void HandlePlaybackSpeed() {
+    const bool faster = g_fasterKey.Pressed();
+    const bool slower = g_slowerKey.Pressed();
+    if (!faster && !slower) return;
+
+    const float speed = fc_play_speed_shift(&g_state, faster ? 1 : 0);
+    g_playSpeed = speed;
+
+    char text[44], shown[16];
+    SpeedText(speed, shown, sizeof(shown));
+    std::snprintf(text, sizeof(text), "playback %s", shown);
+    Hud(faster ? "RIGHT" : "LEFT", text);
+    TW_Log("FreeCam: playback speed %s (%s arrow)", shown, faster ? "right" : "left");
+}
+
+// P - follow the player, L - keyframe, K - play the path back, M - forget the path,
+// O - freeze, left/right - how fast the path plays.
 void HandleHotkeys(const float player[3], bool havePlayer) {
-    if (g_followKey.Pressed()) {
+    if (g_followKey.Pressed() && fc_frozen(&g_state)) {
+        // a frozen camera is being held still; following would drag it after the player
+        TW_Log("FreeCam: the camera is frozen (O) - unfreeze it before following the player");
+        Hud("P", "unfreeze with O first");
+    } else if (g_followKey.Pressed()) {
         if (fc_playing(&g_state)) {
             TW_Log("FreeCam: following cannot be changed while the path is playing (K to stop)");
         } else if (fc_following(&g_state)) {
@@ -1200,6 +1314,25 @@ void HandleHotkeys(const float player[3], bool havePlayer) {
             TW_Log("FreeCam: camera frozen at %.1f %.1f %.1f - the player can move, fight and "
                    "interact; O to unfreeze", g_state.pos[0], g_state.pos[1], g_state.pos[2]);
             Hud("O", "camera frozen");
+        }
+    }
+
+    HandlePlaybackSpeed();
+
+    if (g_clearKey.Pressed()) {
+        // M: forget every keyframe, so the next ones are a new scene rather than an
+        // addition to the old one
+        const int had = g_state.path_count;
+        fc_path_clear(&g_state);
+        g_savedPathCount = 0;
+        if (had > 0) {
+            char text[44];
+            std::snprintf(text, sizeof(text), "cleared %d keyframe%s", had, had == 1 ? "" : "s");
+            Hud("M", text);
+            TW_Log("FreeCam: %d keyframe(s) cleared - the next L starts a new path", had);
+        } else {
+            Hud("M", "no keyframes to clear");
+            TW_Log("FreeCam: M pressed but the path was already empty");
         }
     }
 
@@ -1294,6 +1427,7 @@ bool StartFlying() {
         TW_Log("FreeCam: %d recorded keyframes kept from the last flight", g_savedPathCount);
     }
     g_flightClock = 0.0f;
+    fc_play_set_speed(&g_state, g_playSpeed);
 
     fc_mat world;
     fc_mat_from_pose(&world, pos, yaw, pitch, 0);
@@ -1301,6 +1435,14 @@ bool StartFlying() {
 
     g_looking = false;
     g_live = 1;
+
+    // Once, when the camera is first found: stand in front of the game's own input, so
+    // the character stops moving and fighting under the camera.
+    if (!tw::game::InputBlockReady()) {
+        tw::game::InputBlockInstall(reinterpret_cast<HINSTANCE>(GetModuleHandleW(nullptr)));
+        TW_Log("FreeCam: %s", tw::game::InputBlockStatus());
+    }
+
     TW_Log("FreeCam: on at %.1f %.1f %.1f (yaw %.0f, pitch %.0f, view row sign %d, %s)",
            g_state.pos[0], g_state.pos[1], g_state.pos[2], g_state.yaw * 57.2957795f,
            g_state.pitch * 57.2957795f, g_cam.viewSign, g_cam.how);
@@ -1308,11 +1450,13 @@ bool StartFlying() {
 }
 
 void StopFlying() {
+    InputBlockSetActive(false);      // the controls are the player's again
     fc_play_stop(&g_state);
     fc_follow(&g_state, nullptr, 0);
     fc_set_active(&g_state, 0, nullptr);
     g_live = 0;
     g_looking = false;
+    g_haveWrote = 0;
     RestoreMatrices();   // the matrices as they were when the flight started
     TW_Log("FreeCam: off after %.0f units", g_state.moved);
 }
@@ -1326,7 +1470,7 @@ DWORD WINAPI Loop(LPVOID) {
     ULONGLONG lastReport = GetTickCount64();
 
     timeBeginPeriod(1);
-    TW_Log("FreeCam: camera thread up (build 6: right-handed view layout, freeze, hotkey display)");
+    TW_Log("FreeCam: camera thread up (build 7: player controls held back, follow pans, playback speed)");
 
     for (;;) {
         if (g_quit) break;
@@ -1352,6 +1496,7 @@ DWORD WINAPI Loop(LPVOID) {
             TW_Log("FreeCam: panic key, putting the camera back and the accessor back");
             Hud("F10", "free cam off");
             fc_freeze(&g_state, 0);
+            InputBlockSetActive(false);
             g_want = 0;
             if (g_live) StopFlying();
             RemoveDetour(g_viewAcc);
@@ -1434,6 +1579,18 @@ DWORD WINAPI Loop(LPVOID) {
         g_flightClock += dt;
         HandleHotkeys(player, havePlayer);
 
+        // The player only keeps control while the camera is frozen (O) or following (P).
+        const bool blockNow = g_live && !PlayerHasControl();
+        if (blockNow != (tw::game::InputBlockActive() ? true : false)) {
+            tw::game::InputBlockSetActive(blockNow);
+            TW_Log("FreeCam: player controls %s (%s)", blockNow ? "held back" : "given back",
+                   PlayerHasControl() ? (fc_frozen(&g_state) ? "the camera is frozen" :
+                                                               "following the player")
+                                      : "the camera is flying");
+        }
+
+        if (fc_following(&g_state) && !fc_frozen(&g_state)) PeekGameCameraAngles();
+
         fc_mat world;
         bool got = false;
         if (fc_playing(&g_state)) {
@@ -1501,6 +1658,12 @@ DWORD WINAPI Loop(LPVOID) {
                        g_viewAcc.installed ? "hooked" : "not hooked", answers, calls, held, taken,
                        fc_following(&g_state) ? ", following the player" : "",
                        g_state.path_count ? ", path has keyframes" : "");
+                if (fc_following(&g_state) || g_panSamples) {
+                    TW_Log("FreeCam: %d game camera pose(s) seen while following - those are the "
+                           "turns copied; playback %s", g_panSamples,
+                           fc_playing(&g_state) ? "on" : "off");
+                    if (!fc_following(&g_state)) g_panSamples = 0;
+                }
                 held = taken = 0;
             }
         }
@@ -1523,6 +1686,8 @@ void EnsureThread() {
 
 int FreeCamHudLines(FreeCamHudLine *out, int max) { return HudCollect(out, max); }
 
+bool FreeCamBlockingInput() { return tw::game::InputBlockActive(); }
+
 bool FreeCamAvailable() {
     return Base() != 0 && Readable(reinterpret_cast<void *>(Base() + 0x1000), 16);
 }
@@ -1542,6 +1707,7 @@ std::string FreeCamSetActive(bool on) {
     if (!on) {
         if (!g_want && !g_live) return "Free camera: already off";
         g_want = 0;
+        InputBlockSetActive(false);      // the controls are the player's before the thread wakes
         return "Free camera: off";
     }
     if (g_want) return "Free camera: already on";
