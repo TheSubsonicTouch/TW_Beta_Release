@@ -231,6 +231,30 @@ static void watch_config(fc_win *w)
     w->have_target = 0;              /* the address may have moved */
 }
 
+/* A matrix in the log, four rows at a time, with what it decomposes to. Cheap to read
+ * and the only way to tell a transform from a projection when a guess goes wrong. */
+static void log_matrix(const char *what, const fc_mat *m)
+{
+    float pos[3] = { 0.0f, 0.0f, 0.0f }, yaw = 0.0f, pitch = 0.0f;
+    int ok = fc_mat_valid(m);
+
+    log_line("%s (%s)", what, ok ? "looks like a transform" : "does NOT look like a transform");
+    log_line("    [ %9.3f %9.3f %9.3f %9.3f ]", m->m[0], m->m[1], m->m[2], m->m[3]);
+    log_line("    [ %9.3f %9.3f %9.3f %9.3f ]", m->m[4], m->m[5], m->m[6], m->m[7]);
+    log_line("    [ %9.3f %9.3f %9.3f %9.3f ]", m->m[8], m->m[9], m->m[10], m->m[11]);
+    log_line("    [ %9.3f %9.3f %9.3f %9.3f ]", m->m[12], m->m[13], m->m[14], m->m[15]);
+    if (ok) {
+        int view = 0;
+        if (fc_mat_to_pose(m, pos, &yaw, &pitch, view))
+            log_line("    as a world matrix: position %.2f %.2f %.2f, yaw %.1f, pitch %.1f",
+                     pos[0], pos[1], pos[2], yaw * 57.2957795f, pitch * 57.2957795f);
+        view = 1;
+        if (fc_mat_to_pose(m, pos, &yaw, &pitch, view))
+            log_line("    as a view matrix:  eye %.2f %.2f %.2f, yaw %.1f, pitch %.1f",
+                     pos[0], pos[1], pos[2], yaw * 57.2957795f, pitch * 57.2957795f);
+    }
+}
+
 static int read_matrix(fc_win *w, fc_mat *m)
 {
     if (!w->have_target) {
@@ -241,6 +265,7 @@ static int read_matrix(fc_win *w, fc_mat *m)
             log_line("matrix at 0x%llx (module: %s)",
                      (unsigned long long)(uintptr_t)w->target,
                      w->cfg.module[0] ? w->cfg.module : "the game exe");
+            log_matrix("what is there now", m);
         } else {
             if (!w->reported_bad) {
                 log_line("no matrix at the configured address/chain yet; still looking");
@@ -272,7 +297,11 @@ static void set_active(fc_win *w, int on, const fc_mat *target)
     if (on) {
         if (w->st.active) return;
         if (!target) { log_line("free cam refused: no readable matrix"); return; }
-        if (!fc_mat_valid(target)) { log_line("free cam refused: that is not a transform"); return; }
+        if (!fc_mat_valid(target)) {
+            log_line("free cam refused: that is not a transform");
+            log_matrix("the address holds", target);
+            return;
+        }
         if (!fc_set_active(&w->st, 1, target)) { log_line("free cam refused"); return; }
         log_line("free cam ON (%s mode) at %.1f %.1f %.1f",
                  w->cfg.mode == FC_MODE_PLAYER ? "player" : "camera",

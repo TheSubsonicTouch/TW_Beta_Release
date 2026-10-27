@@ -81,6 +81,19 @@ first, then try Caps Lock again. If it stays that way, the game build probably l
 player out at different offsets than the one the debug menu was written for; put the right
 chain in FreeCam.ini, or set an absolute `address=`.
 
+The first time it finds something it writes the sixteen numbers it found, row by row, and
+what they say the position is:
+
+    what is there now (looks like a transform)
+        [     1.000     0.000     0.000     0.000 ]
+        ...
+        as a world matrix: position 1234.50 -88.20 6521.75, yaw 91.4, pitch -3.2
+
+If the position looks like where your character is standing, the chain is right and only
+the mode may need changing. If it looks like nonsense, the chain leads somewhere else, and
+that block of numbers is the most useful thing to send back - with it the right offsets can
+be worked out without guesswork.
+
 The camera is leashed to 4000 units from where it started, so a wrong matrix cannot send
 you to the edge of the map. `max_distance=` changes that, and `restore=false` stops it
 putting the matrix back when you switch off.
