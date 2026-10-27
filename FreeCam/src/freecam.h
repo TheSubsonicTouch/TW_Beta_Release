@@ -93,6 +93,7 @@ void *fc_chain_resolve(void *base, const fc_config *cfg, fc_read_fn read, void *
 /* ---- matrix maths ----------------------------------------------------------- */
 void fc_mat_identity(fc_mat *m);
 int  fc_mat_valid(const fc_mat *m);                    /* finite, orthogonal basis, sane size */
+int  fc_mat_is_projection(const fc_mat *m);            /* a projection, not a transform */
 /* `view` is 0 for a world matrix, 1 or 2 for the two view-matrix conventions. */
 void fc_mat_from_pose(fc_mat *m, const float pos[3], float yaw, float pitch, int view);
 int  fc_mat_to_pose(const fc_mat *m, float pos[3], float *yaw, float *pitch, int view);

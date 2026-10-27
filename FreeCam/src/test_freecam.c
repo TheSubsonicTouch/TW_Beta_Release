@@ -605,12 +605,34 @@ static void test_world_view_pair(void)
     }
 }
 
+/* ---- projection detection --------------------------------------------------- */
+
+static void test_projection(void)
+{
+    fc_mat persp = { { 1.3f, 0.0f, 0.0f, 0.0f,
+                       0.0f, 1.7f, 0.0f, 0.0f,
+                       0.0f, 0.0f, 1.0005f, 1.0f,
+                       0.0f, 0.0f, -0.2f, 0.0f } };
+    fc_mat world, view, id;
+    float pos[3] = { 10.0f, 2.0f, -3.0f };
+
+    fc_mat_from_pose(&world, pos, 0.4f, 0.1f, 0);
+    fc_mat_from_pose(&view, pos, 0.4f, 0.1f, 1);
+    fc_mat_identity(&id);
+
+    CHECK(fc_mat_is_projection(&persp), "a perspective matrix is a projection");
+    CHECK(!fc_mat_is_projection(&world), "a world matrix is not");
+    CHECK(!fc_mat_is_projection(&view), "a view matrix is not");
+    CHECK(!fc_mat_is_projection(&id), "nor is the identity");
+}
+
 int main(void)
 {
     test_defaults();
     test_chain();
     test_chain_walk();
     test_world_view_pair();
+    test_projection();
     test_config();
     test_matrices();
     test_toggle();

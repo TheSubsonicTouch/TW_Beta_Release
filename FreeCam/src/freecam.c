@@ -369,6 +369,7 @@ void *fc_chain_resolve(void *base, const fc_config *cfg, fc_read_fn read, void *
 }
 
 /* ---- matrix maths ----------------------------------------------------------- */
+
 void fc_mat_identity(fc_mat *m)
 {
     int i;
@@ -499,6 +500,23 @@ static float fc_dist3(const float a[3], const float b[3])
 {
     float dx = a[0] - b[0], dy = a[1] - b[1], dz = a[2] - b[2];
     return (float)sqrt((double)(dx * dx + dy * dy + dz * dz));
+}
+
+/* A projection matrix is the odd one out in a camera's matrix block: perspective
+ * projections end in a zero (m[15] == 0) and carry a +-1 in m[11], orthographic ones
+ * keep a 1 there but have no orthonormal basis. Either way it is not a transform. */
+int fc_mat_is_projection(const fc_mat *m)
+{
+    int i;
+    if (!m) return 0;
+    for (i = 0; i < 16; i++) if (!finitef_(m->m[i])) return 0;
+    if (fc_mat_valid(m)) return 0;                       /* it is a transform */
+    if (fabsf(m->m[15]) < 0.001f) return 1;              /* perspective */
+    if (fabsf(fabsf(m->m[11]) - 1.0f) < 0.001f) return 1;/* perspective, other layout */
+    if (fabsf(m->m[15] - 1.0f) < 0.001f &&
+        fabsf(m->m[3]) < 0.001f && fabsf(m->m[7]) < 0.001f && fabsf(m->m[11]) < 0.001f)
+        return 1;                                        /* orthographic */
+    return 0;
 }
 
 int fc_view_sign(const fc_mat *world, const fc_mat *view)
