@@ -148,8 +148,10 @@ def open_world_crime_scenes(req, method, parts, body, query):
         with STATE.lock:
             scene = state.add_crime_scene(_player(), coords[0], coords[1], coords[2], parts[4])
             STATE.save()
-        return ok(mCrimeSceneAdded=bool(scene),
-                  mCrimeSceneID=scene["OpenWorldCrimeSceneID"] if scene else "0")
+        # The parser declares mReturnCode, mMessage and mDataBags; the two extra members
+        # are for the log and the tests (the client ignores what it does not declare).
+        return _ok_bags(mCrimeSceneAdded=bool(scene),
+                        mCrimeSceneID=scene["OpenWorldCrimeSceneID"] if scene else "0")
     with STATE.lock:
         scenes = state.crime_scenes(_player())
         changed = state.prune_crime_scenes(_player())

@@ -737,10 +737,17 @@ def add_crime_scene(player, x, y, z, victim="", now=None):
     return scene
 
 
+# The members the client's own parser declares for one scene (devdata/endpoints.txt,
+# "openworldcrimescene"); Created/CollectedAt stay on our record but are not sent.
+CRIME_SCENE_FIELDS = ("OpenWorldCrimeSceneID", "DeathX", "DeathY", "DeathZ",
+                      "VictimPlayerDataIDString", "Collected")
+
+
 def crime_scenes(player, now=None):
     """The scenes the client should draw: everything not collected yet."""
     prune_crime_scenes(player, now)
-    return [dict(s) for s in crime_scene_bag(player)["Scenes"] if not s.get("Collected")]
+    return [{key: scene[key] for key in CRIME_SCENE_FIELDS}
+            for scene in crime_scene_bag(player)["Scenes"] if not scene.get("Collected")]
 
 
 def collect_crime_scene(player, scene_id, now=None):

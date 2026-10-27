@@ -352,6 +352,9 @@ values are inferred, and these are the ones to look at if a screen misbehaves:
 | `mGameRewardTunerName` is the tuner's UID as a string | the field is a string and `UFG::GameRewardTuner` has no name field | the Challenges screen may show no reward name |
 | `ClothingStoreItemUIDs` holds the UIDs of the worn `UFG::StoreClothing` pieces | the field is a list of store item UIDs and the wardrobe sends it next to `ClothingOutfitCortexUID`; the outfit's own `mClothingItems` gives the pieces | the model does not change; `tools/playermodel.py show` prints what is set |
 | `ClothingOutfitCortexUID` is the worn `UFG::StoreOutfit` UID | same reply; the field is named after the outfit | only the outfit name in the wardrobe is wrong, the pieces still apply |
+| a crime scene pays 10 face, a street encounter 20 | neither is in the game data; both use the low face ladder as a yardstick | rewards feel low or high - `state.CRIME_SCENE_FACE`, `state.WORLD_ENCOUNTER_REWARD` and `WORLD_ENCOUNTER_LIMIT` are one line each |
+| a beaten rival's turf is back after ten minutes | `mRemainingSeconds` is a countdown (the world map greys a site out while it runs, `FREE_REFRESH_RIVALS`), but the original number is unknown | raids come too often or too rarely - `state.RIVAL_RAID_COOLDOWN` |
+| the `CrimeScenes` list carries exactly the six members the client's parser declares | `devdata/endpoints.txt`, "openworldcrimescene" | extra members would be dropped by `schema.py` anyway; `Created`/`CollectedAt` stay on our record and are never sent |
 | buying an outfit also wears it | the shop has no "try on" step and the model has to come from somewhere | the player keeps the old look until they open the wardrobe; `tools/playermodel.py set <name>` does it directly |
 
 The challenge rotation (which three trials, tier targets, which tuner each tier pays) is
