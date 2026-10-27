@@ -72,7 +72,7 @@ for f in src/dinput8_proxy.cpp src/win_menu.cpp src/menu_core.cpp src/log.cpp \
          src/freecam_game.cpp src/imgui.cpp src/imgui_draw.cpp src/imgui_tables.cpp \
          src/imgui_widgets.cpp src/imgui_impl_win32.cpp src/imgui_impl_dx11.cpp; do
     echo "   $f"
-    $ZIG c++ -target x86_64-windows-gnu -std=c++17 -c -O2 -w -I. -Iwin -Isrc \
+    $ZIG c++ -target x86_64-windows-gnu -std=c++17 -fms-extensions -c -O2 -w -I. -Iwin -Isrc \
         -o "$(basename "$f" .cpp).o" "$f"
 done
 echo "   src/freecam.c"

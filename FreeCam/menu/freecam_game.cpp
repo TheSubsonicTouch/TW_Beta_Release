@@ -1,26 +1,25 @@
 // freecam_game.cpp - free camera for the Triad Wars debug menu.
 //
-// How it works, in order:
+// Three steps, in order:
 //
-//   1. Find the camera. UFG::BaseCameraComponent and its eight subclasses are
-//      plain heap objects that start with a vtable pointer, and the nine vtables
-//      are at fixed RVAs, so a heap scan for those pointers finds every camera in
-//      the process - usually one or two objects, not thousands.
-//   2. Work out the layout. Every camera component keeps three 4x4 matrices 0x40
-//      apart at +0x40 (or +0x110 when the byte at +0x100 is set): the world
-//      transform, its view matrix, and the projection. A view matrix is the world
-//      matrix rebuilt from the same pose, so rebuild it both ways round and see
-//      which one the game actually stored (fc_view_sign). The world matrix has to
-//      be standing next to the player, which is the check that rejects everything
-//      else in the heap.
-//   3. Fly. The camera rewrites those matrices every frame, so one write per frame
-//      would lose the race. A thread of our own re-writes the pair continuously
-//      (world + view, both from our pose), so whatever order the game's update and
-//      its render run in, it renders our pose.
+//   1. Find the camera. UFG::BaseCameraComponent and its eight subclasses are plain
+//      heap objects that begin with a vtable pointer, and the nine camera vtables
+//      sit at fixed RVAs in TriadWars.exe, so a heap walk for those pointers finds
+//      the live camera. The walk is time-budgeted per tick and runs on our own
+//      thread: doing it on the render thread freezes the game for as long as it
+//      takes to walk a multi-gigabyte heap, which is a hang, not a stutter.
+//   2. Work out the layout. Every component keeps three 4x4 matrices 0x40 apart at
+//      +0x40 (or +0x110 when the byte at +0x100 is set): world transform, view
+//      matrix, projection. A view matrix is the world matrix rebuilt from the same
+//      pose, so rebuild both ways round and keep whichever the game stored
+//      (fc_view_sign). The world matrix also has to stand next to the player, which
+//      is what rejects every other transform in the process.
+//   3. Fly. The game rewrites the camera's matrices every frame, so a single write
+//      per frame would lose the race; our thread rewrites the pair continuously.
 //
-// Everything is guarded with VirtualQuery: a stale pointer is a log line, not a
-// crash. Set off with the menu entry, moved with WASD, back with the menu entry or
-// by pressing the panic key.
+// Safety: every pointer is checked with VirtualQuery before it is touched, the scan
+// reads under SEH so a page released mid-walk costs a skipped chunk rather than the
+// process, and nothing in here blocks the caller.
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -60,26 +59,43 @@ const uintptr_t kCamVtables[] = {
     0x01937300,  // ProgressionCameraComponent
     0x01937da0,  // TurfCameraComponent
 };
+constexpr size_t kCamVtableCount = sizeof(kCamVtables) / sizeof(kCamVtables[0]);
 
-constexpr int    kMaxCameras   = 64;
-constexpr float  kNearRadius   = 80.0f;   // camera must be this close to the player
+constexpr float  kNearRadius   = 120.0f;    // the camera must be this close to the player
+constexpr size_t kObjectBytes  = 0x200;     // enough for all three matrices
 constexpr int    kLookKey      = VK_RBUTTON;
+constexpr float  kScanBudgetMs = 2.0f;      // heap walked per tick, never more
+constexpr size_t kScanChunk    = 64 * 1024; // bytes per fault-guarded read, per clock check
 
 struct Camera {
     uint8_t *obj = nullptr;
     int worldOffset = 0x40;
-    int viewOffset  = 0x80;
-    int viewSign    = 1;
-    float distance  = 0.0f;
+    int viewOffset = 0x80;
+    int viewSign = 1;
+    float distance = 0.0f;
+};
+
+struct ScanCtx {
+    const float *player;
+    uintptr_t lo, hi;
+    uintptr_t vt[kCamVtableCount];
+    Camera *out;
 };
 
 Camera   g_cam;
 fc_state g_state;
 HANDLE   g_thread = nullptr;
-volatile LONG g_quit = 0;
-volatile LONG g_live = 0;          // the menu's toggle state
+volatile LONG g_quit = 0;          // the DLL is going away
+volatile LONG g_want = 0;          // the menu toggle: the player wants free cam
+volatile LONG g_live = 0;          // the camera is actually being flown
 POINT    g_lookOrigin = {};
 bool     g_looking = false;
+
+uintptr_t g_scanAddr = 0x10000;    // search cursor, kept between ticks
+int       g_scanPasses = 0;
+int       g_scanRegions = 0;
+bool      g_searchLogged = false;
+bool      g_noPlayerLogged = false;
 
 uintptr_t Base() { return reinterpret_cast<uintptr_t>(GetModuleHandleW(nullptr)); }
 
@@ -122,57 +138,26 @@ bool Writable(const void *p, size_t n) {
     return true;
 }
 
+double MsSince(const LARGE_INTEGER &a, const LARGE_INTEGER &now, const LARGE_INTEGER &freq) {
+    return static_cast<double>(now.QuadPart - a.QuadPart) * 1000.0 /
+           static_cast<double>(freq.QuadPart);
+}
+
 // Where the player is standing, from the same chain the menu already reads.
 bool PlayerPosition(float out[3]) {
     auto *base = reinterpret_cast<uint8_t *>(Base());
+    if (!base) return false;
     void *player = *reinterpret_cast<void **>(base + kPlayerGlobal);
     if (!Readable(player, 0x60)) return false;
     void *node = *reinterpret_cast<void **>(static_cast<uint8_t *>(player) + kPlayerNodeOffset);
     if (!Readable(node, 0xC0)) return false;
     const float *m = reinterpret_cast<const float *>(static_cast<uint8_t *>(node) + kPlayerMatrix);
     if (!std::isfinite(m[12]) || !std::isfinite(m[13]) || !std::isfinite(m[14])) return false;
+    if (std::fabs(m[12]) > 100000.0f || std::fabs(m[14]) > 100000.0f) return false;
     out[0] = m[12];
     out[1] = m[13];
     out[2] = m[14];
     return true;
-}
-
-int ScanCameras(uint8_t *out[], int max) {
-    const uintptr_t lo = Base();
-    const uintptr_t hi = lo + 0x04000000;      // the exe image is 40 MB
-    uintptr_t vt[sizeof(kCamVtables) / sizeof(kCamVtables[0])];
-    for (size_t i = 0; i < sizeof(vt) / sizeof(vt[0]); i++) vt[i] = Base() + kCamVtables[i];
-
-    SYSTEM_INFO si;
-    GetSystemInfo(&si);
-    uintptr_t addr = 0x10000;
-    uintptr_t end = reinterpret_cast<uintptr_t>(si.lpMaximumApplicationAddress);
-    int found = 0;
-
-    while (addr < end && found < max) {
-        MEMORY_BASIC_INFORMATION mbi;
-        if (!VirtualQuery(reinterpret_cast<void *>(addr), &mbi, sizeof mbi)) break;
-        auto *region = static_cast<uint8_t *>(mbi.BaseAddress);
-        size_t size = static_cast<size_t>(mbi.RegionSize);
-        if (mbi.State == MEM_COMMIT) {
-            DWORD prot = mbi.Protect & 0xff;
-            if ((prot == PAGE_READWRITE || prot == PAGE_WRITECOPY) && !(mbi.Protect & PAGE_GUARD)) {
-                for (size_t off = 0; off + 8 <= size && found < max; off += 8) {
-                    uintptr_t v = *reinterpret_cast<uintptr_t *>(region + off);
-                    if (v < lo || v >= hi) continue;
-                    for (size_t k = 0; k < sizeof(vt) / sizeof(vt[0]); k++) {
-                        if (v == vt[k]) {
-                            out[found++] = region + off;
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-        if (!size) break;
-        addr = reinterpret_cast<uintptr_t>(region) + size;
-    }
-    return found;
 }
 
 float Distance(const float a[3], const float b[3]) {
@@ -186,79 +171,206 @@ void LogMatrix(const char *what, const fc_mat &m) {
            m.m[8], m.m[9], m.m[10], m.m[11], m.m[12], m.m[13], m.m[14], m.m[15]);
 }
 
-// Look for the camera: every component whose three matrices contain a world/view
-// pair standing next to the player. Closest one wins.
-bool FindCamera() {
-    float player[3];
-    if (!PlayerPosition(player)) {
-        TW_Log("FreeCam: the player transform is not readable yet, so the camera cannot be told apart");
-        return false;
-    }
-    TW_Log("FreeCam: player at %.1f %.1f %.1f, scanning for camera components", player[0], player[1],
-           player[2]);
+// --- finding the camera ------------------------------------------------------
 
-    uint8_t *objs[kMaxCameras];
-    int count = ScanCameras(objs, kMaxCameras);
-    TW_Log("FreeCam: %d camera component(s) found", count);
+// Is this the start of a camera component holding a world/view pair standing next
+// to the player? Fills `out` when it is.
+bool TestObject(uint8_t *obj, const float player[3], Camera *out) {
+    if (!obj || (reinterpret_cast<uintptr_t>(obj) & 7)) return false;
+    if (!Readable(obj, kObjectBytes)) return false;
 
-    Camera best;
-    best.distance = 1e9f;
-    for (int i = 0; i < count; i++) {
-        uint8_t *obj = objs[i];
-        if (!Readable(obj, 0x200)) continue;
-        const int block = (*(obj + 0x100) != 0) ? 0x110 : 0x40;
-        fc_mat cands[3];
-        std::memcpy(&cands[0], obj + block + 0x00, 64);
-        std::memcpy(&cands[1], obj + block + 0x40, 64);
-        std::memcpy(&cands[2], obj + block + 0x80, 64);
+    const int block = (*(obj + 0x100) != 0) ? 0x110 : 0x40;
+    fc_mat cands[3];
+    std::memcpy(&cands[0], obj + block + 0x00, 64);
+    std::memcpy(&cands[1], obj + block + 0x40, 64);
+    std::memcpy(&cands[2], obj + block + 0x80, 64);
 
-        int wi = -1, vi = -1;
-        if (!fc_pick_world_view(cands, 3, player, kNearRadius, &wi, &vi)) continue;
-        float pos[3], yaw, pitch;
-        if (!fc_mat_to_pose(&cands[wi], pos, &yaw, &pitch, 0)) continue;
-        float d = Distance(pos, player);
-        if (d >= best.distance) continue;
-        best.obj = obj;
-        best.worldOffset = block + wi * 0x40;
-        best.viewOffset = block + vi * 0x40;
-        best.viewSign = fc_view_sign(&cands[wi], &cands[vi]);
-        best.distance = d;
-    }
+    int wi = -1, vi = -1;
+    if (!fc_pick_world_view(cands, 3, player, kNearRadius, &wi, &vi)) return false;
 
-    if (!best.obj) {
-        TW_Log("FreeCam: no camera component is holding a world/view pair near the player "
-               "(%d object(s) checked)", count);
-        return false;
-    }
-    g_cam = best;
-    TW_Log("FreeCam: camera at %p, world +0x%x, view +0x%x, view row sign %d, %.1f units from the player",
-           g_cam.obj, g_cam.worldOffset, g_cam.viewOffset, g_cam.viewSign, g_cam.distance);
-    {
-        fc_mat m;
-        std::memcpy(&m, g_cam.obj + g_cam.worldOffset, 64);
-        LogMatrix("FreeCam: world ", m);
-        std::memcpy(&m, g_cam.obj + g_cam.viewOffset, 64);
-        LogMatrix("FreeCam: view  ", m);
+    float pos[3], yaw = 0.0f, pitch = 0.0f;
+    if (!fc_mat_to_pose(&cands[wi], pos, &yaw, &pitch, 0)) return false;
+    int sign = fc_view_sign(&cands[wi], &cands[vi]);
+    if (!sign) return false;
+
+    out->obj = obj;
+    out->worldOffset = block + wi * 0x40;
+    out->viewOffset = block + vi * 0x40;
+    out->viewSign = sign;
+    out->distance = Distance(pos, player);
+    return true;
+}
+
+// The inner loop, kept free of anything that needs unwinding so it can sit under SEH.
+bool ScanChunkInner(const ScanCtx &ctx, uintptr_t from, uintptr_t to, bool *found) {
+    const uintptr_t span = ctx.hi - ctx.lo;
+    uintptr_t p = (from + 7) & ~static_cast<uintptr_t>(7);
+
+    for (; p + 8 <= to; p += 8) {
+        uintptr_t v = *reinterpret_cast<uintptr_t *>(p);
+        if (v - ctx.lo > span) continue;              // one compare, wrapping: the fast path
+        for (size_t k = 0; k < kCamVtableCount; k++) {
+            if (v != ctx.vt[k]) continue;
+            if (TestObject(reinterpret_cast<uint8_t *>(p), ctx.player, ctx.out)) {
+                *found = true;
+                return true;
+            }
+            break;
+        }
     }
     return true;
 }
 
-bool CameraStillThere() {
-    if (!g_cam.obj) return false;
-    if (!Readable(g_cam.obj, 0x200)) return false;
-    uintptr_t v = *reinterpret_cast<uintptr_t *>(g_cam.obj);
+// The game can release a page while we are walking it. One fault should cost a
+// skipped chunk, not the process.
+bool ScanChunk(const ScanCtx &ctx, uintptr_t from, uintptr_t to, bool *found) {
+    *found = false;
+    __try {
+        ScanChunkInner(ctx, from, to, found);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        *found = false;
+        return false;
+    }
+    return true;
+}
+
+// Walk a region in fault-guarded chunks. `next` is where to carry on, so a budgeted
+// stop does not skip the rest of the region.
+bool ScanRegion(uintptr_t from, uintptr_t end, const ScanCtx &ctx, const LARGE_INTEGER &t0,
+                const LARGE_INTEGER &freq, uintptr_t *next) {
+    uintptr_t p = from;
+    LARGE_INTEGER now;
+
+    while (p + 8 <= end) {
+        uintptr_t stop = p + kScanChunk;
+        if (stop > end) stop = end;
+
+        bool found = false;
+        ScanChunk(ctx, p, stop, &found);
+        if (found) {
+            *next = stop;
+            return true;
+        }
+        p = stop;
+
+        QueryPerformanceCounter(&now);
+        if (MsSince(t0, now, freq) > kScanBudgetMs) {
+            *next = p;                                // resume here next tick
+            return false;
+        }
+    }
+    *next = end;
+    return false;
+}
+
+// One budgeted slice of the search. Returns true when the camera has been found.
+bool SearchStep() {
+    float player[3];
+    if (!PlayerPosition(player)) {
+        if (!g_noPlayerLogged) {
+            g_noPlayerLogged = true;
+            TW_Log("FreeCam: waiting for the player transform - the camera can only be told apart "
+                   "once you are in the world");
+        }
+        return false;
+    }
+    g_noPlayerLogged = false;
+
+    static LARGE_INTEGER freq = {};
+    if (!freq.QuadPart) QueryPerformanceFrequency(&freq);
+    LARGE_INTEGER t0, now;
+    QueryPerformanceCounter(&t0);
+
+    ScanCtx ctx;
+    ctx.player = player;
+    ctx.lo = Base() + kCamVtables[0];
+    ctx.hi = Base() + kCamVtables[kCamVtableCount - 1];
+    ctx.out = &g_cam;
+    for (size_t i = 0; i < kCamVtableCount; i++) ctx.vt[i] = Base() + kCamVtables[i];
+
+    SYSTEM_INFO si;
+    GetSystemInfo(&si);
+    const uintptr_t end = reinterpret_cast<uintptr_t>(si.lpMaximumApplicationAddress);
+    if (g_scanAddr < 0x10000 || g_scanAddr >= end) g_scanAddr = 0x10000;
+
+    while (g_scanAddr < end) {
+        MEMORY_BASIC_INFORMATION mbi;
+        if (!VirtualQuery(reinterpret_cast<void *>(g_scanAddr), &mbi, sizeof mbi)) {
+            g_scanAddr += 0x10000;
+            continue;
+        }
+        uintptr_t regionBase = reinterpret_cast<uintptr_t>(mbi.BaseAddress);
+        uintptr_t regionEnd = regionBase + mbi.RegionSize;
+        if (regionEnd <= g_scanAddr) {                // defensive: always move forward
+            g_scanAddr += 0x1000;
+            continue;
+        }
+
+        const DWORD prot = mbi.Protect & 0xff;
+        const bool scannable =
+            mbi.State == MEM_COMMIT && mbi.Type == MEM_PRIVATE &&
+            !(mbi.Protect & (PAGE_GUARD | PAGE_NOACCESS)) &&
+            (prot == PAGE_READWRITE || prot == PAGE_WRITECOPY);
+
+        uintptr_t next = regionEnd;
+        if (scannable) {
+            g_scanRegions++;
+            if (ScanRegion(g_scanAddr, regionEnd, ctx, t0, freq, &next)) {
+                TW_Log("FreeCam: camera at %p, world +0x%x, view +0x%x, view row sign %d, "
+                       "%.1f units from the player (after %d region(s))",
+                       g_cam.obj, g_cam.worldOffset, g_cam.viewOffset, g_cam.viewSign,
+                       g_cam.distance, g_scanRegions);
+                fc_mat m;
+                std::memcpy(&m, g_cam.obj + g_cam.worldOffset, 64);
+                LogMatrix("FreeCam: world ", m);
+                std::memcpy(&m, g_cam.obj + g_cam.viewOffset, 64);
+                LogMatrix("FreeCam: view  ", m);
+                return true;
+            }
+        }
+        g_scanAddr = next > g_scanAddr ? next : regionEnd;
+
+        QueryPerformanceCounter(&now);
+        if (MsSince(t0, now, freq) > kScanBudgetMs) return false;
+    }
+
+    g_scanAddr = 0x10000;
+    if (++g_scanPasses % 10 == 1) {
+        TW_Log("FreeCam: pass %d over the heap found no camera near the player "
+               "(%.0f %.0f %.0f); still looking", g_scanPasses, player[0], player[1], player[2]);
+    }
+    return false;
+}
+
+bool IsOurVtable(uint8_t *obj) {
+    if (!obj || !Readable(obj, 8)) return false;
+    uintptr_t v = *reinterpret_cast<uintptr_t *>(obj);
     uintptr_t lo = Base();
-    for (size_t k = 0; k < sizeof(kCamVtables) / sizeof(kCamVtables[0]); k++) {
+    for (size_t k = 0; k < kCamVtableCount; k++) {
         if (v == lo + kCamVtables[k]) return true;
     }
     return false;
 }
 
-void WriteMatrices(const fc_mat &world, const fc_mat &view) {
-    if (!g_cam.obj) return;
-    if (Writable(g_cam.obj + g_cam.worldOffset, 64)) std::memcpy(g_cam.obj + g_cam.worldOffset, &world, 64);
-    if (Writable(g_cam.obj + g_cam.viewOffset, 64)) std::memcpy(g_cam.obj + g_cam.viewOffset, &view, 64);
+// A fault here would be a page released between the check and the store, so the
+// pair is written under the same guard the scan uses.
+bool WriteMatrices(const fc_mat &world, const fc_mat &view) {
+    if (!g_cam.obj) return false;
+    bool ok = false;
+    __try {
+        if (Writable(g_cam.obj + g_cam.worldOffset, 64) &&
+            Writable(g_cam.obj + g_cam.viewOffset, 64)) {
+            std::memcpy(g_cam.obj + g_cam.worldOffset, &world, 64);
+            std::memcpy(g_cam.obj + g_cam.viewOffset, &view, 64);
+            ok = true;
+        }
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        ok = false;
+    }
+    return ok;
 }
+
+// --- flying ------------------------------------------------------------------
 
 bool KeyDown(int vk) { return (GetAsyncKeyState(vk) & 0x8000) != 0; }
 
@@ -283,86 +395,155 @@ void PollInput(float *mouseX, float *mouseY) {
     }
 }
 
+bool StartFlying() {
+    fc_mat world;
+    std::memcpy(&world, g_cam.obj + g_cam.worldOffset, 64);
+    if (!fc_mat_valid(&world)) {
+        TW_Log("FreeCam: the matrix at +0x%x is not a transform; searching again", g_cam.worldOffset);
+        return false;
+    }
+
+    fc_config_defaults(&g_state.cfg);
+    g_state.cfg.view = 0;            // fc_step hands back a world matrix; the view is built here
+    fc_init(&g_state, &g_state.cfg);
+    if (!fc_set_active(&g_state, 1, &world)) return false;
+
+    g_cam.distance = 0.0f;
+    g_looking = false;
+    g_live = 1;
+    TW_Log("FreeCam: on at %.1f %.1f %.1f (yaw %.0f, pitch %.0f, view row sign %d)",
+           g_state.pos[0], g_state.pos[1], g_state.pos[2], g_state.yaw * 57.2957795f,
+           g_state.pitch * 57.2957795f, g_cam.viewSign);
+    return true;
+}
+
+void StopFlying() {
+    fc_mat back;
+    if (fc_restore(&g_state, &back) && g_cam.obj) {
+        float pos[3], yaw = 0.0f, pitch = 0.0f;
+        if (fc_mat_to_pose(&back, pos, &yaw, &pitch, 0)) {
+            fc_mat view;
+            fc_mat_from_pose(&view, pos, yaw, pitch, g_cam.viewSign);
+            WriteMatrices(back, view);
+        }
+    }
+    fc_set_active(&g_state, 0, nullptr);
+    g_live = 0;
+    g_looking = false;
+    TW_Log("FreeCam: off after %.0f units", g_state.moved);
+}
+
 DWORD WINAPI Loop(LPVOID) {
     LARGE_INTEGER freq, prev, now;
     QueryPerformanceFrequency(&freq);
     QueryPerformanceCounter(&prev);
-    int lost = 0;
-    int held = 0, overwritten = 0;
+    int lost = 0, held = 0, taken = 0, refused = 0;
     ULONGLONG lastReport = GetTickCount64();
 
-    /* 1 ms instead of the default 15 ms, so the writes are spread across the frame
-     * instead of arriving in one burst. */
     timeBeginPeriod(1);
+    /* A build stamp, so the log says which DLL is installed. */
+    TW_Log("FreeCam: camera thread up (build 2, search on this thread, %d camera vtables)",
+           static_cast<int>(kCamVtableCount));
 
-    while (!g_quit) {
-        float dt, mx, my;
-        Sleep(1);
+    for (;;) {
+        if (g_quit) break;
+
+        if (!g_want) {
+            if (g_live) StopFlying();
+            Sleep(5);
+            prev.QuadPart = 0;
+            continue;
+        }
+
+        if (!g_cam.obj) {
+            if (SearchStep()) {
+                if (StartFlying()) prev.QuadPart = 0;
+                else g_cam.obj = nullptr;
+            }
+            Sleep(2);
+            continue;
+        }
+
+        if (!IsOurVtable(g_cam.obj)) {
+            if (++lost < 30) { Sleep(1); continue; }   // never spin: a lost object is not urgent
+            TW_Log("FreeCam: the camera object is gone from %p, looking again", g_cam.obj);
+            g_cam.obj = nullptr;
+            lost = 0;
+            continue;
+        }
+        lost = 0;
+
+        if (!g_live) {
+            if (!StartFlying()) { g_cam.obj = nullptr; continue; }
+            prev.QuadPart = 0;
+        }
 
         QueryPerformanceCounter(&now);
-        dt = static_cast<float>(static_cast<double>(now.QuadPart - prev.QuadPart) /
-                                static_cast<double>(freq.QuadPart));
+        float dt = prev.QuadPart ? static_cast<float>(MsSince(prev, now, freq) / 1000.0) : 0.016f;
         prev = now;
         if (dt <= 0.0f) dt = 0.001f;
         if (dt > 0.1f) dt = 0.1f;
 
-        if (!g_live) {
-            lost = 0;
-            continue;
-        }
-
-        /* F10 is the panic key: the camera goes straight back, whatever else is going on. */
-        if (GetAsyncKeyState(VK_F10) & 0x8000) {
+        /* F10 is the panic key: put the camera back, whatever else is going on. */
+        if (KeyDown(VK_F10)) {
             TW_Log("FreeCam: panic key, putting the camera back");
-            FreeCamSetActive(false);
+            g_want = 0;
+            StopFlying();
             continue;
         }
 
+        float mx, my;
         PollInput(&mx, &my);
 
-        if (!CameraStillThere()) {
-            if (++lost < 60) continue;                 // one bad frame is not a lost camera
-            TW_Log("FreeCam: the camera object moved, looking for it again");
-            g_cam.obj = nullptr;
-            if (!FindCamera()) {
-                TW_Log("FreeCam: switching off, no camera to fly");
-                g_live = 0;
-                g_state.active = 0;
+        fc_mat world;
+        if (fc_step(&g_state, dt, mx, my, &world)) {
+            fc_mat view;
+            fc_mat_from_pose(&view, g_state.pos, g_state.yaw, g_state.pitch, g_cam.viewSign);
+
+            if (WriteMatrices(world, view)) {
+                refused = 0;
+                /* Did the game take it straight back? Once every other second is
+                 * enough to say whether the camera is really ours. */
+                fc_mat after;
+                if (Readable(g_cam.obj + g_cam.viewOffset, 64)) {
+                    std::memcpy(&after, g_cam.obj + g_cam.viewOffset, 64);
+                    int same = 1;
+                    for (int i = 0; i < 16; i++) {
+                        float d = after.m[i] - view.m[i];
+                        if (d < 0.0f) d = -d;
+                        if (d > 0.001f) { same = 0; break; }
+                    }
+                    if (same) held++; else taken++;
+                }
+            } else if (++refused > 100) {
+                TW_Log("FreeCam: the camera memory will not take a write; switching off");
+                g_want = 0;
+                g_cam.obj = nullptr;
+                StopFlying();
                 continue;
             }
-            lost = 0;
-        }
 
-        fc_mat view;
-        if (fc_step(&g_state, dt, mx, my, &view)) {
-            fc_mat world;
-            fc_mat_from_pose(&world, g_state.pos, g_state.yaw, g_state.pitch, 0);
-            WriteMatrices(world, view);
-
-            /* Did the game take it back? Once every other second is enough to say
-             * whether the camera is really ours or being rewritten under us. */
-            fc_mat after;
-            if (Readable(g_cam.obj + g_cam.viewOffset, 64)) {
-                std::memcpy(&after, g_cam.obj + g_cam.viewOffset, 64);
-                int same = 1;
-                for (int i = 0; i < 16; i++) {
-                    float d = after.m[i] - view.m[i];
-                    if (d < 0.0f) d = -d;
-                    if (d > 0.001f) { same = 0; break; }
-                }
-                if (same) held++; else overwritten++;
-            }
             ULONGLONG nowTick = GetTickCount64();
             if (nowTick - lastReport > 2000) {
                 lastReport = nowTick;
                 TW_Log("FreeCam: camera at %.1f %.1f %.1f, writes held %d, taken back %d",
-                       g_state.pos[0], g_state.pos[1], g_state.pos[2], held, overwritten);
-                held = overwritten = 0;
+                       g_state.pos[0], g_state.pos[1], g_state.pos[2], held, taken);
+                held = taken = 0;
             }
         }
+        Sleep(1);
     }
+
+    if (g_live) StopFlying();
+    g_live = 0;
     timeEndPeriod(1);
     return 0;
+}
+
+void EnsureThread() {
+    if (g_thread) return;
+    g_thread = CreateThread(nullptr, 0, Loop, nullptr, 0, nullptr);
+    if (!g_thread) TW_Log("FreeCam: could not start the camera thread");
 }
 
 }  // namespace
@@ -381,67 +562,31 @@ void FreeCamSetSpeed(float unitsPerSecond) {
 
 float FreeCamSpeed() { return g_state.cfg.speed; }
 
+// Never blocks: the menu calls this from the render thread, so all it does is set a
+// flag and let the camera thread get on with it.
 std::string FreeCamSetActive(bool on) {
     if (!on) {
-        if (!g_live) return "Free camera: already off";
-        fc_mat back;
-        int restored = fc_restore(&g_state, &back);
-        if (restored && g_cam.obj) {
-            /* The saved matrix is the world one; rebuild the matching view from it, not
-             * from where we flew to, so the game carries on from its own pose. */
-            float pos[3], yaw = 0.0f, pitch = 0.0f;
-            if (fc_mat_to_pose(&back, pos, &yaw, &pitch, 0)) {
-                fc_mat view;
-                fc_mat_from_pose(&view, pos, yaw, pitch, (g_cam.viewSign == 2) ? 2 : 1);
-                WriteMatrices(back, view);
-            }
-        }
-        g_live = 0;
-        fc_set_active(&g_state, 0, nullptr);
-        TW_Log("FreeCam: off after %.0f units", g_state.moved);
+        if (!g_want && !g_live) return "Free camera: already off";
+        g_want = 0;
         return "Free camera: off";
     }
-
-    if (g_live) return "Free camera: already on";
+    if (g_want) return "Free camera: already on";
     if (!FreeCamAvailable()) return "Free camera: game module not found";
 
-    if (!CameraStillThere()) {
-        g_cam.obj = nullptr;
-        if (!FindCamera()) {
-            return "Free camera: no camera found (see TW_MenuLog.txt)";
-        }
+    EnsureThread();
+    if (!g_thread) return "Free camera: could not start the camera thread";
+
+    g_want = 1;
+    if (g_live) return "Free camera: on";
+    if (!g_searchLogged) {
+        g_searchLogged = true;
+        TW_Log("FreeCam: switched on, looking for the camera");
     }
-
-    if (!g_thread) {
-        fc_config_defaults(&g_state.cfg);
-        fc_init(&g_state, &g_state.cfg);
-        g_thread = CreateThread(nullptr, 0, Loop, nullptr, 0, nullptr);
-        if (!g_thread) return "Free camera: could not start the fly thread";
-    }
-
-    fc_mat world;
-    std::memcpy(&world, g_cam.obj + g_cam.worldOffset, 64);
-    if (!fc_mat_valid(&world)) {
-        TW_Log("FreeCam: the world matrix at +0x%x is not a transform", g_cam.worldOffset);
-        return "Free camera: camera transform looks wrong";
-    }
-
-    // Capture the pose from the world matrix, then write the view convention the game uses.
-    g_state.cfg.view = 0;
-    if (!fc_set_active(&g_state, 1, &world)) return "Free camera: could not take the camera over";
-    g_state.cfg.view = (g_cam.viewSign == 2) ? 2 : 1;
-
-    g_live = 1;
-    g_looking = false;
-    TW_Log("FreeCam: on at %.1f %.1f %.1f, yaw %.1f pitch %.1f", g_state.pos[0], g_state.pos[1],
-           g_state.pos[2], g_state.yaw * 57.2957795f, g_state.pitch * 57.2957795f);
-    return "Free camera: on - WASD, Space/C, hold right mouse";
+    return "Free camera: on - looking for it (see TW_MenuLog.txt)";
 }
 
 void FreeCamTick() {
-    // The fly thread does the work; this is only here so the render loop has a hook
-    // if the camera ever needs to be nudged from it.
-    if (!g_live) return;
+    // The camera runs on its own thread, so there is nothing to do per frame.
 }
 
 }  // namespace game
