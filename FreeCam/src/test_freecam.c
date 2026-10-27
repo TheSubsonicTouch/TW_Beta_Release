@@ -399,16 +399,19 @@ static void test_look(void)
     fc_step(&st, 0.016f, 10.0f, 0.0f, &out);
     CHECK(NEAR(st.yaw, -0.1f, 1e-4), "mouse right turns right (yaw %f)", st.yaw);
 
-    /* mouse up looks up: pitch goes positive */
+    /* Windows reports screen y growing downwards, so a positive dy is the mouse moving
+     * down - and moving the mouse down has to look down (natural, not inverted). */
     fc_step(&st, 0.016f, 0.0f, 10.0f, &out);
-    CHECK(NEAR(st.pitch, 0.1f, 1e-4), "mouse up looks up (pitch %f)", st.pitch);
+    CHECK(NEAR(st.pitch, -0.1f, 1e-4), "mouse down looks down (pitch %f)", st.pitch);
+    fc_step(&st, 0.016f, 0.0f, -10.0f, &out);
+    CHECK(NEAR(st.pitch, 0.0f, 1e-4), "and mouse up looks up again");
 
-    /* inverted Y flips the vertical only */
+    /* invert_y flips the vertical only, for anyone who wants the old behaviour */
     cfg.invert_y = 1;
     fc_init(&st, &cfg);
     fc_toggle(&st, &cam);
     fc_step(&st, 0.016f, 0.0f, 10.0f, &out);
-    CHECK(NEAR(st.pitch, -0.1f, 1e-4), "invert_y flips the vertical");
+    CHECK(NEAR(st.pitch, 0.1f, 1e-4), "invert_y flips the vertical");
     fc_step(&st, 0.016f, 10.0f, 0.0f, &out);
     CHECK(NEAR(st.yaw, -0.1f, 1e-4), "invert_y leaves the horizontal alone");
 
@@ -417,8 +420,127 @@ static void test_look(void)
     fc_init(&st, &cfg);
     fc_toggle(&st, &cam);
     fc_step(&st, 0.016f, 0.0f, 1000.0f, &out);
-    CHECK(st.pitch <= 1.5534f && st.pitch > 1.5f, "pitch is clamped near the pole (%f)", st.pitch);
+    CHECK(st.pitch >= -1.5534f && st.pitch < -1.5f, "pitch is clamped near the pole (%f)", st.pitch);
     CHECK(fc_mat_valid(&out), "the clamped matrix is still valid");
+}
+
+/* Following: the camera goes where the player goes, keeping whatever offset it had, and
+ * manual movement still works on top of it. */
+static void test_follow(void)
+{
+    fc_config cfg;
+    fc_state st;
+    fc_mat cam, out;
+    float pos[3] = { 10.0f, 20.0f, 30.0f };
+    float player[3] = { 8.0f, 20.0f, 28.0f };
+
+    fc_config_defaults(&cfg);
+    fc_init(&st, &cfg);
+    fc_mat_from_pose(&cam, pos, 0.3f, 0.1f, 0);
+    fc_toggle(&st, &cam);
+
+    CHECK(!fc_following(&st), "not following to begin with");
+    fc_follow(&st, player, 1);
+    CHECK(fc_following(&st), "following after switching it on");
+
+    /* the player walks two metres; the camera has to cover the same two metres */
+    player[0] += 2.0f;
+    fc_follow_update(&st, player);
+    CHECK(NEAR(st.pos[0], 12.0f, 1e-4), "the camera keeps its offset and moves with the player");
+    CHECK(NEAR(st.pos[2], 30.0f, 1e-4), "and does not move on the other axes");
+
+    /* flying by hand while following adds to the follow, it does not fight it */
+    st.cfg.speed = 10.0f;                 /* 0.1 s of flight is one unit */
+    st.keys[FC_UP] = 1;
+    fc_step(&st, 0.1f, 0.0f, 0.0f, &out);
+    st.keys[FC_UP] = 0;
+    player[1] += 1.0f;
+    fc_follow_update(&st, player);
+    CHECK(NEAR(st.pos[1], 22.0f, 1e-3), "manual movement and following add up (%f)", st.pos[1]);
+
+    fc_follow(&st, player, 0);
+    player[0] += 100.0f;
+    fc_follow_update(&st, player);
+    CHECK(NEAR(st.pos[0], 12.0f, 1e-4), "switching it off leaves the camera where it is");
+}
+
+/* Keyframes: record, play back at the speed it was recorded, land on the last one. */
+static void test_keyframes(void)
+{
+    fc_config cfg;
+    fc_state st;
+    fc_mat cam, out;
+    float pos[3] = { 0.0f, 0.0f, 0.0f };
+
+    fc_config_defaults(&cfg);
+    fc_init(&st, &cfg);
+    fc_mat_from_pose(&cam, pos, 0.0f, 0.0f, 0);
+    CHECK(fc_key_add(&st, 0.0f) == 0, "a keyframe needs free cam to be flying");
+    fc_toggle(&st, &cam);
+    CHECK(st.active, "free cam is flying for the rest of this test");
+
+    /* three poses two seconds apart, going 10 units along x each time */
+    st.pos[0] = 0.0f;  st.yaw = 0.0f;
+    CHECK(fc_key_add(&st, 100.0f) == 1, "first keyframe");
+    st.pos[0] = 10.0f; st.yaw = 0.2f;
+    CHECK(fc_key_add(&st, 102.0f) == 2, "second keyframe");
+    st.pos[0] = 20.0f; st.yaw = 0.4f;
+    CHECK(fc_key_add(&st, 104.0f) == 3, "third keyframe");
+    CHECK(NEAR(st.path[1].time, 2.0f, 1e-4) && NEAR(st.path[2].time, 4.0f, 1e-4),
+          "the times are relative to the first keyframe");
+
+    CHECK(!fc_playing(&st), "nothing is playing yet");
+    st.pos[0] = -50.0f;                       /* somewhere else entirely */
+    CHECK(fc_play_start(&st), "playback starts");
+    CHECK(fc_playing(&st), "and says so");
+
+    CHECK(fc_play_step(&st, 0.5f, &out), "playback produces a pose");
+    CHECK(NEAR(st.pos[0], 2.5f, 1e-3), "a quarter of the way through the first leg (%f)", st.pos[0]);
+    CHECK(fc_play_step(&st, 0.5f, &out), "still playing");
+    CHECK(NEAR(st.pos[0], 5.0f, 1e-3), "halfway through the first leg (%f)", st.pos[0]);
+    CHECK(NEAR(st.yaw, 0.1f, 1e-3), "and the angle is interpolated too");
+
+    /* run to the end */
+    {
+        int i, guard = 0;
+        while (fc_playing(&st) && guard++ < 1000) fc_play_step(&st, 0.1f, &out);
+        CHECK(!fc_playing(&st), "the playback stops at the end");
+        CHECK(NEAR(st.pos[0], 20.0f, 1e-3) && NEAR(st.yaw, 0.4f, 1e-3),
+              "and leaves the camera on the last keyframe");
+        (void)i;
+    }
+
+    /* pressing the key again replays from the start */
+    CHECK(fc_play_start(&st), "it can be played again");
+    fc_play_step(&st, 0.1f, &out);
+    CHECK(st.pos[0] < 2.0f, "from the beginning (%f)", st.pos[0]);
+
+    fc_play_stop(&st);
+    CHECK(!fc_playing(&st), "and stopped on demand");
+    fc_path_clear(&st);
+    CHECK(st.path_count == 0 && !fc_play_start(&st), "an empty path cannot be played");
+}
+
+/* A path that crosses +-180 degrees has to turn the short way, not spin all the way. */
+static void test_keyframe_yaw_wrap(void)
+{
+    fc_config cfg;
+    fc_state st;
+    fc_mat cam, out;
+    float pos[3] = { 0.0f, 0.0f, 0.0f };
+
+    fc_config_defaults(&cfg);
+    fc_init(&st, &cfg);
+    fc_mat_from_pose(&cam, pos, 0.0f, 0.0f, 0);
+    fc_toggle(&st, &cam);
+
+    st.yaw = 3.10f;  fc_key_add(&st, 0.0f);
+    st.yaw = -3.10f; fc_key_add(&st, 1.0f);
+
+    fc_play_start(&st);
+    fc_play_step(&st, 0.5f, &out);
+    CHECK(fabsf(fabsf(st.yaw) - 3.14159f) < 0.02f,
+          "halfway round a 180 degree turn is 180 degrees, not zero (%f)", st.yaw);
 }
 
 static void test_restore(void)
@@ -729,6 +851,9 @@ int main(void)
     test_toggle();
     test_movement();
     test_look();
+    test_follow();
+    test_keyframes();
+    test_keyframe_yaw_wrap();
     test_restore();
     test_safety();
 

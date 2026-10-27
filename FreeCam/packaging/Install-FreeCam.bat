@@ -62,8 +62,9 @@ echo     4. Arrow down to "Free Camera" and press Enter
 echo.
 echo   While flying:
 echo     W A S D  move      Space / C  up / down
-echo     hold right mouse   look around
+echo     hold right mouse   look around (natural, not inverted)
 echo     Shift  faster      Ctrl       slower
+echo     P      follow the player    L  record a keyframe    K  play them back
 echo     F10    put the camera back and switch off
 echo.
 echo   To undo this, run Uninstall-FreeCam.bat.

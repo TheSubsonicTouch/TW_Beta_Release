@@ -47,25 +47,15 @@ game carries on from its own camera and not from where you flew to.
 WHAT CHANGED IN THIS BUILD
 --------------------------
 
-The build before this one froze the game the moment Free Camera was switched on. That
-was a bug in the hook: it redirected the game's camera function with a jump whose
-distance had to fit in 32 bits, and the distance between this DLL and the game does not
-fit. The jump went somewhere arbitrary. It is now an absolute jump, which cannot
-overflow, the original bytes are copied first and every other call runs them, and the
-patch is written with the game's other threads briefly paused so no thread can be
-running the bytes while they change.
+The camera works now; this build adds the things that make it useful for pictures.
 
-The build before *that* did nothing visible, for two separate reasons, both fixed:
+  - P follows the player, so you can fly alongside a car or watch a fight from above
+    without steering after it;
+  - L records keyframes and K plays them back, which is the shot you cannot fly by
+    hand - a slow push through a street, a climb over a rooftop;
+  - the mouse is no longer inverted.
 
-  - the camera was taken from where the game's camera manager points, and the log shows
-    that object is not a camera at all; the camera is now the one the renderer asks the
-    view function about, which cannot be wrong;
-  - the camera state was initialised with its own config passed in, and that call
-    clears the state before copying the config, so speed and look sensitivity were zero.
-    A camera that was found could not have moved.
-
-F10 now also puts the game's original camera code back, not just the camera, so there
-is a way out if anything ever looks wrong.
+Nothing about the hooking or the camera detection changed.
 
 CONTROLS
 --------
@@ -77,7 +67,28 @@ CONTROLS
     Hold right mouse    look around (the pointer is held still while you do)
     Shift               five times faster
     Ctrl                a fifth of the speed
+    P                   follow the player - the camera keeps its framing and goes
+                        wherever the player goes; P again to stay put
+    L                   record a keyframe where the camera is now
+    K                   play the recorded keyframes back, at the speed they were flown
     F10                 panic: put the camera back and switch off, from anywhere
+
+The mouse is natural: push it forward and you look up, pull it back and you look down.
+Moving it right turns right.
+
+Follow and keyframes:
+
+  - P pins the camera to the player. Fly by hand while it is on and the two movements
+    add up; the camera keeps whatever offset it had when you pressed P.
+  - L records the camera's pose (where it is and where it looks). Press it again
+    somewhere else. Two are enough; up to 64 are kept.
+  - K plays them back, taking the same time the flight took, easing the position and
+    the angle between each pair, then stops on the last one. Press K again to replay,
+    or K while it is playing to stop and stay where it got to. Recording more keyframes
+    adds to the same path until free cam is switched off - a path survives switching
+    free cam off and on again, and is cleared when the game is restarted.
+
+While the path is playing, the mouse and movement keys are ignored: the path is driving.
 
 The menu's own keys (arrows, Enter, Backspace) still work, so you can open the menu
 while flying and switch it off from there.

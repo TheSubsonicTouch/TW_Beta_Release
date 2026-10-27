@@ -172,6 +172,12 @@ volatile LONG g_accessorAnswers = 0; // of those, the ones answered with our pos
 POINT    g_lookOrigin = {};
 bool     g_looking = false;
 float    g_speed = 30.0f;
+float    g_flightClock = 0.0f;     // seconds of flight, the keyframe clock
+
+// the path is kept across switching free cam off and on again
+fc_keyframe g_savedPath[FC_MAX_KEYS];
+int         g_savedPathCount = 0;
+
 
 // the fresh answer the view detour hands out
 fc_mat g_viewOut;
@@ -1070,6 +1076,23 @@ bool CameraStillThere() {
 
 bool KeyDown(int vk) { return (GetAsyncKeyState(vk) & 0x8000) != 0; }
 
+// A key that fires once per press, not once per frame it is held down.
+struct Hotkey {
+    int vk;
+    bool was = false;
+    bool Peek() const { return KeyDown(vk); }
+    bool Pressed() {
+        const bool down = KeyDown(vk);
+        const bool pressed = down && !was;
+        was = down;
+        return pressed;
+    }
+};
+
+Hotkey g_followKey{ 'P' };
+Hotkey g_keyKey{ 'L' };
+Hotkey g_playKey{ 'K' };
+
 void PollInput(float *mouseX, float *mouseY) {
     static const int map[FC_KEY_COUNT] = { 'W', 'S', 'A', 'D', VK_SPACE, 'C', VK_SHIFT, VK_CONTROL, 0 };
     for (int i = 0; i < FC_KEY_COUNT; ++i) g_state.keys[i] = map[i] ? (KeyDown(map[i]) ? 1 : 0) : 0;
@@ -1088,6 +1111,56 @@ void PollInput(float *mouseX, float *mouseY) {
         g_state.keys[FC_LOOK] = 1;
     } else {
         g_looking = false;
+    }
+}
+
+// P - follow the player, L - keyframe, K - play the path back.
+void HandleHotkeys(const float player[3], bool havePlayer) {
+    if (g_followKey.Pressed()) {
+        if (fc_playing(&g_state)) {
+            TW_Log("FreeCam: following cannot be changed while the path is playing (K to stop)");
+        } else if (fc_following(&g_state)) {
+            fc_follow(&g_state, player, 0);
+            TW_Log("FreeCam: no longer following the player; the camera stays here");
+        } else if (!havePlayer) {
+            TW_Log("FreeCam: cannot follow the player - its transform is not readable yet");
+        } else {
+            fc_follow(&g_state, player, 1);
+            TW_Log("FreeCam: following the player (%.1f %.1f %.1f) - fly by hand and it keeps up; "
+                   "P again to stop", player[0], player[1], player[2]);
+        }
+    }
+
+    if (g_keyKey.Pressed()) {
+        if (fc_playing(&g_state)) {
+            TW_Log("FreeCam: recording is off while the path is playing (K to stop)");
+        } else {
+            const int n = fc_key_add(&g_state, g_flightClock);
+            if (n == 0) {
+                TW_Log("FreeCam: the path is full (%d keyframes) - switch free cam off and on to clear it",
+                       FC_MAX_KEYS);
+            } else {
+                TW_Log("FreeCam: keyframe %d recorded (up to %d per path) at %.1f %.1f %.1f "
+                       "(yaw %.0f, pitch %.0f)%s",
+                       n, FC_MAX_KEYS, g_state.pos[0], g_state.pos[1], g_state.pos[2],
+                       g_state.yaw * 57.2957795f, g_state.pitch * 57.2957795f,
+                       n == 1 ? " - move the camera, then press L again" : "");
+                if (n == 2) TW_Log("FreeCam: press K to play the path back, in the time it was flown");
+            }
+        }
+    }
+
+    if (g_playKey.Pressed()) {
+        if (fc_playing(&g_state)) {
+            fc_play_stop(&g_state);
+            TW_Log("FreeCam: playback stopped; the camera stays where the path reached");
+        } else if (fc_play_start(&g_state)) {
+            TW_Log("FreeCam: playing %d keyframes over %.1f seconds (K stops it)",
+                   g_state.path_count, g_state.path[g_state.path_count - 1].time);
+        } else {
+            TW_Log("FreeCam: nothing to play yet - press L to record a keyframe "
+                   "(at least two, with the camera in different places)");
+        }
     }
 }
 
@@ -1125,7 +1198,19 @@ bool StartFlying() {
     fc_config_defaults(&cfg);
     cfg.view = 0;
     cfg.speed = g_speed;
+
+    // fc_init() clears the state, path included; keep what was recorded before
+    if (g_state.path_count > 0) {
+        g_savedPathCount = g_state.path_count;
+        std::memcpy(g_savedPath, g_state.path, sizeof(fc_keyframe) * (size_t)g_savedPathCount);
+    }
     fc_init(&g_state, &cfg);
+    if (g_savedPathCount > 0) {
+        g_state.path_count = g_savedPathCount;
+        std::memcpy(g_state.path, g_savedPath, sizeof(fc_keyframe) * (size_t)g_savedPathCount);
+        TW_Log("FreeCam: %d recorded keyframes kept from the last flight", g_savedPathCount);
+    }
+    g_flightClock = 0.0f;
 
     fc_mat world;
     fc_mat_from_pose(&world, pos, yaw, pitch, 0);
@@ -1140,6 +1225,8 @@ bool StartFlying() {
 }
 
 void StopFlying() {
+    fc_play_stop(&g_state);
+    fc_follow(&g_state, nullptr, 0);
     fc_set_active(&g_state, 0, nullptr);
     g_live = 0;
     g_looking = false;
@@ -1156,7 +1243,7 @@ DWORD WINAPI Loop(LPVOID) {
     ULONGLONG lastReport = GetTickCount64();
 
     timeBeginPeriod(1);
-    TW_Log("FreeCam: camera thread up (build 4: the renderer is asked which camera it draws)");
+    TW_Log("FreeCam: camera thread up (build 5: renderer-chosen camera, follow, keyframes)");
 
     for (;;) {
         if (g_quit) break;
@@ -1255,8 +1342,29 @@ DWORD WINAPI Loop(LPVOID) {
         float mx, my;
         PollInput(&mx, &my);
 
+        float player[3] = { 0.0f, 0.0f, 0.0f };
+        bool havePlayer = false;
+        if (fc_following(&g_state) || g_followKey.Peek()) havePlayer = PlayerPosition(player);
+
+        g_flightClock += dt;
+        HandleHotkeys(player, havePlayer);
+
         fc_mat world;
-        if (fc_step(&g_state, dt, mx, my, &world)) {
+        bool got = false;
+        if (fc_playing(&g_state)) {
+            // the path drives the camera; keys and mouse are ignored until it ends
+            got = fc_play_step(&g_state, dt, &world) != 0;
+        } else if (fc_step(&g_state, dt, mx, my, &world)) {
+            if (fc_following(&g_state)) {
+                if (PlayerPosition(player)) {
+                    fc_follow_update(&g_state, player);
+                    fc_mat_from_pose(&world, g_state.pos, g_state.yaw, g_state.pitch, g_state.cfg.view);
+                }
+            }
+            got = fc_mat_valid(&world) != 0;
+        }
+
+        if (got) {
             fc_mat view;
             fc_mat_from_pose(&view, g_state.pos, g_state.yaw, g_state.pitch, g_cam.viewSign);
 
@@ -1301,9 +1409,11 @@ DWORD WINAPI Loop(LPVOID) {
                     continue;
                 }
                 TW_Log("FreeCam: camera at %.1f %.1f %.1f, view accessor %s, answered %d of %d calls, "
-                       "writes held %d, taken back %d",
+                       "writes held %d, taken back %d%s%s",
                        g_state.pos[0], g_state.pos[1], g_state.pos[2],
-                       g_viewAcc.installed ? "hooked" : "not hooked", answers, calls, held, taken);
+                       g_viewAcc.installed ? "hooked" : "not hooked", answers, calls, held, taken,
+                       fc_following(&g_state) ? ", following the player" : "",
+                       g_state.path_count ? ", path has keyframes" : "");
                 held = taken = 0;
             }
         }

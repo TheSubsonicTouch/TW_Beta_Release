@@ -717,9 +717,13 @@ int fc_step(fc_state *st, float dt, float mouse_dx, float mouse_dy, fc_mat *out)
     if (dt > 0.1f) dt = 0.1f;
 
     if (mouse_dx || mouse_dy) {
+        /* Natural: the mouse moving down looks down. Windows reports screen y growing
+         * downwards, so the pitch comes off the movement (it went on before build 5,
+         * which read as an inverted mouse). invert_y flips it back for anyone who
+         * prefers the old behaviour. */
         float s = st->cfg.sensitivity;
         st->yaw -= mouse_dx * s;
-        st->pitch += (st->cfg.invert_y ? -1.0f : 1.0f) * mouse_dy * s;
+        st->pitch += (st->cfg.invert_y ? 1.0f : -1.0f) * mouse_dy * s;
         st->pitch = clampf(st->pitch, -1.5533f, 1.5533f);      /* ~+-89 degrees */
         while (st->yaw > FC_PI) st->yaw -= 2.0f * FC_PI;
         while (st->yaw < -FC_PI) st->yaw += 2.0f * FC_PI;
@@ -754,6 +758,163 @@ int fc_step(fc_state *st, float dt, float mouse_dx, float mouse_dy, fc_mat *out)
     fc_mat_from_pose(out, st->pos, st->yaw, st->pitch, st->cfg.view);
     if (!fc_mat_valid(out)) return 0;
     return 1;
+}
+
+/* ---- following the player --------------------------------------------------- */
+
+void fc_follow(fc_state *st, const float player[3], int on)
+{
+    if (!st) return;
+    if (!on) {
+        st->follow = 0;
+        st->have_last_player = 0;
+        return;
+    }
+    if (!player) return;
+    st->follow = 1;
+    copy3(st->last_player, player);
+    st->have_last_player = 1;
+}
+
+int fc_following(const fc_state *st)
+{
+    return st && st->follow;
+}
+
+void fc_follow_update(fc_state *st, const float player[3])
+{
+    float d[3];
+    int i;
+
+    if (!st || !st->follow || !player) return;
+    if (!st->have_last_player) {
+        copy3(st->last_player, player);
+        st->have_last_player = 1;
+        return;
+    }
+
+    /* Move by the player's step rather than snapping to the offset: a camera that is
+     * being flown by hand keeps that movement, and a frame in which the player did not
+     * move does not disturb anything. */
+    for (i = 0; i < 3; i++) d[i] = player[i] - st->last_player[i];
+    copy3(st->last_player, player);
+    for (i = 0; i < 3; i++) st->pos[i] += d[i];
+}
+
+/* ---- keyframes -------------------------------------------------------------- */
+
+int fc_key_add(fc_state *st, float now)
+{
+    fc_keyframe *k;
+    float t;
+
+    if (!st || !st->active) return 0;
+    if (st->path_count >= FC_MAX_KEYS) return 0;
+
+    t = st->path_count == 0 ? 0.0f : now - st->path_clock;
+    if (t < 0.0f) t = 0.0f;
+    /* never let two keys share a moment: the interpolation divides by the gap */
+    if (st->path_count > 0 && t <= st->path[st->path_count - 1].time + 0.02f)
+        t = st->path[st->path_count - 1].time + 0.02f;
+
+    if (st->path_count == 0) st->path_clock = now;
+
+    k = &st->path[st->path_count++];
+    copy3(k->pos, st->pos);
+    k->yaw = st->yaw;
+    k->pitch = st->pitch;
+    k->time = t;
+    return st->path_count;
+}
+
+void fc_path_clear(fc_state *st)
+{
+    if (!st) return;
+    st->path_count = 0;
+    st->playing = 0;
+    st->play_time = 0.0f;
+    st->path_clock = 0.0f;
+}
+
+int fc_playing(const fc_state *st)
+{
+    return st && st->playing;
+}
+
+int fc_play_start(fc_state *st)
+{
+    if (!st || !st->active) return 0;
+    if (st->path_count < 2) return 0;
+    st->playing = 1;
+    st->play_time = 0.0f;
+    return 1;
+}
+
+void fc_play_stop(fc_state *st)
+{
+    if (!st) return;
+    st->playing = 0;
+    st->play_time = 0.0f;
+}
+
+static float lerp_f(float a, float b, float t)
+{
+    return a + (b - a) * t;
+}
+
+/* the short way round, so a path that crosses +-180 degrees does not spin */
+static float lerp_angle(float a, float b, float t)
+{
+    float d = b - a;
+    while (d > FC_PI) d -= 2.0f * FC_PI;
+    while (d < -FC_PI) d += 2.0f * FC_PI;
+    return a + d * t;
+}
+
+int fc_play_step(fc_state *st, float dt, fc_mat *out)
+{
+    int i;
+    float t;
+
+    if (!st || !st->playing) return 0;
+    if (st->path_count < 2) { st->playing = 0; return 0; }
+    if (!(dt > 0.0f)) dt = 0.0f;
+
+    st->play_time += dt;
+    t = st->play_time;
+
+    if (t >= st->path[st->path_count - 1].time) {
+        /* land exactly on the last key and hand control back */
+        fc_keyframe *last = &st->path[st->path_count - 1];
+        copy3(st->pos, last->pos);
+        st->yaw = last->yaw;
+        st->pitch = last->pitch;
+        st->playing = 0;
+        st->play_time = 0.0f;
+    } else {
+        for (i = 0; i + 1 < st->path_count; i++) {
+            const fc_keyframe *a = &st->path[i];
+            const fc_keyframe *b = &st->path[i + 1];
+            float span, k;
+
+            if (t < a->time || t > b->time) continue;
+            span = b->time - a->time;
+            k = span > 1e-6f ? (t - a->time) / span : 0.0f;
+            st->pos[0] = lerp_f(a->pos[0], b->pos[0], k);
+            st->pos[1] = lerp_f(a->pos[1], b->pos[1], k);
+            st->pos[2] = lerp_f(a->pos[2], b->pos[2], k);
+            st->yaw = lerp_angle(a->yaw, b->yaw, k);
+            st->pitch = lerp_f(a->pitch, b->pitch, k);
+            break;
+        }
+    }
+
+    /* the pose being played is the camera's pose now, so turning it off, following the
+     * player or taking another keyframe all continue from here */
+    copy3(st->anchor, st->pos);
+    st->have_pose = 1;
+    fc_mat_from_pose(out, st->pos, st->yaw, st->pitch, st->cfg.view);
+    return fc_mat_valid(out);
 }
 
 int fc_restore(fc_state *st, fc_mat *out)

@@ -82,6 +82,31 @@ WHAT THE FLIGHT DOES
    * F10 puts the original accessor bytes back as well as the camera, so there is a
      way out if the picture ever looks wrong.
 
+BUILD 5: FOLLOWING AND KEYFRAMES
+--------------------------------
+
+Three additions, all in the portable half so they can be tested without Windows:
+
+    fc_follow(st, player, on)       P. The camera keeps its offset from the player and
+                                    moves by however far the player moved each tick
+                                    (fc_follow_update), so flying by hand while
+                                    following adds to the follow instead of fighting it.
+
+    fc_key_add(st, now)             L. Appends the current pose and the time since the
+                                    first keyframe. 64 keys, 0.02 s minimum spacing so
+                                    no segment can divide by zero.
+
+    fc_play_start/step/stop         K. Advances a clock by dt, finds the segment whose
+                                    two keys bracket it, and eases position, yaw (the
+                                    short way round, so a path through +-180 degrees
+                                    does not spin) and pitch. The last key is played
+                                    and playback stops there; pressing the key again
+                                    replays from the start.
+
+The mouse is natural now: Windows reports screen y downwards, so the pitch takes the
+movement off (fc_step did the opposite before build 5, which read as inverted). The
+existing invert_y setting flips it back for anyone who prefers it.
+
 Everything is guarded: VirtualQuery before every read, SEH around the scan and the
 writes, the accessor located by RVA *and* by searching .text for its exact bytes (so a
 game build with a different layout is survived rather than patched blind), a unique

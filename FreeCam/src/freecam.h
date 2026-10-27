@@ -24,10 +24,19 @@ enum {
 #define FC_MODE_PLAYER 1   /* move the player; the game's camera follows (a fly mode) */
 
 #define FC_MAX_CHAIN 6
+#define FC_MAX_KEYS  64     /* keyframes in one recorded path */
 
 typedef struct {
     float m[16];
 } fc_mat;
+
+/* One recorded pose. `time` is seconds since the first keyframe of the path, so a
+ * playback can run at the speed it was recorded at. */
+typedef struct {
+    float pos[3];
+    float yaw, pitch;
+    float time;
+} fc_keyframe;
 
 typedef struct {
     int    mode;                 /* FC_MODE_* */
@@ -60,6 +69,18 @@ typedef struct {
     fc_mat saved;                /* the matrix as it was, for restore */
     int    keys[FC_KEY_COUNT];
     float  moved;                /* metres travelled since switching on (for the log) */
+
+    /* follow the player: the camera keeps its offset and goes where the player goes */
+    int    follow;
+    float  last_player[3];       /* where the player was on the previous tick */
+    int    have_last_player;
+
+    /* a recorded path of poses, and the playback of it */
+    int         path_count;
+    fc_keyframe path[FC_MAX_KEYS];
+    float       path_clock;      /* seconds since the first keyframe was taken */
+    int         playing;
+    float       play_time;
 } fc_state;
 
 /* ---- configuration ---------------------------------------------------------- */
@@ -132,5 +153,37 @@ int  fc_step(fc_state *st, float dt, float mouse_dx, float mouse_dy, fc_mat *out
 
 /* The matrix to put back when free cam is switched off (1 = restore, 0 = nothing). */
 int  fc_restore(fc_state *st, fc_mat *out);
+
+/* ---- following the player --------------------------------------------------- */
+
+/* Turn following on (the camera starts moving with the player from here) or off (it
+ * stays where it is). The offset comes from the two positions at the moment it is
+ * switched on, so the camera keeps whatever framing it had. */
+void fc_follow(fc_state *st, const float player[3], int on);
+int  fc_following(const fc_state *st);
+
+/* Move the camera by however far the player moved since the previous call. Call this
+ * after fc_step, every tick, while following: manual movement still works on top. */
+void fc_follow_update(fc_state *st, const float player[3]);
+
+/* ---- keyframes -------------------------------------------------------------- */
+
+/* Add the current pose as a keyframe. `now` is any monotonically increasing number of
+ * seconds (the first call starts the clock). Returns the number of keyframes, or 0 if
+ * the path is full or the camera is not flying. */
+int  fc_key_add(fc_state *st, float now);
+
+/* Forget the whole path (and stop any playback). */
+void fc_path_clear(fc_state *st);
+
+/* Start playing the path back. Needs at least two keyframes. Returns 1 if it started. */
+int  fc_play_start(fc_state *st);
+void fc_play_stop(fc_state *st);
+int  fc_playing(const fc_state *st);
+
+/* Advance the playback by dt and hand out the pose to draw. Returns 1 while it wrote
+ * `out`. The last keyframe is played and then playback stops, leaving the camera there,
+ * so pressing the key again simply plays it again from the start. */
+int  fc_play_step(fc_state *st, float dt, fc_mat *out);
 
 #endif /* FREECAM_H */
