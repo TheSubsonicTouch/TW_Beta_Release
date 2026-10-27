@@ -1388,7 +1388,8 @@ void HandleHotkeys(const float player[3], bool havePlayer) {
             TW_Log("FreeCam: playback stopped; the camera stays where the path reached");
             Hud("K", "playback stopped");
         } else if (fc_play_start(&g_state)) {
-            TW_Log("FreeCam: playing %d keyframes over %.1f seconds (K stops it)",
+            TW_Log("FreeCam: playing %d keyframes over %.1f seconds like a camera move - through "
+                   "every key, eased in and out (K stops it)",
                    g_state.path_count, g_state.path[g_state.path_count - 1].time);
             {
                 char line[44];
@@ -1492,7 +1493,7 @@ DWORD WINAPI Loop(LPVOID) {
     ULONGLONG lastReport = GetTickCount64();
 
     timeBeginPeriod(1);
-    TW_Log("FreeCam: camera thread up (build 8: frozen camera pans to the player, M clears the path)");
+    TW_Log("FreeCam: camera thread up (build 9: cinematic keyframe playback)");
 
     for (;;) {
         if (g_quit) break;

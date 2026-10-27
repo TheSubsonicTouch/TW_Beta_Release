@@ -47,6 +47,13 @@ game carries on from its own camera and not from where you flew to.
 WHAT CHANGED IN THIS BUILD
 --------------------------
 
+  - K plays the recorded keyframes like a camera move, not a slide show. The camera now
+    travels a smooth curve through your keyframes instead of straight lines with a corner
+    at every key: it arrives at a key still moving the way it was a moment before, turns
+    through a keyframe pair that crosses 180 degrees the short way instead of spinning,
+    and starts and settles from a standstill like a dolly. Every key is still hit
+    exactly, and the whole playback still lasts as long as the flight did.
+
   - A frozen camera pans instead of standing still: with the camera held by O, press P
     and it keeps its position and turns to keep the player in the middle of the picture
     as they walk, drive and fight. It never follows - only the angles change. P again
@@ -123,11 +130,17 @@ Follow and keyframes:
     P is on the player is in control; the camera is not flown by hand.
   - L records the camera's pose (where it is and where it looks). Press it again
     somewhere else. Two are enough; up to 64 are kept.
-  - K plays them back, taking the same time the flight took, easing the position and
-    the angle between each pair, then stops on the last one. Press K again to replay,
-    or K while it is playing to stop and stay where it got to. Recording more keyframes
-    adds to the same path until free cam is switched off - a path survives switching
-    free cam off and on again, and is cleared when the game is restarted.
+  - K plays them back, taking the same time the flight took, then stops on the last one.
+    Press K again to replay, or K while it is playing to stop and stay where it got to.
+    Recording more keyframes adds to the same path until free cam is switched off - a
+    path survives switching free cam off and on again, and is cleared when the game is
+    restarted.
+
+    The playback is a camera move: the poses are joined by a smooth curve that passes
+    through every keyframe, so the camera never turns a corner at a key. The first and
+    last stretch of the shot eases in and out of a standstill, and a turn that crosses
+    180 degrees goes the short way round. The smoother the keyframes, the better it
+    looks - put them a second or two apart and keep the camera's own turns gentle.
   - The arrow keys set the speed of that playback, 0.1x to 4x, shown as you press them
     (0.5x is slow motion, 2x is twice as fast). The speed you leave it at is kept.
   - M clears the path completely, so the next keyframes are a new scene.
@@ -182,13 +195,13 @@ IF IT DOES NOT WORK
 -------------------
 
 TW_MenuLog.txt, next to TriadWars.exe, records everything. The second line of a flight
-says which build is running - "build 8" for this one. If it says a lower number, the game
+says which build is running - "build 9" for this one. If it says a lower number, the game
 is loading an older dinput8.dll: run Install-FreeCam.bat again from this zip.
  Load into the world
 first - the camera cannot be told apart on a loading screen - then toggle it and
 look for these lines, in this order:
 
-    FreeCam: camera thread up (build 8: frozen camera pans to the player, M clears the path)
+    FreeCam: camera thread up (build 9: cinematic keyframe playback)
     FreeCam: switched on, asking the renderer which camera it draws
     FreeCam: hooked the view accessor at 0000... with an absolute jump (original kept at ...)
     FreeCam: the renderer asked about 0000... for the first time

@@ -640,6 +640,91 @@ static void test_follow_pan(void)
     CHECK(NEAR(st.yaw, 0.25f, 1e-6), "and the first angle after switching on is a baseline again");
 }
 
+/* K plays the path back like a camera move, not a slide show: through every key, with a
+ * continuous velocity (no corner), eased in and out, never spinning the wrong way round at
+ * +-180 degrees, and still landing exactly on the last key. */
+static void test_cinematic_playback(void)
+{
+    fc_config cfg;
+    fc_state st;
+    fc_mat cam, out;
+    float pos[3] = { 0.0f, 0.0f, 0.0f };
+    float a[3], b[3], va[3], vb[3], yaw = 0.0f, pitch = 0.0f;
+
+    fc_config_defaults(&cfg);
+    fc_init(&st, &cfg);
+    fc_mat_from_pose(&cam, pos, 0.0f, 0.0f, 0);
+    fc_toggle(&st, &cam);
+
+    /* a right-angle corner: along +X for a second, then along +Y for a second */
+    st.pos[0] = 0.0f;  st.pos[1] = 0.0f;  st.pos[2] = 0.0f;
+    fc_key_add(&st, 0.0f);
+    st.pos[0] = 10.0f; st.pos[1] = 0.0f;
+    fc_key_add(&st, 1.0f);
+    st.pos[0] = 10.0f; st.pos[1] = 10.0f;
+    fc_key_add(&st, 2.0f);
+    CHECK(st.path_count == 3, "three keys recorded");
+
+    /* every key is still hit exactly */
+    CHECK(fc_play_pose(&st, 0.0f, a, &yaw, &pitch) == 1, "the path can be sampled");
+    CHECK(NEAR(a[0], 0.0f, 1e-4) && NEAR(a[1], 0.0f, 1e-4), "it starts on the first key");
+    fc_play_pose(&st, 1.0f, a, NULL, NULL);
+    CHECK(NEAR(a[0], 10.0f, 1e-3) && NEAR(a[1], 0.0f, 1e-3), "it passes through the middle key (%f %f)",
+          a[0], a[1]);
+    fc_play_pose(&st, 2.0f, a, NULL, NULL);
+    CHECK(NEAR(a[0], 10.0f, 1e-3) && NEAR(a[1], 10.0f, 1e-3), "and finishes on the last one");
+
+    /* no corner at the middle key: the speed just before it and just after it agree */
+    {
+        const float e = 0.01f;
+        fc_play_pose(&st, 1.0f - e, a, NULL, NULL);
+        fc_play_pose(&st, 1.0f, b, NULL, NULL);
+        va[0] = (b[0] - a[0]) / e; va[1] = (b[1] - a[1]) / e; va[2] = (b[2] - a[2]) / e;
+        fc_play_pose(&st, 1.0f + e, a, NULL, NULL);
+        vb[0] = (a[0] - b[0]) / e; vb[1] = (a[1] - b[1]) / e; vb[2] = (a[2] - b[2]) / e;
+
+        CHECK(va[0] > 0.5f && va[1] > 0.5f, "it is already moving diagonally before the key (%f %f)",
+              va[0], va[1]);
+        CHECK(NEAR(va[0], vb[0], 0.4f) && NEAR(va[1], vb[1], 0.4f),
+              "and the velocity is continuous through it (%.2f %.2f -> %.2f %.2f)",
+              va[0], va[1], vb[0], vb[1]);
+    }
+
+    /* eased in: the first moments are slower than the middle of the path */
+    {
+        const float e = 0.02f, mid = 1.0f;
+        float start_speed, mid_speed;
+        fc_play_pose(&st, 0.0f, a, NULL, NULL);
+        fc_play_pose(&st, e, b, NULL, NULL);
+        start_speed = sqrtf((b[0] - a[0]) * (b[0] - a[0]) + (b[1] - a[1]) * (b[1] - a[1])) / e;
+        fc_play_pose(&st, mid, a, NULL, NULL);
+        fc_play_pose(&st, mid + e, b, NULL, NULL);
+        mid_speed = sqrtf((b[0] - a[0]) * (b[0] - a[0]) + (b[1] - a[1]) * (b[1] - a[1])) / e;
+        CHECK(start_speed < 0.35f * mid_speed, "the shot eases in (%.2f against %.2f)",
+              start_speed, mid_speed);
+    }
+
+    /* the yaw takes the short way round a keyframe pair that crosses +-180 degrees */
+    {
+        fc_state w;
+        fc_init(&w, &cfg);
+        fc_mat_from_pose(&cam, pos, 0.0f, 0.0f, 0);
+        fc_toggle(&w, &cam);
+        w.pos[0] = 0.0f;  w.yaw = 3.10f;  fc_key_add(&w, 0.0f);
+        w.pos[0] = 10.0f; w.yaw = -3.10f; fc_key_add(&w, 1.0f);
+        fc_play_pose(&w, 0.5f, a, &yaw, NULL);
+        CHECK(fabsf(fabsf(yaw) - 3.14159f) < 0.06f,
+              "the turn through 180 degrees is short, not a full spin (%f)", yaw);
+    }
+
+    /* and the playback still ends on the last key, whatever the easing did on the way */
+    CHECK(fc_play_start(&st), "the corner path plays");
+    for (int i = 0; i < 400 && fc_playing(&st); i++) fc_play_step(&st, 0.01f, &out);
+    CHECK(!fc_playing(&st), "and stops at the end");
+    CHECK(NEAR(st.pos[0], 10.0f, 1e-3) && NEAR(st.pos[1], 10.0f, 1e-3),
+          "leaving the camera on the last key (%f %f)", st.pos[0], st.pos[1]);
+}
+
 /* A frozen camera keeps its position and only pans: P while the camera is held still
  * aims it at the player and leaves it where it is. */
 static void test_frozen_pan(void)
@@ -780,10 +865,13 @@ static void test_keyframes(void)
     CHECK(fc_playing(&st), "and says so");
 
     CHECK(fc_play_step(&st, 0.5f, &out), "playback produces a pose");
-    CHECK(NEAR(st.pos[0], 2.5f, 1e-3), "a quarter of the way through the first leg (%f)", st.pos[0]);
+    CHECK(st.pos[0] > 0.2f && st.pos[0] < 2.5f,
+          "the shot has started and is still easing in (%f)", st.pos[0]);
     CHECK(fc_play_step(&st, 0.5f, &out), "still playing");
-    CHECK(NEAR(st.pos[0], 5.0f, 1e-3), "halfway through the first leg (%f)", st.pos[0]);
-    CHECK(NEAR(st.yaw, 0.1f, 1e-3), "and the angle is interpolated too");
+    CHECK(st.pos[0] > 2.5f && st.pos[0] < 5.0f,
+          "the eased clock is still behind the plain one (%f)", st.pos[0]);
+    /* the poses turn 0.4 rad while they travel 20 units, so the angle follows the place */
+    CHECK(NEAR(st.yaw, st.pos[0] * 0.02f, 0.01f), "and the angle follows the position (%f)", st.yaw);
 
     /* run to the end */
     {
@@ -1150,6 +1238,7 @@ int main(void)
     test_follow();
     test_follow_pan();
     test_frozen_pan();
+    test_cinematic_playback();
     test_play_speed();
     test_keyframes();
     test_keyframe_yaw_wrap();

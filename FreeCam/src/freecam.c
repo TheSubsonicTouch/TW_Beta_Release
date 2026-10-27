@@ -1056,33 +1056,158 @@ float fc_play_speed_shift(fc_state *st, int faster)
     return st->play_speed;
 }
 
-static float lerp_f(float a, float b, float t)
+/* ---- cinematic playback ------------------------------------------------------ */
+
+/* The clock is eased so the shot starts and settles from a standstill, which is what a
+ * camera on a dolly does: a cubic over the first PLAY_WARP_EDGE of the path, linear in
+ * between, and the same curve mirrored at the end. The middle takes up the slack so the
+ * whole playback still lasts exactly as long as the flight did; the curve is C1 at both
+ * joins, and W(0) = 0, W(1) = 1. */
+#define PLAY_WARP_EDGE 0.12f
+
+/* cubic from (0,0) with slope 0 to (a, a/2) with slope k */
+static float play_ease(float s, float a, float k)
 {
-    return a + (b - a) * t;
+    float c3 = (k - 1.0f) / (a * a);
+    float c2 = 0.5f / a - (k - 1.0f) / a;
+    return c3 * s * s * s + c2 * s * s;
 }
 
-/* the short way round, so a path that crosses +-180 degrees does not spin */
-static float lerp_angle(float a, float b, float t)
+static float play_warp(float s)
 {
-    float d = b - a;
-    while (d > FC_PI) d -= 2.0f * FC_PI;
-    while (d < -FC_PI) d += 2.0f * FC_PI;
-    return a + d * t;
+    const float a = PLAY_WARP_EDGE;
+    const float k = (1.0f - a) / (1.0f - 2.0f * a);   /* the slope the middle needs */
+
+    if (!(s > 0.0f)) return 0.0f;
+    if (s >= 1.0f) return 1.0f;
+    if (s > 1.0f - a) return 1.0f - play_ease(1.0f - s, a, k);
+    if (s < a) return play_ease(s, a, k);
+    return 0.5f * a + (s - a) * k;
+}
+
+/* One axis of the cubic through two keys, with the slopes at each end: this is what makes
+ * the camera arrive at a keyframe still moving the way it was moving a moment before. */
+static float hermite(float p0, float p1, float m0, float m1, float h, float u)
+{
+    float u2 = u * u, u3 = u2 * u;
+    return (2.0f * u3 - 3.0f * u2 + 1.0f) * p0 +
+           (u3 - 2.0f * u2 + u) * h * m0 +
+           (-2.0f * u3 + 3.0f * u2) * p1 +
+           (u3 - u2) * h * m1;
+}
+
+/* the slope of the path at key i, per second, taken from its neighbours */
+static float slope_of(const float *v, const fc_keyframe *p, int n, int i)
+{
+    float h;
+    if (n < 2) return 0.0f;
+    if (i <= 0) {
+        h = p[1].time - p[0].time;
+        return (v[1] - v[0]) / (h > 1e-6f ? h : 1e-6f);
+    }
+    if (i >= n - 1) {
+        h = p[n - 1].time - p[n - 2].time;
+        return (v[n - 1] - v[n - 2]) / (h > 1e-6f ? h : 1e-6f);
+    }
+    h = p[i + 1].time - p[i - 1].time;
+    return (v[i + 1] - v[i - 1]) / (h > 1e-6f ? h : 1e-6f);
+}
+
+int fc_play_pose(const fc_state *st, float clock, float pos[3], float *yaw, float *pitch)
+{
+    float yawu[FC_MAX_KEYS], pitchv[FC_MAX_KEYS];
+    const fc_keyframe *path;
+    float total, s, w;
+    int n, i, c;
+
+    if (!st || !pos) return 0;
+    n = st->path_count;
+    if (n < 2) return 0;
+    path = st->path;
+    total = path[n - 1].time;
+    if (!(total > 0.0f)) return 0;
+
+    /* the recorded angles, with the yaw unwound along the path: a keyframe pair that
+     * crosses +-180 degrees is a small turn, not all the way round */
+    yawu[0] = path[0].yaw;
+    pitchv[0] = path[0].pitch;
+    for (i = 1; i < n; i++) {
+        float d = path[i].yaw - path[i - 1].yaw;
+        while (d > FC_PI) d -= 2.0f * FC_PI;
+        while (d < -FC_PI) d += 2.0f * FC_PI;
+        yawu[i] = yawu[i - 1] + d;
+        pitchv[i] = path[i].pitch;
+    }
+
+    /* the two ends are the keys themselves, so a playback always begins and finishes
+     * exactly on a recorded pose */
+    if (!(clock > 0.0f)) {
+        copy3(pos, path[0].pos);
+        if (yaw) *yaw = path[0].yaw;
+        if (pitch) *pitch = path[0].pitch;
+        return 1;
+    }
+    if (clock >= total) {
+        copy3(pos, path[n - 1].pos);
+        if (yaw) *yaw = path[n - 1].yaw;
+        if (pitch) *pitch = path[n - 1].pitch;
+        return 1;
+    }
+
+    s = clock / total;
+    w = total * play_warp(s);          /* the eased clock */
+
+    for (i = 0; i + 1 < n; i++) {
+        const fc_keyframe *a = &path[i];
+        const fc_keyframe *b = &path[i + 1];
+        float h, u;
+
+        if (w < a->time || w > b->time) continue;
+        h = b->time - a->time;
+        if (h < 1e-6f) h = 1e-6f;
+        u = (w - a->time) / h;
+
+        for (c = 0; c < 3; c++) {
+            float v[FC_MAX_KEYS];
+            int k;
+            for (k = 0; k < n; k++) v[k] = path[k].pos[c];
+            pos[c] = hermite(a->pos[c], b->pos[c], slope_of(v, path, n, i),
+                             slope_of(v, path, n, i + 1), h, u);
+        }
+        if (yaw) {
+            float y = hermite(yawu[i], yawu[i + 1], slope_of(yawu, path, n, i),
+                              slope_of(yawu, path, n, i + 1), h, u);
+            while (y > FC_PI) y -= 2.0f * FC_PI;
+            while (y < -FC_PI) y += 2.0f * FC_PI;
+            *yaw = y;
+        }
+        if (pitch) {
+            *pitch = clampf(hermite(pitchv[i], pitchv[i + 1], slope_of(pitchv, path, n, i),
+                                    slope_of(pitchv, path, n, i + 1), h, u),
+                            -1.5533f, 1.5533f);
+        }
+        return 1;
+    }
+
+    /* only reachable if the keys are out of order; the last key is the safe answer */
+    copy3(pos, path[n - 1].pos);
+    if (yaw) *yaw = path[n - 1].yaw;
+    if (pitch) *pitch = path[n - 1].pitch;
+    return 1;
 }
 
 int fc_play_step(fc_state *st, float dt, fc_mat *out)
 {
-    int i;
-    float t;
+    float total;
 
     if (!st || !st->playing) return 0;
     if (st->path_count < 2) { st->playing = 0; return 0; }
     if (!(dt > 0.0f)) dt = 0.0f;
 
     st->play_time += dt * (st->play_speed > 0.0f ? st->play_speed : 1.0f);
-    t = st->play_time;
+    total = st->path[st->path_count - 1].time;
 
-    if (t >= st->path[st->path_count - 1].time) {
+    if (total <= 0.0f || st->play_time >= total) {
         /* land exactly on the last key and hand control back */
         fc_keyframe *last = &st->path[st->path_count - 1];
         copy3(st->pos, last->pos);
@@ -1091,21 +1216,8 @@ int fc_play_step(fc_state *st, float dt, fc_mat *out)
         st->playing = 0;
         st->play_time = 0.0f;
     } else {
-        for (i = 0; i + 1 < st->path_count; i++) {
-            const fc_keyframe *a = &st->path[i];
-            const fc_keyframe *b = &st->path[i + 1];
-            float span, k;
-
-            if (t < a->time || t > b->time) continue;
-            span = b->time - a->time;
-            k = span > 1e-6f ? (t - a->time) / span : 0.0f;
-            st->pos[0] = lerp_f(a->pos[0], b->pos[0], k);
-            st->pos[1] = lerp_f(a->pos[1], b->pos[1], k);
-            st->pos[2] = lerp_f(a->pos[2], b->pos[2], k);
-            st->yaw = lerp_angle(a->yaw, b->yaw, k);
-            st->pitch = lerp_f(a->pitch, b->pitch, k);
-            break;
-        }
+        /* the cinematic curve: through every key, no corners, eased at both ends */
+        fc_play_pose(st, st->play_time, st->pos, &st->yaw, &st->pitch);
     }
 
     /* the pose being played is the camera's pose now, so turning it off, following the

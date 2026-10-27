@@ -230,6 +230,15 @@ int  fc_playing(const fc_state *st);
  * so pressing the key again simply plays it again from the start. */
 int  fc_play_step(fc_state *st, float dt, fc_mat *out);
 
+/* The pose the recorded path has `clock` seconds after its first keyframe, played back
+ * like a camera move rather than a slide show: a Hermite spline through the keys, so the
+ * camera passes each one with a continuous velocity instead of turning a corner, its yaw
+ * unwound along the path so it never spins the wrong way round at +-180 degrees, and the
+ * first and last stretch eased from and to a standstill. The keys are still hit exactly.
+ * `clock` >= the path's duration gives the last keyframe. Returns 1 when it wrote the
+ * pose, 0 when there is no path to play. */
+int  fc_play_pose(const fc_state *st, float clock, float pos[3], float *yaw, float *pitch);
+
 /* How fast the path plays back: 1.0 is the speed it was flown at, 0.5 takes twice as
  * long, 2.0 twice as short. Clamped to FC_PLAY_SPEED_MIN..FC_PLAY_SPEED_MAX. */
 #define FC_PLAY_SPEED_MIN 0.1f

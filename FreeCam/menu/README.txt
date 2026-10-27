@@ -48,6 +48,27 @@ x world up), fc_mat_from_pose writes both layouts, fc_pose_from_view reads the
 components out of the third block (m[2], m[6], m[10]) and only falls back to a
 forward-only comparison for a rolled camera.
 
+WHAT BUILD 9 ADDED
+------------------
+
+K plays the path back as a camera move (fc_play_pose, used by fc_play_step):
+
+  * a cubic Hermite spline through the keys, with the slopes taken from each key's
+    neighbours (slope_of), so the camera passes every key with a continuous velocity
+    instead of the corner a straight-line lerp produced;
+  * the yaw is unwound along the path first, so a pair that crosses +-180 degrees is a
+    small turn instead of a full spin;
+  * the clock is eased (play_warp): a cubic over the first and last 12% of the path from
+    a standstill up to the middle's slope, linear between, C1 at both joins, W(0)=0 and
+    W(1)=1 - so the shot starts and settles gently and still lasts exactly as long as
+    the flight did (the middle runs about 16% faster to pay for the eased ends);
+  * the two ends are the keys themselves, so a playback always begins and finishes on a
+    recorded pose, and the pitch stays inside +-89 degrees.
+
+fc_play_pose is public so the tests can sample the curve directly: test_cinematic_
+playback checks the corner (velocity continuous through the middle key), the ease at
+the start, the short way round at 180 degrees, and the landing on the last key.
+
 WHAT BUILD 8 ADDED
 ------------------
 
