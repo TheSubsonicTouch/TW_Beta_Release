@@ -1215,6 +1215,23 @@ def trial_snapshot(player, value=None, now=None):
                             "opted_in": bool(bag["OptedIn"]), "granted": granted}
 
 
+def local_url(value):
+    """Keep a URL only if it points at this machine; anything remote becomes "".
+
+    Nothing the server hands the client may send it to a live host: the screens try to
+    load what they are given, and a dead host is a stall at best. Localhost and empty
+    are the only two answers this server gives.
+    """
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    low = text.lower()
+    if low.startswith(("http://127.0.0.1", "https://127.0.0.1", "http://localhost",
+                       "https://localhost")):
+        return text
+    return ""
+
+
 def trial_container(bag, challenge, start, end, index):
     """One UFG::TrialContainer-shaped record (the trials screen's card)."""
     return {"mTrial": challenge.get("name", ""),
@@ -1223,7 +1240,7 @@ def trial_container(bag, challenge, start, end, index):
             "mBonusFavour": "0",
             "mDisplayName": challenge.get("title", ""),
             "mDescription": challenge.get("description", ""),
-            "mImage": challenge.get("image", "")}
+            "mImage": local_url(challenge.get("image"))}
 
 
 def default_state():

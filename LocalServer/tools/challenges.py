@@ -38,12 +38,17 @@ TUNERS = {
 
 # Three live challenges, like the three containers the trials screen pages through
 # (previous / current / next). Names must match the client's trial names.
+#
+# No image URLs: the client also ships three hard-coded links to a CDN
+# (http://tw.cdn.sqexeu.com/images/Trials/...) that shut down with the game, and asking
+# for one is a request to a live server that no longer answers. With the field empty the
+# card draws its own artwork, and the local server never hands out a URL it cannot serve.
 CHALLENGES = [
     {
         "name": "JiangShiTrial",
         "title": "Jiang Shi",
         "description": "The hopping dead are loose in the streets. Put them back in the ground.",
-        "image": "http://tw.cdn.sqexeu.com/images/Trials/challenge_screen_jiang_shi-02.png",
+        "image": "",
         "tiers": [{"target": 10, "tuner": "cash"},
                   {"target": 25, "tuner": "face"},
                   {"target": 50, "tuner": "favour"}],
@@ -52,7 +57,7 @@ CHALLENGES = [
         "name": "HappyCatTrial",
         "title": "Smiley Cat",
         "description": "A lucky cat has taken a liking to your turf. Keep it smiling.",
-        "image": "http://tw.cdn.sqexeu.com/images/Trials/challenge_screen_smileycat-02.png",
+        "image": "",
         "tiers": [{"target": 5, "tuner": "clean"},
                   {"target": 15, "tuner": "cash"},
                   {"target": 30, "tuner": "favour"}],
@@ -61,7 +66,7 @@ CHALLENGES = [
         "name": "EliteGhoulTrial",
         "title": "Yao Guai",
         "description": "Something older than the triads has woken up. Hunt it down.",
-        "image": "http://tw.cdn.sqexeu.com/images/Trials/challenge_screen_yaoguai-02.png",
+        "image": "",
         "tiers": [{"target": 10, "tuner": "face"},
                   {"target": 25, "tuner": "clean"},
                   {"target": 50, "tuner": "favour"}],

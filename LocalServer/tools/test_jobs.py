@@ -103,6 +103,20 @@ def main():
         assert progress["mCurrentContainer"]["mTrial"], progress
         return progress["mTrial"]
 
+    def no_remote_urls():
+        reply = handlers.trials_screen_visits(None, "GET", ["trialsscreenvisits"], b"", {})
+        progress = reply["mPlayerProgress"]
+        cards = [progress[key] for key in
+                 ("mPreviousContainer", "mCurrentContainer", "mNextContainer")]
+        for card in cards:
+            image = card.get("mImage") or ""
+            assert not image or image.startswith(("http://127.0.0.1", "https://127.0.0.1",
+                                                  "http://localhost", "https://localhost")), image
+        assert all(card.get("mTrial") for card in cards), cards
+        assert state.local_url("http://tw.cdn.sqexeu.com/x.png") == ""
+        assert state.local_url("https://localhost:443/a.png") == "https://localhost:443/a.png"
+        return "%d cards, nothing remote" % len(cards)
+
     def opt_in():
         reply = handlers.trial_optin(None, "POST",
                                      ["trialinstance", "optin", "1", "HappyCatTrial"], b"", {})
@@ -135,6 +149,7 @@ def main():
     check("change a job", change_a_job)
     check("daily roll", daily_roll)
     check("challenge report", challenge)
+    check("challenge cards stay local", no_remote_urls)
     check("challenge opt-in", opt_in)
     check("tier rewards", tier_rewards)
     check("restart", restart_keeps_progress)

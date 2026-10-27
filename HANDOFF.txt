@@ -19,6 +19,7 @@ Checklist before you report a problem
        netstat -ano | findstr :443
 4. The server window (the small minimised one Play-TriadWars.bat opens) is still open
    while you play, and LocalServer\logs has a log from today.
+5. Block-Online.bat has been run once (it is optional, but see below).
 
 
 Troubleshooting
@@ -39,6 +40,14 @@ The game closes the moment it starts
 
     `restore` undoes it. Keep a copy of TriadWars.exe before patching if you care.
 
+The game takes a long time to start, or the network light blinks at launch
+    The executable has two live hosts baked into it that do not follow UserOptions.dat:
+    prod.services.triadwars.com (telemetry) and tw.cdn.sqexeu.com (challenge images).
+    Both are dead, so every launch waits on DNS and a dead connection. Run
+    Block-Online.bat once: it adds two lines to the Windows hosts file pointing both at
+    127.0.0.1, where the local server answers them. The log then says
+    "offline lock: on". Restore-Online.bat undoes it. Nothing else on the PC changes.
+
 A screen is empty or does nothing
     Open LocalServer\logs\*.log. Requests the server has no handler for are logged as
     UNHANDLED, and every reply is one line. That log is the first thing to look at.
@@ -54,6 +63,9 @@ I changed a look and the game shows the old one
 
 Everyday things
 ---------------
+Stay local                Block-Online.bat, once. Keeps the game's two dead hosts off the
+                          network; Restore-Online.bat puts the hosts file back.
+
 Change your outfit        Change-Look.bat, with the game and the server closed. It lists
                           40 looks (gang, zombie, swat, tactical, suit, triad, no
                           clothes) and puts the one you pick on your enforcer. The same

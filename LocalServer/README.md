@@ -14,8 +14,10 @@ To run the pieces by hand:
     python server.py            # listens on https://127.0.0.1:443
     ..\TriadWars.exe
 
-Requirements: Python 3.9 or newer on `PATH` (standard library only), and
-port 443 free.
+Requirements: Python 3.9 or newer on `PATH` (standard library only), port 443 free,
+and - to keep the game off the network entirely - one run of `Block-Online.bat`, below.
+The server also listens on plain HTTP port 80 and 443 (`--http-port 0` turns the first
+off); if port 80 is taken it says so and everything else still works.
 
 ## What was changed in the game folder
 
@@ -24,11 +26,41 @@ port 443 free.
 | `UserOptions.dat` | `Environment` switched from `prod.services.triadwars.com` to `localhost`. The original is kept as `UserOptions.dat.orig`. |
 | `Play-TriadWars.bat` | New launcher. |
 | `LocalServer\` | New folder (this server). |
+| `Block-Online.bat` / `Restore-Online.bat` | Optional, run once: two entries in the Windows `hosts` file (see below). The file is backed up first, and `Restore-Online.bat` puts it back. |
 
 `TriadWars.exe` itself is not modified, unless the optional crash patch below
 has been applied. To undo everything:
 `python LocalServer\useroptions.py restore`, then delete `LocalServer` and
 `Play-TriadWars.bat`.
+
+### Keeping the game off the network (`Block-Online.bat`)
+
+Two hostnames are baked into `TriadWars.exe` and ignore `UserOptions.dat`:
+
+* `https://prod.services.triadwars.com` - three telemetry URLs
+  (`logging/api/v1/metrics`, `logging/api/v1/funnel/complete`, `.../fail`);
+* `http://tw.cdn.sqexeu.com` - the three challenge-screen images.
+
+Both hosts shut down with the game, but the client still asks them as it starts and waits
+on the answer, which is a DNS lookup and a dead connection on every launch. `Block-Online.bat`
+adds two lines to the Windows `hosts` file pointing both at `127.0.0.1`, where this server
+answers them:
+
+* the HTTPS listener has always accepted the three `logging` paths (and any other path it
+  does not know) with `200 {}`, so the telemetry has somewhere to land;
+* `--http-port 80` serves every image path from the second listener, so the challenge
+  cards get a locally built placeholder PNG (dark panel, gold border) instead of a stalled
+  request. `server.placeholder_png` builds it, so there are no image files to ship.
+
+Nothing else changes: no game file is touched, the entries are two lines under a comment,
+the original file is kept as `hosts.triadwars-backup`, and `Restore-Online.bat` undoes it.
+The server logs `offline lock: on` at startup when the entries are there and a one-line tip
+when they are not.
+
+The same rule is applied to the data: `state.local_url` turns any URL that is not
+`localhost` / `127.0.0.1` into an empty string before it reaches the client, and the
+challenge catalogue ships with no image URLs at all. A field that would have pointed at a
+live server is simply empty, and the client draws its own artwork.
 
 ### Optional: shadow-crash patch for `TriadWars.exe`
 
@@ -63,6 +95,7 @@ on the next launch).
 | `data/exports.json` | The export catalogue: the eight physical commodities with their prices and per-level export amounts, the racket that produces each one, the face/markup tables and the three mission kinds (see `tools/exports.py`). |
 | `data/favour_upgrades.json` | Every favour that grants an enforcer upgrade, with the rarity/tags/level job and challenge rewards filter on (see `tools/favour_rewards.py`). |
 | `useroptions.py` | Reads/edits the obfuscated `UserOptions.dat`. |
+| `hosts.ps1` | Adds/removes the two `hosts` entries `Block-Online.bat` and `Restore-Online.bat` call (elevates itself). |
 | `cert.pem`, `key.pem` | Self-signed certificate for `localhost` (the client does not verify it). |
 | `logs/` | One request log per server run. Lines marked `UNHANDLED` are endpoints with no handler yet. |
 | `tools/` | The scripts used to unpack the game data and decode its schema, crash-analysis helpers, `smoke_test.py`, `test_jobs.py`, `test_exports.py`, `test_shops.py`, `test_looks.py`, `storyline.py`, `playermodel.py`, `looks.py` (the lookbook), `schema_dump.py`, `patch_exe.py` (see above), `make_bundle.py` and the data builders (`errands.py`, `challenges.py`, `exports.py`, `favour_rewards.py`, `store_items.py`). |
@@ -601,8 +634,7 @@ Answered with an empty but valid result:
 
 * the gold store's ten `BeginExternalPurchase` items and the two spare tutorial
   pack stores (Extortion and Gambling; the racket-boss tutorial uses the
-  Counterfeiting one), coupons and their purchases; favour
-  sales and informants
+  Counterfeiting one), coupons and their purchases; favour sales and informants
 * operations; notices and private messages
 * player-run triads (clans) and friends, which need other players
 

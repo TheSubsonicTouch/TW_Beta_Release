@@ -23,10 +23,18 @@ HOW TO INSTALL
        LocalServer\            (folder)
        Play-TriadWars.bat
        Change-Look.bat
+       Block-Online.bat
+       Restore-Online.bat
        README.txt
        HANDOFF.txt
 
-2. Double-click Play-TriadWars.bat.
+2. Optional, but it stops the long wait at launch: double-click Block-Online.bat
+   once (it asks for Administrator). The game still has two dead servers built into
+   it and asks them every time it starts; this points them at your own PC, where the
+   local server answers them, so nothing leaves the machine. Restore-Online.bat
+   undoes it.
+
+3. Double-click Play-TriadWars.bat.
 
 To pick an outfit for your enforcer first, double-click Change-Look.bat instead -
 it lists the 40 looks, you type a number, and then you start the game as usual.

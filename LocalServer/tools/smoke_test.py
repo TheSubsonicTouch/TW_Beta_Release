@@ -1,10 +1,12 @@
 """Check that the local server is up and answering the way the client needs.
 
-    python smoke_test.py [--port 443]
+    python smoke_test.py [--port 443] [--http-port 80]
 
 Read-only: it only sends GET requests. Exits 0 when every check passes, 1 otherwise.
 Run it after starting the server and before starting the game. It also tells a real
 Triad Wars server apart from some other program that happens to be listening on the port.
+
+--http-port 0 skips the plain-HTTP check.
 """
 import argparse
 import json
@@ -27,6 +29,8 @@ PACK_TO_BUNDLE_STORE = {
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", type=int, default=443)
+    ap.add_argument("--http-port", type=int, default=80,
+                    help="plain-HTTP port the server answers the old CDN on (0 = skip)")
     args = ap.parse_args()
     ctx = ssl.create_default_context()
     ctx.check_hostname = False
@@ -46,6 +50,29 @@ def main():
         except Exception as e:                      # report every failure, then exit 1
             failed.append(name)
             print("FAIL  %-28s %r" % (name, e))
+
+    def no_remote_urls():
+        """Nothing the client is handed may point at a live server."""
+        board = get("game/api/v1/trialsscreenvisits")
+        progress = board.get("mPlayerProgress") or {}
+        cards = [progress.get(key) or {} for key in
+                 ("mPreviousContainer", "mCurrentContainer", "mNextContainer")]
+        images = [card.get("mImage") or "" for card in cards]
+        remote = [url for url in images if url and not url.startswith(
+            ("http://127.0.0.1", "https://127.0.0.1", "http://localhost", "https://localhost"))]
+        assert not remote, remote
+        return "%d trial card(s), no remote URLs" % len([c for c in cards if c])
+
+    def offline_paths():
+        """The hosts Block-Online.bat writes point here, and here answers."""
+        for path in ("logging/api/v1/metrics", "logging/api/v1/funnel/complete"):
+            get(path)
+        if args.http_port:
+            url = "http://127.0.0.1:%d/images/Trials/challenge_screen_jiang_shi-02.png" % args.http_port
+            with urllib.request.urlopen(url, timeout=10) as r:
+                body = r.read()
+            assert body[:8] == b"\x89PNG\r\n\x1a\n", body[:16]
+        return "telemetry accepted, CDN image served" if args.http_port else "telemetry accepted"
 
     def store_access():
         assert get("game/api/v1/storeaccess") == {"mHasAccess": True}
@@ -135,6 +162,8 @@ def main():
     check("challenges", challenges)
     check("export missions", exports)
     check("black market quotes", blackmarket)
+    check("no remote URLs", no_remote_urls)
+    check("offline paths", offline_paths)
     check("shop catalogues", stores)
     print("%d check(s) failed" % len(failed) if failed else "all checks passed")
     return 1 if failed else 0
