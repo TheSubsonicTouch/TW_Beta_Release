@@ -873,6 +873,67 @@ void fc_follow_update_angles(fc_state *st, float yaw, float pitch)
     st->pitch = clampf(st->pitch + dp, -1.5533f, 1.5533f);
 }
 
+/* ---- looking at the player without moving ------------------------------------ */
+
+void fc_angles_to(const float pos[3], const float target[3], float *yaw, float *pitch)
+{
+    float d[3];
+    float flat;
+
+    d[0] = target[0] - pos[0];
+    d[1] = target[1] - pos[1];
+    d[2] = target[2] - pos[2];
+    norm3(d);
+    flat = sqrtf(d[0] * d[0] + d[1] * d[1]);
+
+    if (yaw) *yaw = flat > 1e-5f ? atan2f(-d[0], d[1]) : 0.0f;
+    if (pitch) *pitch = asinf(clampf(d[2], -1.0f, 1.0f));
+}
+
+void fc_look_at(fc_state *st, int on)
+{
+    if (!st) return;
+    st->looking = on ? 1 : 0;
+}
+
+int fc_looking_at(const fc_state *st)
+{
+    return st && st->looking;
+}
+
+int fc_aim_at(fc_state *st, const float target[3], float dt)
+{
+    /* How quickly the camera comes round. 0.14 s is about a third of a second to settle:
+     * fast enough to keep up with a walking player, slow enough to read as a pan rather
+     * than a cut. */
+    const float tau = 0.14f;
+    float want_yaw, want_pitch, dy, dp, k;
+
+    if (!st || !st->looking || !target || !st->active) return 0;
+    if (!(dt > 0.0f)) dt = 0.008f;
+    if (dt > 0.1f) dt = 0.1f;
+
+    fc_angles_to(st->pos, target, &want_yaw, &want_pitch);
+
+    /* the short way round, so a player walking past +-180 degrees does not spin it */
+    dy = want_yaw - st->yaw;
+    while (dy > FC_PI) dy -= 2.0f * FC_PI;
+    while (dy < -FC_PI) dy += 2.0f * FC_PI;
+    dp = want_pitch - st->pitch;
+
+    if (fabsf(dy) < 1e-5f && fabsf(dp) < 1e-5f) return 0;
+
+    k = 1.0f - expf(-dt / tau);
+    if (k > 1.0f) k = 1.0f;
+    st->yaw += dy * k;
+    st->pitch = clampf(st->pitch + dp * k, -1.5533f, 1.5533f);
+
+    /* keep the yaw in range, so a long pan does not run away */
+    while (st->yaw > FC_PI) st->yaw -= 2.0f * FC_PI;
+    while (st->yaw < -FC_PI) st->yaw += 2.0f * FC_PI;
+    return 1;
+}
+
 /* ---- freezing ---------------------------------------------------------------- */
 
 void fc_freeze(fc_state *st, int on)
@@ -880,10 +941,17 @@ void fc_freeze(fc_state *st, int on)
     if (!st) return;
     st->frozen = on ? 1 : 0;
     if (st->frozen) {
-        /* a frozen camera does not move, so nothing it was flying to matters */
+        /* a frozen camera does not move, so nothing it was flying to matters. A follow
+         * that carried the camera along is dropped too - but the aiming kind (P while
+         * frozen) is allowed, and is how a frozen camera watches the player. */
         st->playing = 0;
         st->play_time = 0.0f;
         st->have_last_player = 0;
+        st->have_last_angles = 0;
+        st->follow = 0;
+    } else {
+        /* thawed: the camera is free again, and aiming would keep pulling it round */
+        st->looking = 0;
     }
 }
 

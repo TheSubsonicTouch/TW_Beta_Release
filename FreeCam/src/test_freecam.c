@@ -640,6 +640,61 @@ static void test_follow_pan(void)
     CHECK(NEAR(st.yaw, 0.25f, 1e-6), "and the first angle after switching on is a baseline again");
 }
 
+/* A frozen camera keeps its position and only pans: P while the camera is held still
+ * aims it at the player and leaves it where it is. */
+static void test_frozen_pan(void)
+{
+    fc_config cfg;
+    fc_state st;
+    fc_mat cam, out;
+    float pos[3] = { 10.0f, 0.0f, 5.0f };
+    float player[3] = { 10.0f, 30.0f, 1.0f };    /* straight ahead in +Y, below */
+    float yaw = 0.0f, pitch = 0.0f;
+    int i;
+
+    fc_config_defaults(&cfg);
+    fc_init(&st, &cfg);
+    fc_mat_from_pose(&cam, pos, (float)TEST_PI, 0.0f, 0);   /* facing away */
+    fc_toggle(&st, &cam);
+    fc_freeze(&st, 1);
+
+    CHECK(fc_frozen(&st), "frozen after O");
+    CHECK(!fc_looking_at(&st), "and not aiming at anything yet");
+
+    /* the angles that point at the player, worked out the long way */
+    fc_angles_to(st.pos, player, &yaw, &pitch);
+    CHECK(NEAR(yaw, 0.0f, 1e-4), "the player is straight along +Y, so yaw 0 (%f)", yaw);
+    CHECK(pitch < -0.1f, "and below the camera, so pitch is down (%f)", pitch);
+
+    fc_look_at(&st, 1);
+    CHECK(fc_looking_at(&st), "P turns the aiming on");
+
+    /* a few ticks, and it comes round without moving */
+    for (i = 0; i < 200; i++) fc_aim_at(&st, player, 0.005f);
+    CHECK(NEAR(st.yaw, yaw, 0.02f), "the camera has panned round to the player (%f)", st.yaw);
+    CHECK(NEAR(st.pitch, pitch, 0.02f), "and tilted down to it (%f)", st.pitch);
+    CHECK(NEAR(st.pos[0], 10.0f, 1e-5) && NEAR(st.pos[1], 0.0f, 1e-5) && NEAR(st.pos[2], 5.0f, 1e-5),
+          "without travelling: it is still frozen at %.1f %.1f %.1f", st.pos[0], st.pos[1], st.pos[2]);
+
+    /* the player walks away to the side: the camera pans, and still does not move */
+    player[0] = -20.0f;                 /* 30 to the left, 30 ahead: yaw +pi/4 */
+    for (i = 0; i < 200; i++) fc_aim_at(&st, player, 0.005f);
+    CHECK(NEAR(st.yaw, (float)(TEST_PI / 4.0), 0.02f), "it pans after the player (%f)", st.yaw);
+    CHECK(NEAR(st.pos[0], 10.0f, 1e-5) && NEAR(st.pos[1], 0.0f, 1e-5),
+          "and stays exactly where it was frozen");
+
+    /* a frozen camera still ignores the mouse and the keys, so the aiming is not fought */
+    st.keys[FC_FORWARD] = 1;
+    fc_step(&st, 0.5f, 60.0f, 40.0f, &out);
+    CHECK(NEAR(st.pos[1], 0.0f, 1e-5) && NEAR(st.pos[0], 10.0f, 1e-5),
+          "the keys and the mouse do nothing while frozen");
+
+    /* unfreezing ends the aiming: the camera is free again */
+    fc_freeze(&st, 0);
+    CHECK(!fc_looking_at(&st), "thawing stops the aiming");
+    CHECK(fc_aim_at(&st, player, 0.01f) == 0, "and it does not pull the camera round any more");
+}
+
 /* The arrow keys walk the playback speed up and down a ladder. */
 static void test_play_speed(void)
 {
@@ -1094,6 +1149,7 @@ int main(void)
     test_freeze();
     test_follow();
     test_follow_pan();
+    test_frozen_pan();
     test_play_speed();
     test_keyframes();
     test_keyframe_yaw_wrap();

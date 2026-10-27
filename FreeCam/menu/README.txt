@@ -48,6 +48,22 @@ x world up), fc_mat_from_pose writes both layouts, fc_pose_from_view reads the
 components out of the third block (m[2], m[6], m[10]) and only falls back to a
 forward-only comparison for a rolled camera.
 
+WHAT BUILD 8 ADDED
+------------------
+
+A frozen camera can aim. This is the second of the three states the camera has:
+
+  flying           the player's controls are held back, the camera flies
+  frozen (O)       the player's controls come back, the camera is pinned
+  frozen + P       the pinned camera turns to keep the player in frame - fc_look_at /
+                   fc_aim_at, exponential smoothing with a 0.14 s time constant, short
+                   way round at +-180 degrees, aimed one metre above the player
+                   transform (which sits at the character's feet)
+
+fc_freeze() now also drops a move-follow (a follow would carry the frozen camera along)
+and thawing clears the aiming. K while frozen is refused with a line in the log: a
+playback would not be seen.
+
 WHAT BUILD 7 ADDED
 ------------------
 

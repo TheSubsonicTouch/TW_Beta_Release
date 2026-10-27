@@ -47,6 +47,17 @@ game carries on from its own camera and not from where you flew to.
 WHAT CHANGED IN THIS BUILD
 --------------------------
 
+  - A frozen camera pans instead of standing still: with the camera held by O, press P
+    and it keeps its position and turns to keep the player in the middle of the picture
+    as they walk, drive and fight. It never follows - only the angles change. P again
+    holds it still, and O thaws it back into a free-flying camera.
+  - That is the whole flow: free cam on = the player is held and the camera flies;
+    O = the player is freed and the camera is pinned where it is; O then P = the pinned
+    camera watches the player.
+  - The playback speed keys and M now say what they did in the log, so a key that seems
+    to do nothing can be checked: "FreeCam: playback speed 1.25x (right arrow)" and
+    "FreeCam: 37 keyframe(s) cleared - the next L starts a new path".
+
   - While the camera is flying, the player does not act any more. The character stands
     still, does not swing, shoot or start conversations, and does not turn with the
     mouse. The game's own controls are held back at three places (see below); nothing
@@ -150,6 +161,13 @@ The freeze (O):
   - O again, F10, or switching free cam off all thaw it. Switching free cam off and on
     always starts unfrozen.
 
+A frozen camera that pans (O, then P):
+
+  - O pins the camera where it is and gives the controls back to the player.
+  - P then aims the pinned camera at the player: the camera does not move, it only turns,
+    so it keeps the player in frame wherever they go. The pan is smoothed, not a snap.
+  - P again stops the aiming; O again (or F10) hands the camera back to you to fly.
+
 The hotkey display:
 
   - Sits in the top-right corner, one line per key pressed, newest on top.
@@ -163,11 +181,14 @@ while flying and switch it off from there.
 IF IT DOES NOT WORK
 -------------------
 
-TW_MenuLog.txt, next to TriadWars.exe, records everything. Load into the world
+TW_MenuLog.txt, next to TriadWars.exe, records everything. The second line of a flight
+says which build is running - "build 8" for this one. If it says a lower number, the game
+is loading an older dinput8.dll: run Install-FreeCam.bat again from this zip.
+ Load into the world
 first - the camera cannot be told apart on a loading screen - then toggle it and
 look for these lines, in this order:
 
-    FreeCam: camera thread up (build 7: player controls held back, follow pans, playback speed)
+    FreeCam: camera thread up (build 8: frozen camera pans to the player, M clears the path)
     FreeCam: switched on, asking the renderer which camera it draws
     FreeCam: hooked the view accessor at 0000... with an absolute jump (original kept at ...)
     FreeCam: the renderer asked about 0000... for the first time

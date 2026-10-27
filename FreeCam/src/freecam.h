@@ -82,6 +82,9 @@ typedef struct {
     /* following also turns the camera with the player's own camera, so the framing
      * survives the player looking around */
     int    have_last_angles;
+
+    /* aiming at the player without moving: the frozen camera's P */
+    int    looking;
     float  last_player_yaw, last_player_pitch;
 
     /* how fast a recorded path plays back; 1.0 is the speed it was flown at */
@@ -182,6 +185,23 @@ void fc_follow_update(fc_state *st, const float player[3]);
  * the camera turns by however much they changed since the previous call, so it keeps
  * its framing while the player looks around. Call it next to fc_follow_update. */
 void fc_follow_update_angles(fc_state *st, float yaw, float pitch);
+
+/* ---- looking at the player without moving ------------------------------------ */
+
+/* Aim at the player: the camera keeps its position and turns (yaws and pitches) so the
+ * player is in the middle of the picture. This is the frozen camera's follow (P while
+ * the camera is held by O): it pans, it does not travel.
+ *
+ * fc_aim_at() turns toward `target` by a fraction of the way, so the pan is smooth
+ * instead of a snap. Call it every tick with the same dt the camera is stepped with.
+ * Returns 1 when it moved the camera's angles. */
+void fc_look_at(fc_state *st, int on);
+int  fc_looking_at(const fc_state *st);
+int  fc_aim_at(fc_state *st, const float target[3], float dt);
+
+/* The yaw and pitch that point from `pos` at `target`, in this file's convention:
+ * forward = (-sin(yaw)cos(pitch), cos(yaw)cos(pitch), sin(pitch)). */
+void fc_angles_to(const float pos[3], const float target[3], float *yaw, float *pitch);
 
 /* ---- freezing ---------------------------------------------------------------- */
 

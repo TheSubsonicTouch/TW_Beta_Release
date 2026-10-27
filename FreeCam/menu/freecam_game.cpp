@@ -124,6 +124,9 @@ Accessor g_viewAcc = { 0xcfc30, "view",
 constexpr float  kNearRadius   = 200.0f;    // a camera further than this from the player is not the game camera
 constexpr size_t kObjectBytes  = 0x200;     // enough for all three matrices
 constexpr int    kLookKey      = VK_RBUTTON;
+// The player transform sits at the character's feet, so a camera aiming at it points at
+// the pavement. This much above it is the chest, which is what should be in the picture.
+constexpr float  kAimHeight    = 1.0f;
 constexpr float  kScanBudgetMs = 2.0f;
 constexpr size_t kScanChunk    = 64 * 1024;
 constexpr int    kProbeSlots   = 8;
@@ -1168,7 +1171,7 @@ Hotkey g_fasterKey{ VK_RIGHT };     // playback speed up
 // held back so the character stands still and does not swing or interact. O and P hand
 // control back to the player, which is the whole point of those two.
 bool PlayerHasControl() {
-    return fc_frozen(&g_state) || fc_following(&g_state);
+    return fc_frozen(&g_state) || fc_following(&g_state) || fc_looking_at(&g_state);
 }
 
 // --- the corner display ------------------------------------------------------
@@ -1281,9 +1284,22 @@ void HandleHotkeys(const float player[3], bool havePlayer) {
     // same tick would always answer no.
     if (g_followKey.Pressed()) {
         if (fc_frozen(&g_state)) {
-            // a frozen camera is being held still; following would drag it after the player
-            TW_Log("FreeCam: the camera is frozen (O) - unfreeze it before following the player");
-            Hud("P", "unfreeze with O first");
+            // Frozen: the camera stays exactly where it is and only pans, so the player
+            // is kept in the middle of the picture as they walk, drive and fight.
+            if (fc_looking_at(&g_state)) {
+                fc_look_at(&g_state, 0);
+                Hud("P", "look at player off");
+                TW_Log("FreeCam: not aiming at the player any more; the frozen camera holds still");
+            } else if (!havePlayer) {
+                TW_Log("FreeCam: cannot aim at the player - its transform is not readable yet");
+            } else {
+                fc_look_at(&g_state, 1);
+                Hud("P", "camera looks at player");
+                TW_Log("FreeCam: frozen, so the camera only pans: it stays at %.1f %.1f %.1f and "
+                       "turns to keep the player (%.1f %.1f %.1f) in the picture; P again to hold "
+                       "still", g_state.pos[0], g_state.pos[1], g_state.pos[2],
+                       player[0], player[1], player[2]);
+            }
         } else if (fc_playing(&g_state)) {
             TW_Log("FreeCam: following cannot be changed while the path is playing (K to stop)");
         } else if (fc_following(&g_state)) {
@@ -1302,10 +1318,10 @@ void HandleHotkeys(const float player[3], bool havePlayer) {
 
     if (g_freezeKey.Pressed()) {
         if (fc_frozen(&g_state)) {
-            fc_freeze(&g_state, 0);
-            TW_Log("FreeCam: camera unfrozen; flying from %.1f %.1f %.1f", g_state.pos[0],
-                   g_state.pos[1], g_state.pos[2]);
-            Hud("O", "camera unfrozen");
+            fc_freeze(&g_state, 0);      // also stops the aiming
+            TW_Log("FreeCam: camera unfrozen; the player's controls are held again and the camera "
+                   "flies from %.1f %.1f %.1f", g_state.pos[0], g_state.pos[1], g_state.pos[2]);
+            Hud("O", "camera flying");
         } else {
             // following would keep dragging the frozen view along with the player
             if (fc_following(&g_state)) {
@@ -1314,7 +1330,8 @@ void HandleHotkeys(const float player[3], bool havePlayer) {
             }
             fc_freeze(&g_state, 1);
             TW_Log("FreeCam: camera frozen at %.1f %.1f %.1f - the player can move, fight and "
-                   "interact; O to unfreeze", g_state.pos[0], g_state.pos[1], g_state.pos[2]);
+                   "interact, P makes the camera pan to follow them, O to fly again",
+                   g_state.pos[0], g_state.pos[1], g_state.pos[2]);
             Hud("O", "camera frozen");
         }
     }
@@ -1362,7 +1379,10 @@ void HandleHotkeys(const float player[3], bool havePlayer) {
         }
     }
 
-    if (g_playKey.Pressed()) {
+    if (g_playKey.Pressed() && fc_frozen(&g_state)) {
+        TW_Log("FreeCam: the camera is frozen, so a playback would not be seen - press O to fly again");
+        Hud("K", "frozen: O to fly first");
+    } else if (g_playKey.Pressed()) {
         if (fc_playing(&g_state)) {
             fc_play_stop(&g_state);
             TW_Log("FreeCam: playback stopped; the camera stays where the path reached");
@@ -1472,7 +1492,7 @@ DWORD WINAPI Loop(LPVOID) {
     ULONGLONG lastReport = GetTickCount64();
 
     timeBeginPeriod(1);
-    TW_Log("FreeCam: camera thread up (build 7: player controls held back, follow pans, playback speed)");
+    TW_Log("FreeCam: camera thread up (build 8: frozen camera pans to the player, M clears the path)");
 
     for (;;) {
         if (g_quit) break;
@@ -1599,7 +1619,17 @@ DWORD WINAPI Loop(LPVOID) {
             // the path drives the camera; keys and mouse are ignored until it ends
             got = fc_play_step(&g_state, dt, &world) != 0;
         } else if (fc_step(&g_state, dt, mx, my, &world)) {
-            if (fc_following(&g_state)) {
+            if (fc_looking_at(&g_state)) {
+                // frozen camera aiming at the player: the position never changes, only the
+                // angles, so this is a pan and not a follow
+                float target[3];
+                if (PlayerPosition(target)) {
+                    target[2] += kAimHeight;
+                    if (fc_aim_at(&g_state, target, dt)) {
+                        fc_mat_from_pose(&world, g_state.pos, g_state.yaw, g_state.pitch, 0);
+                    }
+                }
+            } else if (fc_following(&g_state)) {
                 if (PlayerPosition(player)) {
                     fc_follow_update(&g_state, player);
                     /* the matrix written to the camera's world slot is always a world
@@ -1658,7 +1688,8 @@ DWORD WINAPI Loop(LPVOID) {
                        "writes held %d, taken back %d%s%s",
                        g_state.pos[0], g_state.pos[1], g_state.pos[2],
                        g_viewAcc.installed ? "hooked" : "not hooked", answers, calls, held, taken,
-                       fc_following(&g_state) ? ", following the player" : "",
+                       fc_looking_at(&g_state) ? ", frozen and aiming at the player"
+                       : fc_following(&g_state) ? ", following the player" : "",
                        g_state.path_count ? ", path has keyframes" : "");
                 if (fc_following(&g_state) || g_panSamples) {
                     TW_Log("FreeCam: %d game camera pose(s) seen while following - those are the "
