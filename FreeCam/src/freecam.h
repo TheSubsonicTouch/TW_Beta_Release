@@ -103,6 +103,7 @@ int  fc_mat_to_pose(const fc_mat *m, float pos[3], float *yaw, float *pitch, int
 int  fc_pose_from_view(const fc_mat *view, float pos[3], float *yaw, float *pitch, int *sign);
 void fc_basis(float yaw, float pitch, float forward[3], float right[3], float up[3]);
 void fc_mat_mul(const fc_mat *a, const fc_mat *b, fc_mat *out);   /* out = a * b */
+void fc_mat_transpose(const fc_mat *m, fc_mat *out);
 int  fc_mat_near_identity(const fc_mat *m, float tol);
 
 /* Which way round the engine stores a view matrix. A camera's view matrix is the

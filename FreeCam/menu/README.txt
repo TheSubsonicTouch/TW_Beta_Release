@@ -37,9 +37,19 @@ The engine draws with a small leaf function, the camera's view accessor:
               f3 c3                   ret
 
 It is called directly - 17 call sites, none through a vtable - so patching the body
-catches every one of them, the renderer included. The first five bytes become a jump
-to our function, the original is copied into executable memory first and every other
-call still goes there.
+catches every one of them, the renderer included. The patch is an absolute jump:
+
+    FF 25 00 00 00 00      jmp qword ptr [rip+0]
+    <8-byte address>
+
+Why absolute: build 4 used `E9 rel32`, and the distance from this DLL to the game does
+not fit in 32 bits. The truncated displacement sent the game somewhere arbitrary and
+froze it the instant the toggle was clicked. A 64-bit address cannot overflow.
+
+The original function is copied into executable memory first (only after checking that
+nothing in it is position dependent), every other call runs that copy, and the write is
+made with every other thread suspended - and skipped, retried, if any of them is
+actually inside the function at the time.
 
 That hook is also the answer to "which object is the camera": the renderer calls it
 with the component in rcx, every frame. The hook records the object and how often it
@@ -66,7 +76,11 @@ WHAT THE FLIGHT DOES
    * if the game switches cameras (car, cutscene) a different object starts being asked
      about and the flight carries on with it;
    * if the renderer stops asking about the camera we picked, it was the wrong one:
-     it is put on a short ban list and another is chosen.
+     it is put on a short ban list and another is chosen;
+   * if the engine keeps its matrices column-major, the transposed form is recognised
+     and written back the same way round;
+   * F10 puts the original accessor bytes back as well as the camera, so there is a
+     way out if the picture ever looks wrong.
 
 Everything is guarded: VirtualQuery before every read, SEH around the scan and the
 writes, the accessor located by RVA *and* by searching .text for its exact bytes (so a
@@ -74,8 +88,8 @@ game build with a different layout is survived rather than patched blind), a uni
 match required before anything is patched, and the hook skipped - not forced - when no
 match is found.
 
-THE BUG THAT MADE EARLIER BUILDS DO NOTHING
--------------------------------------------
+THE TWO BUGS THAT MADE EARLIER BUILDS DO NOTHING
+------------------------------------------------
 
     fc_config_defaults(&g_state.cfg);
     fc_init(&g_state, &g_state.cfg);     /* wrong */
@@ -85,6 +99,8 @@ pointer - which points into the state that was just zeroed. Speed, sprint, sensi
 and max_distance all ended up 0, so even a camera that was found could never move or
 look. fc_init() now copies the config first, and the menu keeps its config in a
 separate object. The test suite has a case for exactly this.
+
+The second was the jump overflow described above, which is what froze the game.
 
 WHY IT DOES NOT FREEZE ANY MORE
 -------------------------------

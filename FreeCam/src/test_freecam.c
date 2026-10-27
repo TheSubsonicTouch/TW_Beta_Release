@@ -654,6 +654,23 @@ static void test_pose_from_view_roll(void)
     CHECK(sign == 1, "with the row sign it uses");
 }
 
+/* An engine that keeps matrices column-major stores the same camera transposed. The
+ * transposed copy is not a valid rigid transform, which is exactly how it is detected. */
+static void test_transpose(void)
+{
+    fc_mat v, t, back;
+    float pos[3] = { 3.0f, 4.0f, 5.0f };
+
+    fc_mat_from_pose(&v, pos, 0.9f, 0.3f, 1);
+    fc_mat_transpose(&v, &t);
+    CHECK(!fc_mat_valid(&t), "the transposed view matrix is not a rigid transform");
+    CHECK(fc_pose_from_view(&t, NULL, NULL, NULL, NULL) == 0, "so it is not read as one");
+    fc_mat_transpose(&t, &back);
+    CHECK(back.m[0] == v.m[0] && back.m[5] == v.m[5] && back.m[12] == v.m[12],
+          "transposing twice gives the matrix back");
+    CHECK(fc_pose_from_view(&back, NULL, NULL, NULL, NULL) == 1, "and the original decomposes");
+}
+
 static void test_init_aliasing(void)
 {
     fc_state st;
@@ -705,6 +722,7 @@ int main(void)
     test_projection();
     test_pose_from_view();
     test_init_aliasing();
+    test_transpose();
     test_pose_from_view_roll();
     test_config();
     test_matrices();

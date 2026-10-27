@@ -47,25 +47,25 @@ game carries on from its own camera and not from where you flew to.
 WHAT CHANGED IN THIS BUILD
 --------------------------
 
-Toggling it on did nothing you could see. Two separate faults were behind that.
+The build before this one froze the game the moment Free Camera was switched on. That
+was a bug in the hook: it redirected the game's camera function with a jump whose
+distance had to fit in 32 bits, and the distance between this DLL and the game does not
+fit. The jump went somewhere arbitrary. It is now an absolute jump, which cannot
+overflow, the original bytes are copied first and every other call runs them, and the
+patch is written with the game's other threads briefly paused so no thread can be
+running the bytes while they change.
 
-The first was the camera. The previous build asked the game's camera manager for "the
-camera" and wrote into what came back; the log proves that object is not a camera, so
-nothing was ever drawn from it. This build takes the camera from the renderer instead,
-which cannot be wrong about which one it is drawing.
+The build before *that* did nothing visible, for two separate reasons, both fixed:
 
-The second was a zeroed config. The state object was initialised with its own config
-passed in, and that call clears the state - config included - before copying the config
-in, so speed, sprint and look sensitivity were all zero. Even a correct camera could
-not have moved. Both are fixed, and the test suite covers the second.
+  - the camera was taken from where the game's camera manager points, and the log shows
+    that object is not a camera at all; the camera is now the one the renderer asks the
+    view function about, which cannot be wrong;
+  - the camera state was initialised with its own config passed in, and that call
+    clears the state before copying the config, so speed and look sensitivity were zero.
+    A camera that was found could not have moved.
 
-An earlier build could also freeze the game: the search walked the whole heap on the
-render thread. The search has moved to its own thread, two milliseconds at a time, and
-the frame stays free. The accessor hook itself only does a few pointer tests.
-
-The menu answers immediately and the camera responds as soon as the camera is found -
-normally within a frame or two. If the game swaps cameras (getting into a car, a
-cutscene) the flight carries on with the new one.
+F10 now also puts the game's original camera code back, not just the camera, so there
+is a way out if anything ever looks wrong.
 
 CONTROLS
 --------
@@ -92,20 +92,22 @@ look for these lines, in this order:
 
     FreeCam: camera thread up (build 4: the renderer is asked which camera it draws)
     FreeCam: switched on, asking the renderer which camera it draws
-    FreeCam: hooked the view accessor at 0000... (original kept at 0000...)
-    FreeCam: using the camera the renderer asks for at 0000... (GameCameraComponent),
-             view +0x40, world +0x80, view row sign 1, 41 calls, 4.6 units from the player
-    FreeCam: on at x y z (yaw ..., pitch ..., view row sign 1, the camera the renderer asks for)
-    FreeCam: camera at x y z, view accessor hooked, answered 118 of 120 calls, writes held 0,
-             taken back 120
+    FreeCam: hooked the view accessor at 0000... with an absolute jump (original kept at ...)
+    FreeCam: the renderer asked about 0000... for the first time
+    FreeCam:   vtable 0000... (GameCameraComponent), base 0000..., so +0x182a800
+    FreeCam:   +0x40 is a rigid transform
+    FreeCam: using the camera the renderer asks for at 0000... view +0x40, world +0x80,
+             view row sign 1, 41 calls, 4.6 units from the player
+    FreeCam: on at x y z (yaw ..., pitch ...)
+    FreeCam: camera at x y z, view accessor hooked, answered 118 of 120 calls, writes held 0
 
 "hooked the view accessor" is what makes the camera findable at all, and "answered" is
 the count of times the game asked for the view and got ours - that number climbing
-means the game is drawing your pose. "writes held" only counts the matrices written to
-memory; the game overwrites those every frame, and the accessor answer overrides them,
-so it is normal for "taken back" to be high as long as "answered" is climbing.
+means the game is drawing your pose. "writes held" only counts matrices written to
+memory; the game overwrites those every frame and the answer overrides them, so it is
+normal for "taken back" to be high as long as "answered" is climbing.
 
-Right after the choice you also get the candidates it was chosen from, one line each:
+Right after the choice there is one line per candidate it chose from:
 
     FreeCam: candidate 0000... (GameCameraComponent), 41 calls, 4.6 units from the player
 
@@ -116,13 +118,13 @@ If it picked the wrong one it says so and picks again:
 These lines mean it fell back or gave up:
 
     FreeCam: the view accessor does not match this game build; leaving it alone
-    FreeCam: no accessor hook on this build; falling back to writing matrices only
+    FreeCam: the view accessor is hooked but the game has not called it in three seconds
     FreeCam: the manager's camera at 0000... did not look like one either
     FreeCam: waiting for the player transform - needed to tell a camera from the rest
 
-The first two mean the accessor bytes were not found in your TriadWars.exe - send the
-log, it says what was looked for and where. The last two mean you are not in the world
-yet, or a camera is nowhere near the player.
+The first two mean the accessor bytes were not found in your TriadWars.exe, or the game
+does not call that function - send the log, it says what was looked for and where. The
+last two mean you are not in the world yet, or a camera is nowhere near the player.
 
 While flying the player still receives W A S D, so your character may walk around
 below you. That is the game reading its own input, not the camera.

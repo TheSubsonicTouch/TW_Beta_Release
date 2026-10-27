@@ -537,6 +537,16 @@ int fc_mat_valid(const fc_mat *m)
     return 1;
 }
 
+void fc_mat_transpose(const fc_mat *m, fc_mat *out)
+{
+    fc_mat t;
+    int r, c;
+    if (!m || !out) return;
+    for (r = 0; r < 4; r++)
+        for (c = 0; c < 4; c++) t.m[r * 4 + c] = m->m[c * 4 + r];
+    *out = t;
+}
+
 void fc_mat_mul(const fc_mat *a, const fc_mat *b, fc_mat *out)
 {
     fc_mat r;
