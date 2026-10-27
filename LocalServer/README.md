@@ -57,13 +57,14 @@ on the next launch).
 | `state.json` | Your saved profile (created on first run). Delete it to start over. |
 | `data/gamedb_min.json` | Object UIDs and tuning tables extracted from the game's own data. |
 | `data/store_items.json` | What every store sells: 792 wardrobe pieces, all 28 outfits (12 of them non-player models), 247 vehicles, the health item, and the favour packs with their 1x/3x/5x bundles. Each outfit keeps its piece UIDs so the server can put it on (see `tools/store_items.py`). |
+| `data/looks.json` | The outfit lookbook: 32 named looks, each a list of `UFG::StoreClothing` UIDs put together by hand - gang, zombie, swat, tactical, suit, triad and no-clothes sets (see `tools/looks.py`). |
 | `data/errands.json` | Every job (`UFG::ErrandTypeMetadata`) with its reward, requirements, prerequisites and completion conditions, plus the `UFG::ErrandRewards` tables (see `tools/errands.py`). |
 | `data/challenges.json` | The rotating challenges (`JiangShiTrial`, `HappyCatTrial`, `EliteGhoulTrial`), their progress tiers and the `UFG::GameRewardTuner` each tier pays (see `tools/challenges.py`). |
 | `data/favour_upgrades.json` | Every favour that grants an enforcer upgrade, with the rarity/tags/level job and challenge rewards filter on (see `tools/favour_rewards.py`). |
 | `useroptions.py` | Reads/edits the obfuscated `UserOptions.dat`. |
 | `cert.pem`, `key.pem` | Self-signed certificate for `localhost` (the client does not verify it). |
 | `logs/` | One request log per server run. Lines marked `UNHANDLED` are endpoints with no handler yet. |
-| `tools/` | The scripts used to unpack the game data and decode its schema, crash-analysis helpers, `smoke_test.py`, `test_jobs.py`, `test_shops.py`, `playermodel.py`, `schema_dump.py`, `patch_exe.py` (see above), `make_bundle.py` and the data builders (`errands.py`, `challenges.py`, `favour_rewards.py`, `store_items.py`). |
+| `tools/` | The scripts used to unpack the game data and decode its schema, crash-analysis helpers, `smoke_test.py`, `test_jobs.py`, `test_shops.py`, `test_looks.py`, `playermodel.py`, `looks.py` (the lookbook), `schema_dump.py`, `patch_exe.py` (see above), `make_bundle.py` and the data builders (`errands.py`, `challenges.py`, `favour_rewards.py`, `store_items.py`). |
 | `devdata/` | Reference data for extending the server: the full object-database export and the client's endpoint and key lists. Not needed to play. |
 
 ## How it works
@@ -244,8 +245,9 @@ plain JSON - edit them freely.
     python tools/test_jobs.py      # handlers directly: board, claim, history, change,
                                    # rollover, trial report/opt-in/tiers, restart
     python tools/test_shops.py     # every catalogue, every purchase path, the model
+    python tools/test_looks.py     # the lookbook: real UIDs, slots, every look applies
 
-Both test scripts build a throw-away profile in a temp folder, so they never touch
+The test scripts build a throw-away profile in a temp folder, so they never touch
 `state.json`. `tools/smoke_test.py` runs the same screens over HTTPS against a running
 server (start it with `--port 8443` and pass `--port 8443`).
 
@@ -407,6 +409,55 @@ those looks can be bought and worn. Two ways to put one on:
 The 42 clothing pieces with no category at all are outfit-only parts (a jacket's
 sleeves, a mask's straps) and are not sold loose: the wardrobe builds its tree from the
 category, and a piece without one has nowhere to go. They arrive with their outfit.
+
+### The outfit lookbook
+
+An outfit the wardrobe shows as a tile is an `UFG::StoreOutfit` in the game's own data,
+and the client resolves every tile UID against that data before it draws anything. A UID
+it has never seen is the same null-pointer family as the pack-tile crash above, so the
+shop cannot be given brand-new outfit records from the server side. What *is* free is the
+combination: the model is drawn from `ClothingStoreItemUIDs`, so any set of pieces the
+game already ships is a wearable look. The wardrobe lets you assemble one by hand; the
+lookbook gives the good ones names.
+
+`data/looks.json` holds 32 of them, every piece a real `UFG::StoreClothing`:
+
+    Gang        Corner Boy, Block Boss, Ride or Die, Street Soldier, Bam Bam, Sun On Yee
+    Zombie      Fresh Zombie, Neon Zombie, Zombie Boss
+    Swat        Swat Pointman, Swat Breacher, Swat Urban
+    Tactical    Ghost, Desert Operator, Night Ops, Clown Unit
+    Suit        Boardroom, Undertaker, Blood Money, Miami Vice, Suit & Tee, White Suit
+    Triad       Red Pole, Temple Guardian, Jade Lotus, Tiger Style, Flying Dagger,
+                Monkey Lord, Quiet Sage
+    No clothes  Bare Essentials, Full Monty, Bare Knuckle
+
+To wear one, with the game and the server closed:
+
+    Change-Look.bat                              # double-click: numbered list, pick one
+    python LocalServer\tools\playermodel.py looks          # the list, with its pieces
+    python LocalServer\tools\playermodel.py set "swat pointman"
+    python LocalServer\tools\playermodel.py set gang        # a theme lists its looks
+    python LocalServer\tools\playermodel.py set outfit swat # the game's own outfits still work
+    python LocalServer\tools\playermodel.py show           # names the look that is on
+
+It writes the same three `CustomizationBag` fields the wardrobe writes, and adds every
+piece to the inventory, so after one look the wardrobe shows those pieces as owned and
+you can tweak the look by hand from there. The lookbook is a starting point, not a locked
+costume: nothing stops the wardrobe changing it afterwards, and `clear` goes back to the
+default model.
+
+Each look uses at most one piece per wardrobe slot - the slots are the wardrobe's own,
+read from the piece's `mSubType` (`Tops`, `Pants`, `Shoes`, `Hats`, `Accessories|Masks`,
+`Body|Hair`, ...), so a look is a combination the wardrobe itself would allow. A
+generated-file warning applies: edit the table in `tools/looks.py`, not the JSON, then
+
+    python LocalServer\tools\looks.py            # rebuild data/looks.json
+    python LocalServer\tools\test_looks.py       # real UIDs, slots, every look applies
+
+Two details worth knowing. Where several UIDs share a display name they are tint variants
+of one garment and the lowest UID is used, because the data does not say which colour is
+which. And `Full Monty` uses `Bare Legs DEBUG ONLY`, the game's only bare-legs mesh - it
+is marked debug in the data, and it is exactly what a no-clothes look needs.
 
 Answered with an empty but valid result:
 

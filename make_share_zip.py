@@ -15,6 +15,7 @@ DEFAULT_OUT = os.path.join(ROOT, "TriadWars-LocalServer-Share.zip")
 INCLUDE = [
     "README.txt",
     "Play-TriadWars.bat",
+    "Change-Look.bat",
     "LocalServer/README.md",
     "LocalServer/cert.pem",
     "LocalServer/key.pem",

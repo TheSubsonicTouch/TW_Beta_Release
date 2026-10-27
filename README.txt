@@ -22,9 +22,13 @@ HOW TO INSTALL
 
        LocalServer\            (folder)
        Play-TriadWars.bat
+       Change-Look.bat
        README.txt
 
 2. Double-click Play-TriadWars.bat.
+
+To pick an outfit for your enforcer first, double-click Change-Look.bat instead -
+it lists the 32 looks, you type a number, and then you start the game as usual.
 
 That's it. The launcher points the game at your PC, starts the server in a
 small minimised window, then starts the game. Leave the server window open
@@ -102,3 +106,9 @@ and how to change it.
   everything bought is kept in the inventory. Buying an outfit puts it on, so the
   non-player models are playable; LocalServer\tools\playermodel.py can also set
   one from outside the game.
+
+* There is an outfit lookbook as well: 32 ready-made looks built from the game's own
+  clothing - gang, zombie, swat, tactical, suit, triad and no-clothes sets. Double-click
+  Change-Look.bat (game closed), pick a number, then start the game as usual. They are
+  ordinary combinations of wardrobe pieces, so the wardrobe can change them afterwards;
+  LocalServer\README.md lists them and explains how to add your own.
