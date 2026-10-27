@@ -1,6 +1,6 @@
 """Put an outfit - or one of the curated looks - on the player.
 
-    python playermodel.py looks                 the lookbook: 40 named looks, by theme
+    python playermodel.py looks                 the lookbook: 32 named looks, by theme
     python playermodel.py set "swat pointman"   wear a look
     python playermodel.py set gang              wear one; an ambiguous word lists the matches
     python playermodel.py menu                  pick one from a numbered list

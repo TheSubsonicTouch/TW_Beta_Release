@@ -14,10 +14,8 @@ To run the pieces by hand:
     python server.py            # listens on https://127.0.0.1:443
     ..\TriadWars.exe
 
-Requirements: Python 3.9 or newer on `PATH` (standard library only), port 443 free,
-and - to keep the game off the network entirely - one run of `Block-Online.bat`, below.
-The server also listens on plain HTTP port 80 and 443 (`--http-port 0` turns the first
-off); if port 80 is taken it says so and everything else still works.
+Requirements: Python 3.9 or newer on `PATH` (standard library only), and
+port 443 free.
 
 ## What was changed in the game folder
 
@@ -26,41 +24,11 @@ off); if port 80 is taken it says so and everything else still works.
 | `UserOptions.dat` | `Environment` switched from `prod.services.triadwars.com` to `localhost`. The original is kept as `UserOptions.dat.orig`. |
 | `Play-TriadWars.bat` | New launcher. |
 | `LocalServer\` | New folder (this server). |
-| `Block-Online.bat` / `Restore-Online.bat` | Optional, run once: two entries in the Windows `hosts` file (see below). The file is backed up first, and `Restore-Online.bat` puts it back. |
 
 `TriadWars.exe` itself is not modified, unless the optional crash patch below
 has been applied. To undo everything:
 `python LocalServer\useroptions.py restore`, then delete `LocalServer` and
 `Play-TriadWars.bat`.
-
-### Keeping the game off the network (`Block-Online.bat`)
-
-Two hostnames are baked into `TriadWars.exe` and ignore `UserOptions.dat`:
-
-* `https://prod.services.triadwars.com` - three telemetry URLs
-  (`logging/api/v1/metrics`, `logging/api/v1/funnel/complete`, `.../fail`);
-* `http://tw.cdn.sqexeu.com` - the three challenge-screen images.
-
-Both hosts shut down with the game, but the client still asks them as it starts and waits
-on the answer, which is a DNS lookup and a dead connection on every launch. `Block-Online.bat`
-adds two lines to the Windows `hosts` file pointing both at `127.0.0.1`, where this server
-answers them:
-
-* the HTTPS listener has always accepted the three `logging` paths (and any other path it
-  does not know) with `200 {}`, so the telemetry has somewhere to land;
-* `--http-port 80` serves every image path from the second listener, so the challenge
-  cards get a locally built placeholder PNG (dark panel, gold border) instead of a stalled
-  request. `server.placeholder_png` builds it, so there are no image files to ship.
-
-Nothing else changes: no game file is touched, the entries are two lines under a comment,
-the original file is kept as `hosts.triadwars-backup`, and `Restore-Online.bat` undoes it.
-The server logs `offline lock: on` at startup when the entries are there and a one-line tip
-when they are not.
-
-The same rule is applied to the data: `state.local_url` turns any URL that is not
-`localhost` / `127.0.0.1` into an empty string before it reaches the client, and the
-challenge catalogue ships with no image URLs at all. A field that would have pointed at a
-live server is simply empty, and the client draws its own artwork.
 
 ### Optional: shadow-crash patch for `TriadWars.exe`
 
@@ -89,16 +57,14 @@ on the next launch).
 | `state.json` | Your saved profile (created on first run). Delete it to start over. |
 | `data/gamedb_min.json` | Object UIDs and tuning tables extracted from the game's own data. |
 | `data/store_items.json` | What every store sells: 792 wardrobe pieces, all 28 outfits (12 of them non-player models), 247 vehicles, the health item, and the favour packs with their 1x/3x/5x bundles. Each outfit keeps its piece UIDs so the server can put it on (see `tools/store_items.py`). |
-| `data/looks.json` | The outfit lookbook: 40 named looks, each a list of `UFG::StoreClothing` UIDs put together by hand - gang, zombie, swat, tactical, suit, triad and no-clothes sets (see `tools/looks.py`). |
+| `data/looks.json` | The outfit lookbook: 32 named looks, each a list of `UFG::StoreClothing` UIDs put together by hand - gang, zombie, swat, tactical, suit, triad and no-clothes sets (see `tools/looks.py`). |
 | `data/errands.json` | Every job (`UFG::ErrandTypeMetadata`) with its reward, requirements, prerequisites and completion conditions, plus the `UFG::ErrandRewards` tables (see `tools/errands.py`). |
 | `data/challenges.json` | The rotating challenges (`JiangShiTrial`, `HappyCatTrial`, `EliteGhoulTrial`), their progress tiers and the `UFG::GameRewardTuner` each tier pays (see `tools/challenges.py`). |
-| `data/exports.json` | The export catalogue: the eight physical commodities with their prices and per-level export amounts, the racket that produces each one, the face/markup tables and the three mission kinds (see `tools/exports.py`). |
 | `data/favour_upgrades.json` | Every favour that grants an enforcer upgrade, with the rarity/tags/level job and challenge rewards filter on (see `tools/favour_rewards.py`). |
 | `useroptions.py` | Reads/edits the obfuscated `UserOptions.dat`. |
-| `hosts.ps1` | Adds/removes the two `hosts` entries `Block-Online.bat` and `Restore-Online.bat` call (elevates itself). |
 | `cert.pem`, `key.pem` | Self-signed certificate for `localhost` (the client does not verify it). |
 | `logs/` | One request log per server run. Lines marked `UNHANDLED` are endpoints with no handler yet. |
-| `tools/` | The scripts used to unpack the game data and decode its schema, crash-analysis helpers, `smoke_test.py`, `test_jobs.py`, `test_exports.py`, `test_shops.py`, `test_looks.py`, `storyline.py`, `playermodel.py`, `looks.py` (the lookbook), `schema_dump.py`, `patch_exe.py` (see above), `make_bundle.py` and the data builders (`errands.py`, `challenges.py`, `exports.py`, `favour_rewards.py`, `store_items.py`). |
+| `tools/` | The scripts used to unpack the game data and decode its schema, crash-analysis helpers, `smoke_test.py`, `test_jobs.py`, `test_shops.py`, `test_looks.py`, `playermodel.py`, `looks.py` (the lookbook), `schema_dump.py`, `patch_exe.py` (see above), `make_bundle.py` and the data builders (`errands.py`, `challenges.py`, `favour_rewards.py`, `store_items.py`). |
 | `devdata/` | Reference data for extending the server: the full object-database export and the client's endpoint and key lists. Not needed to play. |
 
 ## How it works
@@ -209,13 +175,9 @@ and only calls `game/errands/end/<slot>` when a job is done. The server owns the
 board and the payout, not the progress:
 
 1. `game/errands` returns up to three slots, one job each, picked from the jobs
-   whose gates are met and whose prerequisite jobs are all completed. A job the
-   player has never done comes before a repeat, then higher `mPriority` first.
-   A brand-new profile has exactly one eligible job, "Raid A Rival" - the first
-   step of the tutorial ladder the data encodes. Prerequisites the game itself
-   disables are ignored (two enabled jobs hang off the disabled "Finish a raid"),
-   and the four jobs that ask for safehouse 15 are treated as safehouse 10,
-   because the turf cannot be upgraded past 10 - otherwise they could never appear.
+   whose gates are met and whose prerequisite jobs are all completed, highest
+   `mPriority` first. A brand-new profile has exactly one eligible job, "Raid A
+   Rival" - the first step of the tutorial ladder the data encodes.
 2. `game/errands/end/<slot>` marks that job completed.
 3. `game/errands/claimreward/<slot>` pays it and returns the bags:
    `UFG::ErrandRewards` is indexed by XP level (level 1 = index 0), so a level 1
@@ -227,11 +189,8 @@ board and the payout, not the progress:
    read again it refills with the next available job - that is the hub's "Next Job"
    notification - so the chain keeps moving inside one session. `state.py`'s
    `ERRAND_REFILL_COLLECTED = False` makes the three slots fixed for the day instead.
-   The board rolls over at the hour the game data names
-   (`mErrandRefreshHourUTC`, **10:00 UTC** - not midnight), and `mSecondsToRefresh`
-   says how long is left. A repeatable job stays off the board for
-   `mRepeatableErrandCooldownHours` (96 h) after it paid out; with only a few jobs
-   unlocked the cooldown is dropped rather than handing back an empty screen.
+   The board rolls over at UTC midnight (unclaimed rewards survive it), and
+   `mSecondsToRefresh` says how long is left.
 
 Favour rewards are picked from `data/favour_upgrades.json` (every favour that
 grants an enforcer upgrade) by the rarity range and tag list on the errand, and
@@ -281,134 +240,16 @@ server can export: the challenge rotation, tier targets and reward choice above
 are this server's own event design, built to fit the client's screen. They are
 plain JSON - edit them freely.
 
-### Is there more than the tutorials?
-
-Yes - the four tutorial jobs are the first rung of a 116 job ladder (87 of them
-enabled). `python tools/storyline.py` prints it safehouse level by safehouse
-level; `python tools/storyline.py --check` reports anything unreachable. The
-ladder is the game's own progression:
-
-* the tutorial chain (`Raid A Rival` -> `Raid 2 Rivals` -> `Rank Up to "Blue
-  Lantern"` -> `Upgrade Safehouse II` -> `Level Up`), then
-* the upgrade chain (`Safehouse III..VIII`, `Warehouse II..V`, `Racket III..IX`),
-  which is what raises the gates on everything else, then
-* the export chain (`Complete an Export` -> `Complete 3 Exports`), which alone
-  opens **73** of the jobs, and then the raid, combat, shop, favour and faction
-  jobs that fill the rest of the list.
-
-Simulated end to end (every safehouse level, collecting every job the board
-offers) **83 of the 87** enabled jobs come up; the four that do not need an XP
-level the simulation never reaches (3, 10, 12) and are gated on that alone. All
-87 are reachable in play.
-
-### Exports (`export/startmission`, `export/endmission`, `turf/movetowarehouse`, `blackmarket/*`)
-
-The warehouse side of the turf is an export chain: a racket produces a
-commodity, the warehouse stores it, and an export mission drives a load of it out
-of town for dirty money and face. Every number is the game's own
-(`data/exports.json`, built by `tools/exports.py`):
-
-| Data | Where it comes from |
-| --- | --- |
-| which commodity a racket makes | `UFG::RacketType.mRacketOutput` |
-| units in a load, per XP level | `UFG::CommodityType.mExportAmounts` |
-| units the warehouse holds, per level | `MetagameInfoWrapper.mWarehouseStorageInfo` |
-| dirty money paid | units x the commodity's price x `mBlackMarketSellMarkupForMoneyReward[level]` |
-| face paid | money x `mFaceRewardPercentageOfMoneyReward[level]` / 100 |
-| how many missions held at once | the warehouse's level (the client's "upgrading your warehouse will increase your export targets") |
-
-The eight physical commodities and the racket that fills them:
-
-| Commodity | Racket | Price | Load at level 1 | Warehouse at level 1 |
-| --- | --- | --- | --- | --- |
-| Rebuilt Cars | Auto Shop | 1800 | 5 | 5 |
-| Hot Cars | Repo | 1105 | 3 | 3 |
-| Apothecary Goods | Exotic Animal Goods | 777.50 | 3 | 3 |
-| Stolen Designs | Hackers | 250 | 15 | 15 |
-| Knock-Off Electronics | Electronics | 150 | 25 | 20 |
-| Seafood | Fish Market | 125 | 40 | 30 |
-| Car Parts | Chop Shop | 31.50 | - (level 3) | 175 |
-| Knock-Off Fashion | Sweat Shop | 25 | 200 | 180 |
-
-Only loads that fit the warehouse are offered, which at level 1 means the first
-four - the same rule the client's "You don't have room in your warehouse for this
-commodity" message comes from.
-
-How it runs:
-
-* **Production.** An idle racket makes `mOutput1Amount` units every
-  `mProdTimeSeconds` (both from its own type and level). `CurrentProduction` is
-  what has piled up; two cycles' worth is the cap. `Production1..10` on the racket
-  record is that per-level table, so the turf screen can show it.
-* **Collecting.** `turf/movetowarehouse/<racket type uid>/<units>` moves units
-  into the warehouse and answers with `mCommodityMoved`, `mCommoditySold` and
-  `mCommoditySoldEarnings`; whatever does not fit the warehouse is sold on the
-  black market at the commodity's price. `<units>` of 0 means "all of it".
-* **Buying and selling.** The warehouse screen's trade tab is
-  `blackmarket/quotes` (a bare array - the client indexes the root value, an object
-  there crashes it) plus `blackmarket/buy|sell/<commodity uid>/<units>`. The reply
-  carries `AmountPaid`/`AmountBought` for a purchase and `AmountEarned`/`AmountSold`
-  for a sale; goods move in and out of the same `TurfBag.Commodities` the export
-  missions read, so what you buy is what you ship. Prices come from the game's own
-  band: `mFloorPrice` while the market holds `mFloorUnits`, `mCeilingPrice` down at
-  `mCeilingUnits`, linear in between, and `mMarkUp` on top of a purchase. Each
-  profile tracks the market's own stock (`BlackMarketBag` in `state.json`), so buying
-  nudges the price down and selling nudges it up. `BonusSellPrice` is what a unit
-  pays when it leaves as an export (`mBlackMarketSellMarkupForMoneyReward`), which is
-  why exporting beats dumping the same goods on the market.
-* **The board.** The missions travel in the player's `ExportRewardsBag`
-  (`playerdata/serializedplayerdata/2048`, and it rides along with the turf bags
-  too, since which mask the warehouse screen asks for is not pinned down). Each
-  new mission puts its load in the warehouse - that is the "N exports currently
-  ready" the hub reports - and the list is topped back up to the warehouse's slot
-  count as missions are paid.
-* **Running one.** `export/startmission/<mission uid>` marks it started and
-  `export/endmission/<mission uid>/<result>` pays it: 0 means the run failed and
-  nothing is paid (the load stays in the warehouse, so it can be retried), any
-  other value pays `mMoneyReward` / `mFaceReward` and empties the load.
-
-A mission record looks like this (the `mCommodity1UID`/`mCommodity1Amount` names
-are the client's own, from its `OperationManager::PopulateFromExportRewardsBag`
-strings):
-
-```json
-{"ExportMissionUID": "900000000000000001",
- "mCommodity1UID": "12899405313262884080", "mCommodity1Amount": 5,
- "mCommodity2UID": "0", "mCommodity2Amount": 0,
- "mCommodityName": "COMMODITY_REBUILT_CARS", "mCommodityTitle": "Rebuilt Cars",
- "mCommodityIconName": "RebuiltCars",
- "mMoneyReward": 13500, "mFaceReward": 405, "mLevel": 1,
- "mOperationType": "ExportGunner", "mRacketTypeUID": "<auto shop>",
- "mDurationSeconds": 360, "mStartSeconds": 1793050000, "mStarted": 0}
-```
-
-A load may be paid only once: paid mission ids are remembered, so a repeated
-`endmission` cannot pay whichever mission replaced it.
-
-Two things about the export data worth knowing:
-
-* `UFG::CommodityType.mDisplayName` is the client's localisation key
-  (`COMMODITY_KNOCK_OFF_FASHION`); `mCommodityTitle` is a plain-English version
-  for anything that wants it.
-* The object database has no export mission list and no operation instances - the
-  client builds missions from the bag and its own tuning - so the mission *record*
-  is our shape, built from the game's numbers. Everything in the table above is
-  exact.
-
 ### Trying it without the game
 
     python tools/test_jobs.py      # handlers directly: board, claim, history, change,
                                    # rollover, trial report/opt-in/tiers, restart
     python tools/test_shops.py     # every catalogue, every purchase path, the model
     python tools/test_looks.py     # the lookbook: real UIDs, slots, every look applies
-    python tools/test_exports.py   # production, warehouse, export missions, and a walk
-                                   # through the whole 87 job ladder
-    python tools/storyline.py      # print the job ladder; --check for unreachable jobs
 
 The test scripts build a throw-away profile in a temp folder, so they never touch
 `state.json`. `tools/smoke_test.py` runs the same screens over HTTPS against a running
-server (start it with `--port 8443` and pass `--port 8443`); it covers the jobs board, the
-completed list, the challenge report, the export board and the shop catalogues.
+server (start it with `--port 8443` and pass `--port 8443`).
 
 ### What is a guess, and how to check it
 
@@ -426,10 +267,6 @@ values are inferred, and these are the ones to look at if a screen misbehaves:
 | `ClothingStoreItemUIDs` holds the UIDs of the worn `UFG::StoreClothing` pieces | the field is a list of store item UIDs and the wardrobe sends it next to `ClothingOutfitCortexUID`; the outfit's own `mClothingItems` gives the pieces | the model does not change; `tools/playermodel.py show` prints what is set |
 | `ClothingOutfitCortexUID` is the worn `UFG::StoreOutfit` UID | same reply; the field is named after the outfit | only the outfit name in the wardrobe is wrong, the pieces still apply |
 | buying an outfit also wears it | the shop has no "try on" step and the model has to come from somewhere | the player keeps the old look until they open the wardrobe; `tools/playermodel.py set <name>` does it directly |
-| `ExportRewardsBag` is a bare array of missions | the other list bags (`FavoursBag`, `InventoryBag`) are arrays, and the client's symbol table has `ExportMissionSlots` next to the mission members | the export screen stays empty: set `state.EXPORT_BAG_MEMBER = "ExportMissionSlots"` and the same records go under that member instead |
-| `export/endmission/<uid>` sends the *mission* id (a commodity id is accepted too) | both are u64s in the request path and the reply has no id of its own | the payout falls to 0; `state._find_export` is where the lookup is |
-| warehouse records use `CommodityUID` + `mAmount` | `mAmount` is the client's own key; the uid spelling is shared with the black market | the warehouse shows 0 of everything; `state.warehouse_set` is the one place |
-| `turf/movetowarehouse/<uid>/<n>` counts units, 0 = everything | the request has no callback, so the client does not read the reply for meaning | collection moves the wrong amount; clamp logic is in `state.move_to_warehouse` |
 
 The challenge rotation (which three trials, tier targets, which tuner each tier pays) is
 this server's own design - the object database has no trial objects at all, and the
@@ -470,17 +307,14 @@ Implemented from the client's response parsers but not yet exercised in play
 (values are simple approximations of the original server's rules):
 
 * death penalty, money laundering, racket removal, warehouse/temple upgrades
-* world encounters, crime scenes
+* export missions, world encounters, crime scenes
 
-Added on top of the original server (see "Jobs and challenges" and "Exports" below):
+Added on top of the original server (see "Jobs and challenges" below):
 
 * the Jobs screen: three daily jobs from the game's own errand list, with the
   prerequisites, level and safehouse gates the original data describes
 * the Challenges screen: a rotating community trial with progress, opt-in and
   tier rewards
-* the Export side of the warehouse: rackets produce commodities, the warehouse
-  holds them (real capacities from the game data), and export missions pay dirty
-  money and face
 
 Details that matter (each one was a hang or a crash before it was right):
 
@@ -586,18 +420,16 @@ combination: the model is drawn from `ClothingStoreItemUIDs`, so any set of piec
 game already ships is a wearable look. The wardrobe lets you assemble one by hand; the
 lookbook gives the good ones names.
 
-`data/looks.json` holds 40 of them, every piece a real `UFG::StoreClothing`:
+`data/looks.json` holds 32 of them, every piece a real `UFG::StoreClothing`:
 
-    Gang        Corner Boy, Block Boss, Ride or Die, Street Soldier, Bam Bam,
-                Sun On Yee, Dockside Crew, Wolf Pack
-    Zombie      Fresh Zombie, Neon Zombie, Zombie Boss, Zombie Riot, Zombie Biker
-    Swat        Swat Pointman, Swat Breacher, Swat Urban, Swat Nightwatch
+    Gang        Corner Boy, Block Boss, Ride or Die, Street Soldier, Bam Bam, Sun On Yee
+    Zombie      Fresh Zombie, Neon Zombie, Zombie Boss
+    Swat        Swat Pointman, Swat Breacher, Swat Urban
     Tactical    Ghost, Desert Operator, Night Ops, Clown Unit
-    Suit        Boardroom, Undertaker, Blood Money, Miami Vice, Suit & Tee,
-                White Suit, Consigliere
+    Suit        Boardroom, Undertaker, Blood Money, Miami Vice, Suit & Tee, White Suit
     Triad       Red Pole, Temple Guardian, Jade Lotus, Tiger Style, Flying Dagger,
-                Monkey Lord, Quiet Sage, Golden Koi
-    No clothes  Bare Minimum, Bare Essentials, Full Monty, Bare Knuckle
+                Monkey Lord, Quiet Sage
+    No clothes  Bare Essentials, Full Monty, Bare Knuckle
 
 To wear one, with the game and the server closed:
 
@@ -608,14 +440,11 @@ To wear one, with the game and the server closed:
     python LocalServer\tools\playermodel.py set outfit swat # the game's own outfits still work
     python LocalServer\tools\playermodel.py show           # names the look that is on
 
-It writes the same three `CustomizationBag` fields the wardrobe writes. Every piece of
-every look is also **owned from the start** (`state.grant_look_pieces`, granted to a new
-profile and by the v9 migration), so the wardrobe lists all 114 pieces as owned and any of
-these looks can be put together in the game, from the store, without buying anything. The
-shop still sells the other ~680 wardrobe pieces, so there is plenty left to buy.
-
-The lookbook is a starting point, not a locked costume: nothing stops the wardrobe
-changing a look afterwards, and `clear` goes back to the default model.
+It writes the same three `CustomizationBag` fields the wardrobe writes, and adds every
+piece to the inventory, so after one look the wardrobe shows those pieces as owned and
+you can tweak the look by hand from there. The lookbook is a starting point, not a locked
+costume: nothing stops the wardrobe changing it afterwards, and `clear` goes back to the
+default model.
 
 Each look uses at most one piece per wardrobe slot - the slots are the wardrobe's own,
 read from the piece's `mSubType` (`Tops`, `Pants`, `Shoes`, `Hats`, `Accessories|Masks`,
@@ -634,7 +463,8 @@ Answered with an empty but valid result:
 
 * the gold store's ten `BeginExternalPurchase` items and the two spare tutorial
   pack stores (Extortion and Gambling; the racket-boss tutorial uses the
-  Counterfeiting one), coupons and their purchases; favour sales and informants
+  Counterfeiting one), coupons and their purchases; black market trades; favour
+  sales and informants
 * operations; notices and private messages
 * player-run triads (clans) and friends, which need other players
 
@@ -698,13 +528,3 @@ Play with the server window visible and watch for `UNHANDLED` lines; each one
 names an endpoint that needs a handler in `handlers.py`. Request and response
 bodies are in `logs/`. `tools/keys.py` lists the JSON keys (and their types) a
 given endpoint's client-side parser reads.
-
-The three catalogues are generated, not hand-written - re-run the builder after
-changing anything under `devdata/`:
-
-    python tools\errands.py          -> data\errands.json    (116 jobs, reward tables)
-    python tools\exports.py          -> data\exports.json    (commodities, prices, racks)
-    python tools\challenges.py       -> data\challenges.json (trials, tiers, tuners)
-
-`data/exports.json` and `data/challenges.json` are also safe to hand-edit: the
-server reads them as plain JSON at start-up.

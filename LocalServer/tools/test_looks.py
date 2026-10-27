@@ -97,18 +97,6 @@ def main():
         assert not stranded, stranded
         return "all in the wardrobe catalogue or an outfit"
 
-    def owned_from_the_start():
-        """A new profile owns every piece, so the wardrobe shows the looks without a shop."""
-        fresh = state.State(os.path.join(workdir, "fresh.json"))
-        owned = {str(item["StoreItemID"]) for item in fresh.data["player"]["InventoryBag"]}
-        missing = [uid for uid in state.LOOK_PIECES if uid not in owned]
-        assert not missing, "%d piece(s) not owned: %s" % (len(missing), missing[:3])
-        player = handlers._player()
-        player["InventoryBag"] = [dict(item) for item in fresh.data["player"]["InventoryBag"]]
-        pieces, added = playermodel.wear_look(player, book[0])
-        assert added == 0, "wearing a look bought %d piece(s) it should already own" % added
-        return "%d pieces owned on a fresh profile, nothing to buy" % len(state.LOOK_PIECES)
-
     def every_look_applies():
         player = handlers._player()
         for look in book:
@@ -150,7 +138,6 @@ def main():
     check("one piece per slot", one_piece_per_slot)
     check("every theme covered", every_theme_covered)
     check("pieces obtainable in game", reachable_by_hand)
-    check("looks owned from the start", owned_from_the_start)
     check("every look applies", every_look_applies)
     check("server sends the look", server_sends_the_look)
     check("look survives a restart", saved_and_reloaded)

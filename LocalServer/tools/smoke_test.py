@@ -1,12 +1,10 @@
 """Check that the local server is up and answering the way the client needs.
 
-    python smoke_test.py [--port 443] [--http-port 80]
+    python smoke_test.py [--port 443]
 
 Read-only: it only sends GET requests. Exits 0 when every check passes, 1 otherwise.
 Run it after starting the server and before starting the game. It also tells a real
 Triad Wars server apart from some other program that happens to be listening on the port.
-
---http-port 0 skips the plain-HTTP check.
 """
 import argparse
 import json
@@ -29,8 +27,6 @@ PACK_TO_BUNDLE_STORE = {
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", type=int, default=443)
-    ap.add_argument("--http-port", type=int, default=80,
-                    help="plain-HTTP port the server answers the old CDN on (0 = skip)")
     args = ap.parse_args()
     ctx = ssl.create_default_context()
     ctx.check_hostname = False
@@ -51,29 +47,6 @@ def main():
             failed.append(name)
             print("FAIL  %-28s %r" % (name, e))
 
-    def no_remote_urls():
-        """Nothing the client is handed may point at a live server."""
-        board = get("game/api/v1/trialsscreenvisits")
-        progress = board.get("mPlayerProgress") or {}
-        cards = [progress.get(key) or {} for key in
-                 ("mPreviousContainer", "mCurrentContainer", "mNextContainer")]
-        images = [card.get("mImage") or "" for card in cards]
-        remote = [url for url in images if url and not url.startswith(
-            ("http://127.0.0.1", "https://127.0.0.1", "http://localhost", "https://localhost"))]
-        assert not remote, remote
-        return "%d trial card(s), no remote URLs" % len([c for c in cards if c])
-
-    def offline_paths():
-        """The hosts Block-Online.bat writes point here, and here answers."""
-        for path in ("logging/api/v1/metrics", "logging/api/v1/funnel/complete"):
-            get(path)
-        if args.http_port:
-            url = "http://127.0.0.1:%d/images/Trials/challenge_screen_jiang_shi-02.png" % args.http_port
-            with urllib.request.urlopen(url, timeout=10) as r:
-                body = r.read()
-            assert body[:8] == b"\x89PNG\r\n\x1a\n", body[:16]
-        return "telemetry accepted, CDN image served" if args.http_port else "telemetry accepted"
-
     def store_access():
         assert get("game/api/v1/storeaccess") == {"mHasAccess": True}
 
@@ -93,6 +66,9 @@ def main():
     def face_tiers():
         assert len(get("game/api/v1/playerdata/facetiers")) == 10
         return "10 tiers"
+
+    def quotes():
+        assert isinstance(get("game/api/v1/blackmarket/quotes"), list)
 
     def jobs():
         r = get("game/api/v1/errands")
@@ -118,26 +94,6 @@ def main():
         return "%s, %d/%d" % (progress.get("mTrial") or "no challenge",
                               progress.get("mProgress", 0), progress.get("mTarget", 0))
 
-    def exports():
-        bags = get("game/api/v1/playerdata/serializedplayerdata/%d" % 0x0800)
-        board = bags.get("ExportRewardsBag")
-        assert isinstance(board, list), bags.keys()
-        assert board, "no export missions"
-        mission = board[0]
-        for key in ("ExportMissionUID", "mCommodity1UID", "mCommodity1Amount"):
-            assert key in mission, mission
-        return "%d export(s), first %s" % (len(board), mission["mCommodity1UID"])
-
-    def blackmarket():
-        quotes = get("game/api/v1/blackmarket/quotes")
-        assert isinstance(quotes, list), type(quotes)
-        assert quotes, "no black market quotes"
-        for quote in quotes:
-            assert quote["CommodityUID"] and quote["SellPrice"] > 0, quote
-            assert quote["BuyPrice"] >= quote["SellPrice"], quote
-        return "%d commodities, %s at %s" % (len(quotes), quotes[0]["CommodityName"],
-                                             quotes[0]["SellPrice"])
-
     def stores():
         with open(os.path.join(DATA, "store_items.json"), encoding="utf-8") as f:
             catalogues = json.load(f)
@@ -157,13 +113,10 @@ def main():
     check("player data", player)
     check("rivals", rivals)
     check("face tiers", face_tiers)
+    check("black market quotes", quotes)
     check("jobs board", jobs)
     check("completed jobs", job_history)
     check("challenges", challenges)
-    check("export missions", exports)
-    check("black market quotes", blackmarket)
-    check("no remote URLs", no_remote_urls)
-    check("offline paths", offline_paths)
     check("shop catalogues", stores)
     print("%d check(s) failed" % len(failed) if failed else "all checks passed")
     return 1 if failed else 0

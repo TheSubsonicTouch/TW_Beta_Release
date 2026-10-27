@@ -19,7 +19,6 @@ import struct
 import sys
 import threading
 import traceback
-import zlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
 
@@ -69,104 +68,6 @@ def log(msg):
         if _log_file:
             _log_file.write(line + "\n")
             _log_file.flush()
-
-
-# The client has three absolute URLs baked into the executable that do not follow
-# <Environment>: its telemetry (https://prod.services.triadwars.com/logging/api/v1/...)
-# and three challenge images (http://tw.cdn.sqexeu.com/images/Trials/...). Both hosts are
-# long gone, so a launch spends time waiting on DNS and a dead connection. Block-Online.bat
-# points them at 127.0.0.1; the HTTPS listener below already answers the telemetry paths,
-# and the plain-HTTP listener serves these images, so nothing leaves the machine.
-BLOCKED_HOSTS = ("prod.services.triadwars.com", "tw.cdn.sqexeu.com")
-HOSTS_PATH = os.path.join(os.environ.get("SystemRoot", r"C:\Windows"),
-                          "System32", "drivers", "etc", "hosts")
-
-
-def offline_lock():
-    """"on" / "off" when the hosts file can be read, None when it cannot (not Windows)."""
-    try:
-        with open(HOSTS_PATH, encoding="utf-8", errors="replace") as f:
-            text = f.read().lower()
-    except OSError:
-        return None
-    return "on" if all(host in text for host in BLOCKED_HOSTS) else "off"
-
-
-def placeholder_png(width=320, height=160):
-    """The card the client draws where the old CDN artwork used to be.
-
-    A dark panel with a thin gold border, built here so the server needs no image files
-    and no network. Cached after the first request.
-    """
-    background, gold = (26, 24, 22), (200, 162, 74)
-    rows = []
-    for y in range(height):
-        row = bytearray()
-        for x in range(width):
-            if x < 2 or y < 2 or x >= width - 2 or y >= height - 2:
-                pixel = gold
-            else:
-                glow = (x * 10) // width
-                pixel = (background[0] + glow, background[1] + glow, background[2] + glow)
-            row += bytes(pixel)
-        rows.append(b"\x00" + bytes(row))
-    raw = b"".join(rows)
-
-    def chunk(tag, payload):
-        return (struct.pack(">I", len(payload)) + tag + payload +
-                struct.pack(">I", zlib.crc32(tag + payload) & 0xFFFFFFFF))
-
-    header = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
-    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", header) +
-            chunk(b"IDAT", zlib.compress(raw, 9)) + chunk(b"IEND", b""))
-
-
-_PLACEHOLDER = None
-
-
-def placeholder():
-    global _PLACEHOLDER
-    if _PLACEHOLDER is None:
-        _PLACEHOLDER = placeholder_png()
-    return _PLACEHOLDER
-
-
-class PlainHandler(BaseHTTPRequestHandler):
-    """Plain HTTP for the requests the client sends to the old CDN (port 80)."""
-
-    protocol_version = "HTTP/1.1"
-    server_version = "TriadWarsLocal/0.1"
-
-    def log_message(self, fmt, *args):
-        pass
-
-    def _reply(self, status, body, ctype):
-        self.send_response(status)
-        self.send_header("Content-Type", ctype)
-        self.send_header("Content-Length", str(len(body)))
-        self.send_header("Cache-Control", "max-age=86400")
-        self.end_headers()
-        if self.command != "HEAD":
-            self.wfile.write(body)
-
-    def _handle(self):
-        log("HTTP %s %s" % (self.command, self.path))
-        path = urlsplit(self.path).path.lower()
-        if path.endswith((".png", ".jpg", ".jpeg", ".gif", ".webp")):
-            return self._reply(200, placeholder(), "image/png")
-        return self._reply(200, b"{}", "application/json; charset=utf-8")
-
-    do_GET = do_POST = do_PUT = do_DELETE = do_HEAD = _handle
-
-
-class PlainServer(ThreadingHTTPServer):
-    daemon_threads = True
-
-    def handle_error(self, request, client_address):
-        exc = sys.exc_info()[1]
-        if isinstance(exc, (ConnectionError, TimeoutError)):
-            return
-        log("!! plain-http error from %s: %r" % (client_address, exc))
 
 
 class Server(ThreadingHTTPServer):
@@ -284,8 +185,6 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=443)
-    ap.add_argument("--http-port", type=int, default=80,
-                    help="plain-HTTP port for the old CDN hosts (0 = off)")
     args = ap.parse_args()
 
     os.makedirs(LOG_DIR, exist_ok=True)
@@ -304,23 +203,6 @@ def main():
     httpd = Server((args.host, args.port), Handler)
     httpd.socket = ctx.wrap_socket(httpd.socket, server_side=True)
     log("Triad Wars local server listening on https://%s:%d" % (args.host, args.port))
-
-    if args.http_port:
-        try:
-            plain = PlainServer((args.host, args.http_port), PlainHandler)
-            threading.Thread(target=plain.serve_forever, daemon=True).start()
-            log("plain HTTP on http://%s:%d (placeholder images for the old CDN)"
-                % (args.host, args.http_port))
-        except OSError as exc:
-            log("!! could not listen on port %d: %s" % (args.http_port, exc))
-
-    lock = offline_lock()
-    if lock == "on":
-        log("offline lock: on (%s -> 127.0.0.1)" % ", ".join(BLOCKED_HOSTS))
-    elif lock == "off":
-        log("note: the game still asks %s at startup; run Block-Online.bat once to keep "
-            "it on this machine" % " and ".join(BLOCKED_HOSTS))
-
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

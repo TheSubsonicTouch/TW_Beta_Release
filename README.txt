@@ -23,21 +23,12 @@ HOW TO INSTALL
        LocalServer\            (folder)
        Play-TriadWars.bat
        Change-Look.bat
-       Block-Online.bat
-       Restore-Online.bat
        README.txt
-       HANDOFF.txt
 
-2. Optional, but it stops the long wait at launch: double-click Block-Online.bat
-   once (it asks for Administrator). The game still has two dead servers built into
-   it and asks them every time it starts; this points them at your own PC, where the
-   local server answers them, so nothing leaves the machine. Restore-Online.bat
-   undoes it.
-
-3. Double-click Play-TriadWars.bat.
+2. Double-click Play-TriadWars.bat.
 
 To pick an outfit for your enforcer first, double-click Change-Look.bat instead -
-it lists the 40 looks, you type a number, and then you start the game as usual.
+it lists the 32 looks, you type a number, and then you start the game as usual.
 
 That's it. The launcher points the game at your PC, starts the server in a
 small minimised window, then starts the game. Leave the server window open
@@ -101,21 +92,13 @@ The local server stands in for every part of the single-player game: the intro
 and tutorials, raids, turf and rackets, the wardrobe and the favour shops, XP
 and ranks.
 
-The hub's Jobs screen, the Challenges (community trial) screen and the export
-side of the warehouse are emulated too.
-
-* Jobs come from the game's own errand data: 116 of them, three on the board at
-  a time, with the original prerequisites, level and safehouse gates and their
-  own rewards (gold, dirty money, face or a favour card). They are the game's
-  story ladder, not just the tutorials - the tutorial jobs are its first step.
-* Challenges rotate through the client's trials with progress, opt-in and tier
-  rewards.
-* Exports put the warehouse to work: rackets produce commodities, the warehouse
-  stores them (the game's own capacities), and export missions pay dirty money
-  and face at the game's own rates.
-
-LocalServer\README.md explains how each one works, what is exact and what is
-this server's own design, and how to change it.
+The hub's Jobs screen and the Challenges (community trial) screen are emulated
+too. Jobs come from the game's own errand data - three daily slots, each with
+the original prerequisites, level and safehouse gates and its own reward
+(gold, dirty money, face or a favour card). The challenge rotates through the
+client's trials with progress, opt-in and tier rewards. LocalServer\README.md
+explains how both work, what is exact and what is this server's own design,
+and how to change it.
 
 * The shops sell everything the game has: the whole wardrobe (792 pieces), all 28
   outfits - including the twelve the NPCs wear (Swat Uniform, Zombie Enforcer,
@@ -124,12 +107,8 @@ this server's own design, and how to change it.
   non-player models are playable; LocalServer\tools\playermodel.py can also set
   one from outside the game.
 
-* There is an outfit lookbook as well: 40 ready-made looks built from the game's own
-  clothing - gang, zombie, swat, tactical, suit, triad and no-clothes sets. Every piece of
-  them is already owned, so the wardrobe lists them and they can be put together in the
-  game; Change-Look.bat (game closed) puts a whole look on in one step. They are ordinary
-  combinations of wardrobe pieces, so the wardrobe can change them afterwards.
+* There is an outfit lookbook as well: 32 ready-made looks built from the game's own
+  clothing - gang, zombie, swat, tactical, suit, triad and no-clothes sets. Double-click
+  Change-Look.bat (game closed), pick a number, then start the game as usual. They are
+  ordinary combinations of wardrobe pieces, so the wardrobe can change them afterwards;
   LocalServer\README.md lists them and explains how to add your own.
-* The warehouse trades: rackets fill it with goods, the buy/sell tab deals in all eight
-  commodities at the game's own prices, and export missions ship a load out of town for
-  dirty money and face.

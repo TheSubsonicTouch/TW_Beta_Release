@@ -207,7 +207,7 @@
    "name": "JiangShiTrial",
    "title": "Jiang Shi",
    "description": "The hopping dead are loose in the streets. Put them back in the ground.",
-   "image": "",
+   "image": "http://tw.cdn.sqexeu.com/images/Trials/challenge_screen_jiang_shi-02.png",
    "tiers": [
     {
      "target": 10,
@@ -227,7 +227,7 @@
    "name": "HappyCatTrial",
    "title": "Smiley Cat",
    "description": "A lucky cat has taken a liking to your turf. Keep it smiling.",
-   "image": "",
+   "image": "http://tw.cdn.sqexeu.com/images/Trials/challenge_screen_smileycat-02.png",
    "tiers": [
     {
      "target": 5,
@@ -247,7 +247,7 @@
    "name": "EliteGhoulTrial",
    "title": "Yao Guai",
    "description": "Something older than the triads has woken up. Hunt it down.",
-   "image": "",
+   "image": "http://tw.cdn.sqexeu.com/images/Trials/challenge_screen_yaoguai-02.png",
    "tiers": [
     {
      "target": 10,
