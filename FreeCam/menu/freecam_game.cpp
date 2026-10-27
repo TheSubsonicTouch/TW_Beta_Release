@@ -1277,12 +1277,14 @@ void HandlePlaybackSpeed() {
 // P - follow the player, L - keyframe, K - play the path back, M - forget the path,
 // O - freeze, left/right - how fast the path plays.
 void HandleHotkeys(const float player[3], bool havePlayer) {
-    if (g_followKey.Pressed() && fc_frozen(&g_state)) {
-        // a frozen camera is being held still; following would drag it after the player
-        TW_Log("FreeCam: the camera is frozen (O) - unfreeze it before following the player");
-        Hud("P", "unfreeze with O first");
-    } else if (g_followKey.Pressed()) {
-        if (fc_playing(&g_state)) {
+    // One read of the key per tick: Pressed() consumes the edge, so a second call in the
+    // same tick would always answer no.
+    if (g_followKey.Pressed()) {
+        if (fc_frozen(&g_state)) {
+            // a frozen camera is being held still; following would drag it after the player
+            TW_Log("FreeCam: the camera is frozen (O) - unfreeze it before following the player");
+            Hud("P", "unfreeze with O first");
+        } else if (fc_playing(&g_state)) {
             TW_Log("FreeCam: following cannot be changed while the path is playing (K to stop)");
         } else if (fc_following(&g_state)) {
             fc_follow(&g_state, player, 0);
@@ -1293,8 +1295,8 @@ void HandleHotkeys(const float player[3], bool havePlayer) {
         } else {
             fc_follow(&g_state, player, 1);
             Hud("P", "follow on");
-            TW_Log("FreeCam: following the player (%.1f %.1f %.1f) - fly by hand and it keeps up; "
-                   "P again to stop", player[0], player[1], player[2]);
+            TW_Log("FreeCam: following the player (%.1f %.1f %.1f) - the camera keeps its framing "
+                   "and pans with them; P again to stay put", player[0], player[1], player[2]);
         }
     }
 
