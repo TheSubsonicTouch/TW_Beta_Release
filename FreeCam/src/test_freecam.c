@@ -556,11 +556,61 @@ static void test_chain_walk(void)
     free(b);
 }
 
+/* ---- pairing a camera's world and view matrices ------------------------------ */
+
+static void test_world_view_pair(void)
+{
+    fc_mat cands[3], id;
+    int wi = -1, vi = -1;
+    float pos[3] = { 100.0f, 5.0f, -40.0f };
+    float nearp[3] = { 104.0f, 6.5f, -36.0f };   /* the player, a step from the camera */
+
+    fc_mat_identity(&id);
+    CHECK(fc_mat_near_identity(&id, 1e-5f), "the identity is the identity");
+
+    /* world = where the camera stands, view = its inverse */
+    fc_mat_from_pose(&cands[0], pos, 0.7f, -0.2f, 1);          /* the view matrix */
+    fc_mat_from_pose(&cands[1], pos, 0.7f, -0.2f, 0);          /* the world matrix */
+    fc_mat_from_pose(&cands[2], (const float[3]){ 0.0f, 0.0f, 0.0f }, 0.0f, 1.2f, 1); /* a projection-ish spread */
+
+    CHECK(fc_pick_world_view(cands, 3, nearp, 30.0f, &wi, &vi) == 1, "the pair is found");
+    CHECK(wi == 1, "the world matrix is the one standing near the player");
+    CHECK(vi == 0, "the view matrix is its inverse");
+
+    /* with the player far away the world matrix is rejected */
+    {
+        float far[3] = { 5000.0f, 0.0f, 5000.0f };
+        CHECK(fc_pick_world_view(cands, 3, far, 30.0f, &wi, &vi) == 0,
+              "a pair away from the player is refused");
+    }
+
+    /* two matrices that are not inverses are not a pair */
+    {
+        fc_mat two[2];
+        fc_mat_from_pose(&two[0], pos, 0.1f, 0.1f, 0);
+        fc_mat_from_pose(&two[1], pos, 1.9f, -0.4f, 0);
+        CHECK(fc_pick_world_view(two, 2, pos, 30.0f, &wi, &vi) == 0, "not a pair");
+    }
+
+    /* the engine's own pair says which way round its view matrix goes */
+    {
+        fc_mat w, v;
+        fc_mat_from_pose(&w, pos, -2.1f, 0.3f, 0);
+        fc_mat_from_pose(&v, pos, -2.1f, 0.3f, 1);
+        CHECK(fc_view_sign(&w, &v) == 1, "row 2 is -forward");
+        fc_mat_from_pose(&v, pos, -2.1f, 0.3f, 2);
+        CHECK(fc_view_sign(&w, &v) == 2, "row 2 is +forward");
+        fc_mat_from_pose(&v, pos, -2.1f, 0.3f, 0);
+        CHECK(fc_view_sign(&w, &v) == 0, "a world matrix is not a view matrix");
+    }
+}
+
 int main(void)
 {
     test_defaults();
     test_chain();
     test_chain_walk();
+    test_world_view_pair();
     test_config();
     test_matrices();
     test_toggle();

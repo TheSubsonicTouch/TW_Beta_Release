@@ -401,7 +401,8 @@ void fc_mat_from_pose(fc_mat *m, const float pos[3], float yaw, float pitch, int
     for (i = 0; i < 3; i++) {
         m->m[0 + i] = r[i];
         m->m[4 + i] = u[i];
-        m->m[8 + i] = view ? -f[i] : f[i];
+        /* view 1 keeps -forward in row 2, view 2 keeps +forward: engines differ */
+        m->m[8 + i] = (view == 0) ? f[i] : (view == 1 ? -f[i] : f[i]);
     }
     if (view) {
         /* a view matrix puts the camera at the origin: translation = -dot(basis, pos) */
@@ -462,6 +463,95 @@ int fc_mat_valid(const fc_mat *m)
     if (fabsf(dot3(r, f)) > 0.02f) return 0;
     if (fabsf(dot3(u, f)) > 0.02f) return 0;
     return 1;
+}
+
+void fc_mat_mul(const fc_mat *a, const fc_mat *b, fc_mat *out)
+{
+    fc_mat r;
+    int i, j;
+    for (i = 0; i < 4; i++) {
+        for (j = 0; j < 4; j++) {
+            r.m[i * 4 + j] = a->m[i * 4 + 0] * b->m[0 * 4 + j] +
+                             a->m[i * 4 + 1] * b->m[1 * 4 + j] +
+                             a->m[i * 4 + 2] * b->m[2 * 4 + j] +
+                             a->m[i * 4 + 3] * b->m[3 * 4 + j];
+        }
+    }
+    *out = r;
+}
+
+int fc_mat_near_identity(const fc_mat *m, float tol)
+{
+    int i, j;
+    if (!m) return 0;
+    for (i = 0; i < 4; i++) {
+        for (j = 0; j < 4; j++) {
+            float want = (i == j) ? 1.0f : 0.0f;
+            float d = m->m[i * 4 + j] - want;
+            if (d < 0.0f) d = -d;
+            if (!(d <= tol)) return 0;
+        }
+    }
+    return 1;
+}
+
+static float fc_dist3(const float a[3], const float b[3])
+{
+    float dx = a[0] - b[0], dy = a[1] - b[1], dz = a[2] - b[2];
+    return (float)sqrt((double)(dx * dx + dy * dy + dz * dz));
+}
+
+int fc_view_sign(const fc_mat *world, const fc_mat *view)
+{
+    float pos[3], yaw, pitch;
+    int sign;
+
+    if (!world || !view) return 0;
+    if (!fc_mat_valid(world) || !fc_mat_valid(view)) return 0;
+    if (!fc_mat_to_pose(world, pos, &yaw, &pitch, 0)) return 0;
+    for (sign = 1; sign <= 2; sign++) {
+        fc_mat want;
+        float worst = 0.0f;
+        int k;
+        fc_mat_from_pose(&want, pos, yaw, pitch, sign);
+        for (k = 0; k < 16; k++) {
+            float d = want.m[k] - view->m[k];
+            if (d < 0.0f) d = -d;
+            if (d > worst) worst = d;
+        }
+        if (worst < 0.01f) return sign;
+    }
+    return 0;
+}
+
+int fc_pick_world_view(const fc_mat *cands, int count, const float near[3], float radius,
+                       int *world_idx, int *view_idx)
+{
+    int i, j;
+    float best = 0.0f;
+    int found = 0;
+
+    if (!cands || count < 2) return 0;
+    /* The view matrix is the world one rebuilt from the same pose, so test exactly that
+     * rather than a product. The world matrix also has to be standing next to the player,
+     * which rules out every other transform in the scene. */
+    for (i = 0; i < count; i++) {
+        float pos[3], yaw, pitch, d;
+        if (!fc_mat_valid(&cands[i])) continue;
+        if (!fc_mat_to_pose(&cands[i], pos, &yaw, &pitch, 0)) continue;
+        d = fc_dist3(pos, near);
+        if (d > radius) continue;
+        for (j = 0; j < count; j++) {
+            if (i == j) continue;
+            if (!fc_view_sign(&cands[i], &cands[j])) continue;
+            if (found && d >= best) continue;
+            best = d;
+            *world_idx = i;
+            *view_idx = j;
+            found = 1;
+        }
+    }
+    return found;
 }
 
 /* ---- state machine ---------------------------------------------------------- */

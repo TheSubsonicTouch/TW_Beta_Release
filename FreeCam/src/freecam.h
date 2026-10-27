@@ -93,9 +93,25 @@ void *fc_chain_resolve(void *base, const fc_config *cfg, fc_read_fn read, void *
 /* ---- matrix maths ----------------------------------------------------------- */
 void fc_mat_identity(fc_mat *m);
 int  fc_mat_valid(const fc_mat *m);                    /* finite, orthogonal basis, sane size */
+/* `view` is 0 for a world matrix, 1 or 2 for the two view-matrix conventions. */
 void fc_mat_from_pose(fc_mat *m, const float pos[3], float yaw, float pitch, int view);
 int  fc_mat_to_pose(const fc_mat *m, float pos[3], float *yaw, float *pitch, int view);
 void fc_basis(float yaw, float pitch, float forward[3], float right[3], float up[3]);
+void fc_mat_mul(const fc_mat *a, const fc_mat *b, fc_mat *out);   /* out = a * b */
+int  fc_mat_near_identity(const fc_mat *m, float tol);
+
+/* Which way round the engine stores a view matrix. A camera's view matrix is the
+ * world matrix inverted, but the third row is either -forward (1) or +forward (2)
+ * depending on the engine's handedness, and only the game's own pair can say which.
+ * Returns that code, or 0 when `view` is not the inverse of `world` at all. */
+int  fc_view_sign(const fc_mat *world, const fc_mat *view);
+
+/* The game keeps a camera's world transform and its view matrix side by side, and a
+ * view matrix is the inverse of the world one, so the pair multiplies to the identity.
+ * `near` is where the player is: the world matrix is the one whose position row sits
+ * closest to it. Returns 1 and fills the two indices when a pair is found. */
+int  fc_pick_world_view(const fc_mat *cands, int count, const float near[3], float radius,
+                        int *world_idx, int *view_idx);
 
 /* ---- state machine ---------------------------------------------------------- */
 void fc_init(fc_state *st, const fc_config *cfg);
