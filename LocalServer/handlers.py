@@ -589,6 +589,10 @@ def raid_end(req, method, parts, body, query):
         _money("DirtyMoney", dirty_gain)
         opps = STATE.data["opponents"]
         opp = opps[idx]["data"]["PlayerDataBag"] if 0 <= idx < len(opps) else {}
+        if success and 0 <= idx < len(opps):
+            # That site's turf needs time to recover; the world map counts it down from
+            # mRemainingSeconds (state.RIVAL_RAID_COOLDOWN). A lost raid leaves it open.
+            state.start_rival_cooldown(opps[idx])
         STATE.data.pop("raid", None)
         face = pdb["Face"]
         favours = _award_raid_favours(_player()) if success else []

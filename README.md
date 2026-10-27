@@ -38,7 +38,8 @@ and ranks.
 The city's own activities pay out too: the seven open-world jobs (Catch,
 Defeat, Photo, Deliver, Collect, Destroy, Hijack), the crime scenes your fights
 leave behind, and the random street events (muggings, shakedowns) - so walking
-around and getting into trouble is worth something.
+around and getting into trouble is worth something. All seven rivals can be
+raided from the start, and a site you beat is back after ten minutes.
 
 The hub's Jobs screen and the Challenges (community trial) screen are emulated
 too. Jobs come from the game's own errand data - three daily slots, each with

@@ -323,6 +323,7 @@ plain JSON - edit them freely.
     python tools/test_shops.py     # every catalogue, every purchase path, the model
     python tools/test_looks.py     # the lookbook: real UIDs, slots, every look applies
     python tools/test_activities.py  # operations, crime scenes, street events, restart
+    python tools/test_raids.py     # rival availability, raid cooldown, profile migration
 
 The test scripts build a throw-away profile in a temp folder, so they never touch
 `state.json`. `tools/smoke_test.py` runs the same screens over HTTPS against a running
@@ -376,7 +377,8 @@ what works and what does not.
 * save game and gameplay-state storage (persisted in `state.json`)
 * name change, turf site selection, character customization
 * XP gain, leaderboards, profiles, telemetry sinks
-* raids (start, timer, end and rewards); using favours and equipping upgrades
+* raids (start, timer, end and rewards), with a ten-minute turf cooldown on the site you
+  just beat; using favours and equipping upgrades
 * turf: building info, racket construction, safehouse upgrade
 * the wardrobe and favour shops and their purchases (below)
 
@@ -413,6 +415,13 @@ Details that matter (each one was a hang or a crash before it was right):
   definition UIDs as strings) for a successful raid. The first open-world raid
   shows its results in tutorial mode, which only offers Continue after the
   favour cards; with none the screen never unlocks.
+* `playerdata/opponents` carries `mRemainingSeconds` per rival, and it is a
+  countdown, not decoration: the world map greys a site out until it reaches zero
+  (`FREE_REFRESH_RIVALS`, and the client's own "Unable to provide new rivals when
+  all turfs are on cooldown"). A fresh profile now has all seven rivals open; a
+  successful raid puts that one site on `state.RIVAL_RAID_COOLDOWN` (ten minutes),
+  and a lost raid leaves it open so the attempt can be retried. Profiles saved with
+  the old "everyone, 24 hours" value are migrated to v8 on load.
 
 * `commerce/store/<uid>` answers for every store the client has, with every item of
   the type that store accepts (`mAllowedStoreItemType`) that is usable, straight from
@@ -603,6 +612,7 @@ All fixed in the current server. Listed so the family is recognisable.
 | Raid results crashed | Face-tier table must have exactly ten tiers. |
 | Level-up screen looped | `mCurrentXP` must be a string. |
 | First open-world raid results never offered Continue | A successful raid must award at least one favour. |
+| Nothing to raid after the tutorial | Every rival was sent as "on cooldown for 24 hours" (`mRemainingSeconds` 86400), which greys out the whole world map. The roster now starts open, and a win puts that one site on a ten-minute cooldown. |
 | Using a favour crashed the UI | The reply must name the favour's definition UID. |
 | Black market crashed | `blackmarket/quotes` must be a bare array. |
 | Outfits crashed (`+0x6fcc48`) | Clothing/outfit stores were empty. |

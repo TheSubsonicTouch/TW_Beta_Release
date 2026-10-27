@@ -61,7 +61,11 @@ def main():
     def rivals():
         r = get("game/api/v1/playerdata/opponents")
         assert len(r["mOpponents"]) == 7 and len(r["mOpponentDataBags"]) == 7
-        return "7 rivals"
+        for o in r["mOpponents"]:
+            assert isinstance(o["mRemainingSeconds"], int), o
+        open_now = [o for o in r["mOpponents"] if o["mRemainingSeconds"] == 0]
+        assert open_now, "every rival is on cooldown; nothing to raid"
+        return "7 rivals, %d ready to raid" % len(open_now)
 
     def face_tiers():
         assert len(get("game/api/v1/playerdata/facetiers")) == 10

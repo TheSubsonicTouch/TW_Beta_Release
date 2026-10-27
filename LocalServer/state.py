@@ -90,6 +90,13 @@ BAG_ENFORCER_UPGRADES = 0x1000
 AI_NAMES = ["Big Smile Lee", "Uncle Po", "Sonny Wo", "Broken Nose Jiang",
             "Two Chin Tsao", "Pockmark Cheuk", "Dogeyes Lin"]
 
+# A rival's turf answers a raid and then needs time to recover: UIScreenWorldMap asks for
+# "FREE_REFRESH_RIVALS" and the client itself says "Unable to provide new rivals when all
+# turfs are on cooldown", so mRemainingSeconds is the countdown until that site can be hit
+# again. A fresh profile has every rival available; a successful raid puts that one site on
+# this cooldown. Ten minutes keeps the seven-site roster in play in one sitting.
+RIVAL_RAID_COOLDOWN = 10 * 60
+
 
 def racket_instance(type_uid, level=1, block=0, slot=0, state=0, staff=0):
     r = {
@@ -916,18 +923,31 @@ def trial_container(bag, challenge, start, end, index):
             "mImage": challenge.get("image", "")}
 
 
+def opponent_remaining(opponent, now=None):
+    """Seconds until that rival's turf can be raided again (0 = right now)."""
+    now = time.time() if now is None else now
+    return max(0, int(round(int(opponent.get("cooldown_until") or 0) - now)))
+
+
+def start_rival_cooldown(opponent, seconds=None, now=None):
+    """Put one rival's turf on the post-raid cooldown."""
+    now = time.time() if now is None else now
+    opponent["cooldown_until"] = int(now + (RIVAL_RAID_COOLDOWN if seconds is None else seconds))
+    return opponent["cooldown_until"]
+
+
 def default_state():
     player = new_player(1001, "Player", 1, TURF_LOCATIONS[0], 0, account_id=1)
     grant_starting_favours(player)
     grant_starting_inventory(player)
     return {
-        "version": 7,
+        "version": 8,
         "created": int(time.time()),
         "player": player,
         "opponents": [
             {
                 "type": 0,
-                "remaining_seconds": 86400,
+                "cooldown_until": 0,
                 "data": new_player(2001 + i, AI_NAMES[i], i, TURF_LOCATIONS[i], i),
             }
             for i in range(7)
@@ -952,7 +972,7 @@ class State:
     def _migrate(self):
         """Bring a profile saved by an older server version up to date."""
         version = self.data.get("version", 1)
-        if version >= 7:
+        if version >= 8:
             return
         player = self.data["player"]
         if version < 2:
@@ -987,7 +1007,14 @@ class State:
             # client never reads a missing one (it is sent only when asked for).
             for owner in [player] + [o["data"] for o in self.data.get("opponents", [])]:
                 owner.setdefault("CustomizationBag", new_customization_bag())
-        self.data["version"] = 7
+        if version < 8:
+            # Every rival used to be reported as "on cooldown for 24 hours", which left the
+            # world map with nothing to raid (see RIVAL_RAID_COOLDOWN). Saved profiles get
+            # the countdown removed, so they start with the whole roster available.
+            for opponent in self.data.get("opponents", []):
+                opponent.pop("remaining_seconds", None)
+                opponent["cooldown_until"] = int(opponent.get("cooldown_until") or 0)
+        self.data["version"] = 8
         self.save()
 
     def save(self):
@@ -1033,7 +1060,7 @@ class State:
                     "mPlayerDataID": p["PlayerDataBag"]["PlayerDataID"],
                     "mOpponentType": o.get("type", 0),
                     "mTriad": {},
-                    "mRemainingSeconds": o.get("remaining_seconds", 86400),
+                    "mRemainingSeconds": opponent_remaining(o),
                 })
                 bags.append(self.bags(p, mask))
             return infos, bags
