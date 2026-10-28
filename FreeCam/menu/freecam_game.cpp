@@ -189,6 +189,7 @@ fc_mat g_wroteWorld;
 fc_mat g_wroteView;
 int    g_haveWrote = 0;
 int    g_panSamples = 0;   // game camera poses seen while following (the turns copied)
+ULONGLONG g_lastPlayReport = 0;   // last "playback ... of ... s" line
 
 
 // the fresh answer the view detour hands out
@@ -1412,8 +1413,8 @@ void HandleHotkeys(const float player[3], bool havePlayer) {
             TW_Log("FreeCam: playback stopped; the camera stays where the path reached");
             Hud("J", "playback stopped");
         } else if (fc_play_start(&g_state)) {
-            TW_Log("FreeCam: playing %d keyframes over %.1f seconds at %.2fx - through every key, "
-                   "smooth, no corners (J stops it)",
+            g_lastPlayReport = GetTickCount64();
+            TW_Log("FreeCam: playing %d keyframes over %.1f seconds at %.2fx, key to key (J stops it)",
                    g_state.path_count, g_state.path[g_state.path_count - 1].time,
                    static_cast<double>(fc_play_speed(&g_state)));
             {
@@ -1422,8 +1423,8 @@ void HandleHotkeys(const float player[3], bool havePlayer) {
                 Hud("J", line);
             }
         } else {
-            TW_Log("FreeCam: nothing to play yet - press L to record a keyframe "
-                   "(at least two, with the camera in different places)");
+            TW_Log("FreeCam: nothing to play - the path has %d keyframe(s) and needs at least two, "
+                   "recorded with L", g_state.path_count);
         }
     }
 }
@@ -1472,7 +1473,12 @@ bool StartFlying() {
     if (g_savedPathCount > 0) {
         g_state.path_count = g_savedPathCount;
         std::memcpy(g_state.path, g_savedPath, sizeof(fc_keyframe) * (size_t)g_savedPathCount);
-        TW_Log("FreeCam: %d recorded keyframes kept from the last flight", g_savedPathCount);
+        // the flight clock starts again at zero, so the path has to be told to carry on
+        // from where it stopped - otherwise the next key is 0.02 s after the last one and
+        // the whole scene plays in a few milliseconds
+        fc_path_resume(&g_state, 0.0f);
+        TW_Log("FreeCam: %d recorded keyframes kept from the last flight, %.1f seconds of path",
+               g_savedPathCount, g_state.path[g_savedPathCount - 1].time);
     }
     g_flightClock = 0.0f;
     fc_play_set_speed(&g_state, g_playSpeed);
@@ -1518,7 +1524,7 @@ DWORD WINAPI Loop(LPVOID) {
     ULONGLONG lastReport = GetTickCount64();
 
     timeBeginPeriod(1);
-    TW_Log("FreeCam: camera thread up (build 11: J plays the path, M clears it, O+O freezes, frozen camera pans)");
+    TW_Log("FreeCam: camera thread up (build 12: J plays the path key to key, M clears it, frozen camera pans)");
 
     for (;;) {
         if (g_quit) break;
@@ -1638,13 +1644,24 @@ DWORD WINAPI Loop(LPVOID) {
                                       : "the camera is flying");
         }
 
-        if (fc_following(&g_state) && !fc_frozen(&g_state)) PeekGameCameraAngles();
+        if (fc_following(&g_state) && !fc_frozen(&g_state) && !fc_playing(&g_state))
+            PeekGameCameraAngles();
 
         fc_mat world;
         bool got = false;
         if (fc_playing(&g_state)) {
             // the path drives the camera; keys and mouse are ignored until it ends
             got = fc_play_step(&g_state, dt, &world) != 0;
+
+            ULONGLONG nowTick = GetTickCount64();
+            if (nowTick - g_lastPlayReport > 2000) {
+                g_lastPlayReport = nowTick;
+                TW_Log("FreeCam: playback %.1f of %.1f s at camera %.1f %.1f %.1f (%.2fx, J stops it)",
+                       static_cast<double>(g_state.play_time),
+                       static_cast<double>(g_state.path[g_state.path_count - 1].time),
+                       g_state.pos[0], g_state.pos[1], g_state.pos[2],
+                       static_cast<double>(fc_play_speed(&g_state)));
+            }
         } else if (fc_step(&g_state, dt, mx, my, &world)) {
             if (fc_looking_at(&g_state)) {
                 // frozen camera aiming at the player: the position never changes, only the

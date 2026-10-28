@@ -220,6 +220,11 @@ int  fc_key_add(fc_state *st, float now);
 /* Forget the whole path (and stop any playback). */
 void fc_path_clear(fc_state *st);
 
+/* The path was restored from an earlier flight: carry on from where it stopped, so keys
+ * added now follow the last one by the real time taken (see fc_key_add's clock). `now` is
+ * the same clock the next fc_key_add() will be given. */
+void fc_path_resume(fc_state *st, float now);
+
 /* Start playing the path back. Needs at least two keyframes. Returns 1 if it started. */
 int  fc_play_start(fc_state *st);
 void fc_play_stop(fc_state *st);
@@ -230,13 +235,13 @@ int  fc_playing(const fc_state *st);
  * so pressing the key again simply plays it again from the start. */
 int  fc_play_step(fc_state *st, float dt, fc_mat *out);
 
-/* The pose the recorded path has `clock` seconds after its first keyframe, played back
- * like a camera move rather than a slide show: a Hermite spline through the keys, so the
- * camera passes each one with a continuous velocity instead of turning a corner, its yaw
- * unwound along the path so it never spins the wrong way round at +-180 degrees, and the
- * first and last stretch eased from and to a standstill. The keys are still hit exactly.
- * `clock` >= the path's duration gives the last keyframe. Returns 1 when it wrote the
- * pose, 0 when there is no path to play. */
+/* The pose the recorded path has `clock` seconds after its first keyframe: straight from
+ * key to key along the clock, so the camera travels exactly as fast as it was flown, and
+ * the yaw unwound along the path so a pair that crosses +-180 degrees turns the short way.
+ * `clock` >= the path's duration gives the last keyframe. A path whose recorded times are
+ * unusable (two keys in one instant, or out of order) is played with its keys spaced
+ * evenly, so it always plays rather than finishing in a millisecond. Returns 1 when it
+ * wrote the pose, 0 when there is no path to play. */
 int  fc_play_pose(const fc_state *st, float clock, float pos[3], float *yaw, float *pitch);
 
 /* How fast the path plays back: 1.0 is the speed it was flown at, 0.5 takes twice as

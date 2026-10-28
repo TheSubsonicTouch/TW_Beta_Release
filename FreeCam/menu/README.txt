@@ -70,7 +70,29 @@ camera moving, so the key means "show me the shot".
 The key itself is J since build 11 (K up to build 10), so it sits next to L and is out of
 the way of the WASD hand.
 
-WHAT BUILD 9 ADDED
+WHAT BUILD 12 CHANGED ABOUT THE PLAYBACK
+----------------------------------------
+
+The spline from build 9 is gone. It read as a slide show's opposite - it cut corners (a
+right-angle path dipped 0.7 units off the route before the corner) - so the playback is
+key to key again, which is what worked and what was asked for.
+
+Two timing faults that could make a playback finish in a few milliseconds (which looks
+exactly like a playback that does nothing) are fixed in the core:
+
+  * play_times() checks the recorded key times and, when they are unusable - two keys in
+    one instant, or times that do not increase - spaces the keys out at 0.6 s each so the
+    path still plays. fc_key_add() enforces the 0.02 s minimum, but a path restored from
+    an earlier flight could still end up with keys all but simultaneous.
+  * fc_path_resume(st, now) resets the clock fc_key_add() subtracts from, so a key added
+    after a restore follows the last key by the real time taken rather than 0.02 s later.
+    StartFlying() calls it when it restores the kept path.
+
+While a path is playing the camera thread logs where it has got to every two seconds,
+and PeekGameCameraAngles() is skipped during a playback so the game's own camera cannot
+compete with the path for the angles.
+
+WHAT BUILD 9 ADDED (playback curve; reverted in build 12)
 ------------------
 
 K plays the path back as a camera move (fc_play_pose, used by fc_play_step):

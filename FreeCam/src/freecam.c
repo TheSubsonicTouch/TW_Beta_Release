@@ -986,6 +986,17 @@ int fc_key_add(fc_state *st, float now)
     return st->path_count;
 }
 
+void fc_path_resume(fc_state *st, float now)
+{
+    if (!st || st->path_count <= 0) return;
+    /* The clock that fc_key_add() subtracts is the moment the first key of this path was
+     * taken. A path restored from an earlier flight has no such moment any more, so it is
+     * rebuilt from the last key: the next key added then follows it by however long the
+     * camera really took, instead of 0.02 s later - which used to squeeze a whole scene
+     * into a few milliseconds. */
+    st->path_clock = now - st->path[st->path_count - 1].time;
+}
+
 void fc_path_clear(fc_state *st)
 {
     if (!st) return;
@@ -1056,64 +1067,60 @@ float fc_play_speed_shift(fc_state *st, int faster)
     return st->play_speed;
 }
 
-/* ---- cinematic playback ------------------------------------------------------ */
+/* ---- playback ---------------------------------------------------------------- */
 
-/* One axis of the cubic through two keys, with the slopes at each end: this is what makes
- * the camera arrive at a keyframe still moving the way it was moving a moment before. */
-static float hermite(float p0, float p1, float m0, float m1, float h, float u)
-{
-    float u2 = u * u, u3 = u2 * u;
-    return (2.0f * u3 - 3.0f * u2 + 1.0f) * p0 +
-           (u3 - 2.0f * u2 + u) * h * m0 +
-           (-2.0f * u3 + 3.0f * u2) * p1 +
-           (u3 - u2) * h * m1;
-}
+/* A path whose recorded times make no sense - two keys in the same instant, or times
+ * that do not increase, which a path restored from an earlier flight can end up with -
+ * would play in a few milliseconds and look like a playback that does nothing at all.
+ * Such a path is played by spacing its keys evenly instead, so it always plays. */
+#define FC_PLAY_FALLBACK_GAP 0.6f
 
-/* the slope of the path at key i, per second, taken from its neighbours */
-static float slope_of(const float *v, const fc_keyframe *p, int n, int i)
+/* The times playback uses, one per key, and the length of the whole path. */
+static float play_times(const fc_state *st, float *t)
 {
-    float h;
-    if (n < 2) return 0.0f;
-    if (i <= 0) {
-        h = p[1].time - p[0].time;
-        return (v[1] - v[0]) / (h > 1e-6f ? h : 1e-6f);
+    const int n = st->path_count;
+    int i, usable = n >= 2;
+
+    for (i = 0; i < n; i++) t[i] = st->path[i].time;
+    if (usable) {
+        for (i = 1; i < n; i++) {
+            if (!(t[i] > t[i - 1] + 0.001f)) { usable = 0; break; }
+        }
     }
-    if (i >= n - 1) {
-        h = p[n - 1].time - p[n - 2].time;
-        return (v[n - 1] - v[n - 2]) / (h > 1e-6f ? h : 1e-6f);
+    if (usable && !(t[n - 1] > 0.05f)) usable = 0;
+
+    if (!usable) {
+        for (i = 0; i < n; i++) t[i] = (float)i * FC_PLAY_FALLBACK_GAP;
     }
-    h = p[i + 1].time - p[i - 1].time;
-    return (v[i + 1] - v[i - 1]) / (h > 1e-6f ? h : 1e-6f);
+    return n >= 2 ? t[n - 1] : 0.0f;
 }
 
 int fc_play_pose(const fc_state *st, float clock, float pos[3], float *yaw, float *pitch)
 {
-    float yawu[FC_MAX_KEYS], pitchv[FC_MAX_KEYS];
+    float t[FC_MAX_KEYS], yawu[FC_MAX_KEYS];
     const fc_keyframe *path;
-    float total, w;
-    int n, i, c;
+    float total;
+    int n, i;
 
     if (!st || !pos) return 0;
     n = st->path_count;
     if (n < 2) return 0;
     path = st->path;
-    total = path[n - 1].time;
+    total = play_times(st, t);
     if (!(total > 0.0f)) return 0;
 
     /* the recorded angles, with the yaw unwound along the path: a keyframe pair that
-     * crosses +-180 degrees is a small turn, not all the way round */
+     * crosses +-180 degrees then turns the short way instead of all the way round */
     yawu[0] = path[0].yaw;
-    pitchv[0] = path[0].pitch;
     for (i = 1; i < n; i++) {
         float d = path[i].yaw - path[i - 1].yaw;
         while (d > FC_PI) d -= 2.0f * FC_PI;
         while (d < -FC_PI) d += 2.0f * FC_PI;
         yawu[i] = yawu[i - 1] + d;
-        pitchv[i] = path[i].pitch;
     }
 
-    /* the two ends are the keys themselves, so a playback always begins and finishes
-     * exactly on a recorded pose */
+    /* the ends are the keys themselves, so a playback always begins and finishes on a
+     * pose that was recorded */
     if (!(clock > 0.0f)) {
         copy3(pos, path[0].pos);
         if (yaw) *yaw = path[0].yaw;
@@ -1127,44 +1134,34 @@ int fc_play_pose(const fc_state *st, float clock, float pos[3], float *yaw, floa
         return 1;
     }
 
-    /* The clock runs straight: the playback takes exactly as long as the flight did and
-     * the camera is already moving on the first frame. (An eased clock made the first
-     * second of a long path look like the playback had not started at all.) */
-    w = clock;
-
+    /* Between two keys: straight from one pose to the next, along the clock, which is
+     * what the playback has always done - the camera travels exactly as fast as it was
+     * flown and is already moving on the first frame. */
     for (i = 0; i + 1 < n; i++) {
-        const fc_keyframe *a = &path[i];
-        const fc_keyframe *b = &path[i + 1];
-        float h, u;
+        float span, u;
 
-        if (w < a->time || w > b->time) continue;
-        h = b->time - a->time;
-        if (h < 1e-6f) h = 1e-6f;
-        u = (w - a->time) / h;
+        if (clock < t[i] || clock > t[i + 1]) continue;
+        span = t[i + 1] - t[i];
+        u = span > 1e-6f ? (clock - t[i]) / span : 0.0f;
 
-        for (c = 0; c < 3; c++) {
-            float v[FC_MAX_KEYS];
-            int k;
-            for (k = 0; k < n; k++) v[k] = path[k].pos[c];
-            pos[c] = hermite(a->pos[c], b->pos[c], slope_of(v, path, n, i),
-                             slope_of(v, path, n, i + 1), h, u);
-        }
+        pos[0] = path[i].pos[0] + (path[i + 1].pos[0] - path[i].pos[0]) * u;
+        pos[1] = path[i].pos[1] + (path[i + 1].pos[1] - path[i].pos[1]) * u;
+        pos[2] = path[i].pos[2] + (path[i + 1].pos[2] - path[i].pos[2]) * u;
+
         if (yaw) {
-            float y = hermite(yawu[i], yawu[i + 1], slope_of(yawu, path, n, i),
-                              slope_of(yawu, path, n, i + 1), h, u);
+            float y = yawu[i] + (yawu[i + 1] - yawu[i]) * u;
             while (y > FC_PI) y -= 2.0f * FC_PI;
             while (y < -FC_PI) y += 2.0f * FC_PI;
             *yaw = y;
         }
         if (pitch) {
-            *pitch = clampf(hermite(pitchv[i], pitchv[i + 1], slope_of(pitchv, path, n, i),
-                                    slope_of(pitchv, path, n, i + 1), h, u),
+            *pitch = clampf(path[i].pitch + (path[i + 1].pitch - path[i].pitch) * u,
                             -1.5533f, 1.5533f);
         }
         return 1;
     }
 
-    /* only reachable if the keys are out of order; the last key is the safe answer */
+    /* only reachable if a clock lands outside every segment; the last key is safe */
     copy3(pos, path[n - 1].pos);
     if (yaw) *yaw = path[n - 1].yaw;
     if (pitch) *pitch = path[n - 1].pitch;
@@ -1173,6 +1170,7 @@ int fc_play_pose(const fc_state *st, float clock, float pos[3], float *yaw, floa
 
 int fc_play_step(fc_state *st, float dt, fc_mat *out)
 {
+    float t[FC_MAX_KEYS];
     float total;
 
     if (!st || !st->playing) return 0;
@@ -1180,7 +1178,7 @@ int fc_play_step(fc_state *st, float dt, fc_mat *out)
     if (!(dt > 0.0f)) dt = 0.0f;
 
     st->play_time += dt * (st->play_speed > 0.0f ? st->play_speed : 1.0f);
-    total = st->path[st->path_count - 1].time;
+    total = play_times(st, t);
 
     if (total <= 0.0f || st->play_time >= total) {
         /* land exactly on the last key and hand control back */
@@ -1191,7 +1189,6 @@ int fc_play_step(fc_state *st, float dt, fc_mat *out)
         st->playing = 0;
         st->play_time = 0.0f;
     } else {
-        /* the cinematic curve: through every key, no corners, eased at both ends */
         fc_play_pose(st, st->play_time, st->pos, &st->yaw, &st->pitch);
     }
 

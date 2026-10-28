@@ -51,11 +51,17 @@ WHAT CHANGED IN THIS BUILD
     the key twice in one frame to check the freeze first, which used the press up, so the
     playback never started at all; hotkeys now latch their press for the frame, so that
     cannot happen to any of them. J also thaws a frozen camera before playing.
-  - The playback is a scene, not a slide show: a curve through the keyframes rather than
-    straight lines with a corner at every key, so the camera arrives and leaves each key
-    still moving the way it was, and turns that cross 180 degrees go the short way round
-    instead of spinning. The timing is the flight's own - the shot lasts exactly as long
-    as it did, at a constant speed - and every keyframe is hit exactly.
+  - The playback is key to key again, exactly as it was when it worked: the camera
+    travels from each keyframe to the next at the speed it was flown, so the scene lasts
+    as long as the flight did and every key is hit on the dot. A turn that crosses 180
+    degrees goes the short way round.
+  - Two timing faults that made a playback look like it did nothing are fixed. A path
+    whose keys had all been taken in the same instant played in a few milliseconds (the
+    camera simply jumped to the last key); it is now played with the keys spaced out.
+    And a path kept across switching free cam off and on used to squeeze every new key
+    into 0.02 s of the old path - it now carries on from where it stopped.
+  - While a path is playing the log says where it has got to, every two seconds:
+    "FreeCam: playback 3.4 of 12.0 s at camera 1401.2 -820.5 5.3 (1.00x, J stops it)".
 
   - A frozen camera pans instead of standing still: with the camera held by O, press P
     and it keeps its position and turns to keep the player in the middle of the picture
@@ -140,11 +146,9 @@ Follow and keyframes:
     path survives switching free cam off and on again, and is cleared when the game is
     restarted.
 
-    The playback is a camera move: the poses are joined by a smooth curve that passes
-    through every keyframe, so the camera never turns a corner at a key, and a turn that
-    crosses 180 degrees goes the short way round instead of spinning. It takes exactly as
-    long as the flight did and moves from the first frame. The smoother the keyframes, the
-    better it looks - put them a second or two apart and keep the camera's turns gentle.
+    The playback is the flight, replayed: from keyframe to keyframe, at the speed the
+    camera was flown, starting to move on the first frame. Put the keys a second or two
+    apart and the scene will follow the route you took.
   - The arrow keys set the speed of that playback, 0.1x to 4x, shown as you press them
     (0.5x is slow motion, 2x is twice as fast). The speed you leave it at is kept.
   - M clears the path completely, so the next keyframes are a new scene.
@@ -199,13 +203,13 @@ IF IT DOES NOT WORK
 -------------------
 
 TW_MenuLog.txt, next to TriadWars.exe, records everything. The second line of a flight
-says which build is running - "build 11" for this one. If it says a lower number, the game
+says which build is running - "build 12" for this one. If it says a lower number, the game
 is loading an older dinput8.dll: run Install-FreeCam.bat again from this zip.
  Load into the world
 first - the camera cannot be told apart on a loading screen - then toggle it and
 look for these lines, in this order:
 
-    FreeCam: camera thread up (build 11: J plays the path, M clears it, O+O freezes, frozen camera pans)
+    FreeCam: camera thread up (build 12: J plays the path key to key, M clears it, frozen camera pans)
     FreeCam: switched on, asking the renderer which camera it draws
     FreeCam: hooked the view accessor at 0000... with an absolute jump (original kept at ...)
     FreeCam: the renderer asked about 0000... for the first time
