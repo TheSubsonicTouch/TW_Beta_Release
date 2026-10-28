@@ -1171,7 +1171,7 @@ struct Hotkey {
 
 Hotkey g_followKey{ 'P' };
 Hotkey g_keyKey{ 'L' };
-Hotkey g_playKey{ 'K' };
+Hotkey g_playKey{ 'J' };   // J - play the captured keyframes back
 Hotkey g_freezeKey{ 'O' };
 Hotkey g_clearKey{ 'M' };
 Hotkey g_slowerKey{ VK_LEFT };      // playback speed down
@@ -1298,7 +1298,7 @@ void HandlePlaybackSpeed() {
     TW_Log("FreeCam: playback speed %s (%s arrow)", shown, faster ? "right" : "left");
 }
 
-// P - follow the player, L - keyframe, K - play the path back, M - forget the path,
+// P - follow the player, L - keyframe, J - play the path back, M - forget the path,
 // O - freeze, left/right - how fast the path plays.
 void HandleHotkeys(const float player[3], bool havePlayer) {
     // Pressed() latches its answer for the frame, so reading a key more than once in a
@@ -1322,7 +1322,7 @@ void HandleHotkeys(const float player[3], bool havePlayer) {
                        player[0], player[1], player[2]);
             }
         } else if (fc_playing(&g_state)) {
-            TW_Log("FreeCam: following cannot be changed while the path is playing (K to stop)");
+            TW_Log("FreeCam: following cannot be changed while the path is playing (J to stop)");
         } else if (fc_following(&g_state)) {
             fc_follow(&g_state, player, 0);
             TW_Log("FreeCam: no longer following the player; the camera stays here");
@@ -1378,7 +1378,7 @@ void HandleHotkeys(const float player[3], bool havePlayer) {
 
     if (g_keyKey.Pressed()) {
         if (fc_playing(&g_state)) {
-            TW_Log("FreeCam: recording is off while the path is playing (K to stop)");
+            TW_Log("FreeCam: recording is off while the path is playing (J to stop)");
         } else {
             const int n = fc_key_add(&g_state, g_flightClock);
             if (n == 0) {
@@ -1390,7 +1390,7 @@ void HandleHotkeys(const float player[3], bool havePlayer) {
                        n, FC_MAX_KEYS, g_state.pos[0], g_state.pos[1], g_state.pos[2],
                        g_state.yaw * 57.2957795f, g_state.pitch * 57.2957795f,
                        n == 1 ? " - move the camera, then press L again" : "");
-                if (n == 2) TW_Log("FreeCam: press K to play the path back, in the time it was flown");
+                if (n == 2) TW_Log("FreeCam: press J to play the path back, in the time it was flown");
                 {
                     char line[44];
                     std::snprintf(line, sizeof(line), "keyframe %d", n);
@@ -1403,23 +1403,23 @@ void HandleHotkeys(const float player[3], bool havePlayer) {
     if (g_playKey.Pressed()) {
         if (fc_frozen(&g_state)) {
             // A playback is the camera moving, so it cannot happen behind a freeze. Thaw
-            // and play rather than refusing: K means "show me the shot".
+            // and play rather than refusing: J means "show me the shot".
             fc_freeze(&g_state, 0);
-            TW_Log("FreeCam: K on a frozen camera - thawing it first, so the playback can be seen");
+            TW_Log("FreeCam: J on a frozen camera - thawing it first, so the playback can be seen");
         }
         if (fc_playing(&g_state)) {
             fc_play_stop(&g_state);
             TW_Log("FreeCam: playback stopped; the camera stays where the path reached");
-            Hud("K", "playback stopped");
+            Hud("J", "playback stopped");
         } else if (fc_play_start(&g_state)) {
             TW_Log("FreeCam: playing %d keyframes over %.1f seconds at %.2fx - through every key, "
-                   "smooth, no corners (K stops it)",
+                   "smooth, no corners (J stops it)",
                    g_state.path_count, g_state.path[g_state.path_count - 1].time,
                    static_cast<double>(fc_play_speed(&g_state)));
             {
                 char line[44];
                 std::snprintf(line, sizeof(line), "playing %d keyframes", g_state.path_count);
-                Hud("K", line);
+                Hud("J", line);
             }
         } else {
             TW_Log("FreeCam: nothing to play yet - press L to record a keyframe "
@@ -1518,7 +1518,7 @@ DWORD WINAPI Loop(LPVOID) {
     ULONGLONG lastReport = GetTickCount64();
 
     timeBeginPeriod(1);
-    TW_Log("FreeCam: camera thread up (build 10: K plays the path, M clears it, frozen camera pans)");
+    TW_Log("FreeCam: camera thread up (build 11: J plays the path, M clears it, O+O freezes, frozen camera pans)");
 
     for (;;) {
         if (g_quit) break;

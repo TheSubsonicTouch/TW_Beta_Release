@@ -47,7 +47,7 @@ bool DikAllowed(unsigned code) {
         case DIK_P:
         case DIK_O:
         case DIK_L:
-        case DIK_K:
+        case DIK_J:
         case DIK_M:
             return true;
         default:
@@ -71,7 +71,7 @@ bool VkAllowed(int vk) {
         case 'P':
         case 'O':
         case 'L':
-        case 'K':
+        case 'J':
         case 'M':
             return true;
         default:

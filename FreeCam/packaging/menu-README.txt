@@ -47,14 +47,15 @@ game carries on from its own camera and not from where you flew to.
 WHAT CHANGED IN THIS BUILD
 --------------------------
 
-  - K plays the recorded keyframes back again. (Build 8 and 9 read the key twice in one
-    frame to check the freeze first, which used the press up, so K did nothing at all.
-    Hotkeys now latch their press for the frame, so that cannot happen to any of them.)
-    K also thaws a frozen camera before playing, instead of refusing.
-  - The playback is smoother than it was: a curve through the keyframes rather than
+  - J plays the recorded keyframes back (it was K up to build 10). Builds 8 and 9 read
+    the key twice in one frame to check the freeze first, which used the press up, so the
+    playback never started at all; hotkeys now latch their press for the frame, so that
+    cannot happen to any of them. J also thaws a frozen camera before playing.
+  - The playback is a scene, not a slide show: a curve through the keyframes rather than
     straight lines with a corner at every key, so the camera arrives and leaves each key
-    still moving the way it was. The timing is unchanged - the shot lasts exactly as long
-    as the flight did, at a constant speed, and every keyframe is hit exactly.
+    still moving the way it was, and turns that cross 180 degrees go the short way round
+    instead of spinning. The timing is the flight's own - the shot lasts exactly as long
+    as it did, at a constant speed - and every keyframe is hit exactly.
 
   - A frozen camera pans instead of standing still: with the camera held by O, press P
     and it keeps its position and turns to keep the player in the middle of the picture
@@ -112,10 +113,11 @@ CONTROLS
     Shift               five times faster
     Ctrl                a fifth of the speed
     P                   follow the player - the camera keeps its framing and goes
-                        wherever the player goes; P again to stay put
+                        wherever the player goes; P again to stay put. With the camera
+                        frozen (O), P pans it to keep the player in frame instead
     L                   record a keyframe where the camera is now
-    K                   play the recorded keyframes back, at the speed they were flown
-                        (or whatever the arrows were set to)
+    J                   play the captured keyframes back as a scene, at the speed they
+                        were flown (or whatever the arrows were set to)
     Left / Right arrow  play the path back slower / faster, 0.1x to 4x
     M                   forget every keyframe, to start a new scene
     O                   freeze the camera where it is - the view stays put while the
@@ -132,8 +134,8 @@ Follow and keyframes:
     P is on the player is in control; the camera is not flown by hand.
   - L records the camera's pose (where it is and where it looks). Press it again
     somewhere else. Two are enough; up to 64 are kept.
-  - K plays them back, taking the same time the flight took, then stops on the last one.
-    Press K again to replay, or K while it is playing to stop and stay where it got to.
+  - J plays them back, taking the same time the flight took, then stops on the last one.
+    Press J again to replay, or J while it is playing to stop and stay where it got to.
     Recording more keyframes adds to the same path until free cam is switched off - a
     path survives switching free cam off and on again, and is cleared when the game is
     restarted.
@@ -172,7 +174,7 @@ The freeze (O):
     attacking, driving and interacting all still work - you are just watching from a
     fixed angle.
   - While frozen, the mouse is not captured, so the right button goes to the game.
-  - Freezing stops a follow (P) and a playback (K): both would drag the view along.
+  - Freezing stops a follow (P) and a playback (J): both would drag the view along.
   - O again, F10, or switching free cam off all thaw it. Switching free cam off and on
     always starts unfrozen.
 
@@ -197,13 +199,13 @@ IF IT DOES NOT WORK
 -------------------
 
 TW_MenuLog.txt, next to TriadWars.exe, records everything. The second line of a flight
-says which build is running - "build 10" for this one. If it says a lower number, the game
+says which build is running - "build 11" for this one. If it says a lower number, the game
 is loading an older dinput8.dll: run Install-FreeCam.bat again from this zip.
  Load into the world
 first - the camera cannot be told apart on a loading screen - then toggle it and
 look for these lines, in this order:
 
-    FreeCam: camera thread up (build 10: K plays the path, M clears it, frozen camera pans)
+    FreeCam: camera thread up (build 11: J plays the path, M clears it, O+O freezes, frozen camera pans)
     FreeCam: switched on, asking the renderer which camera it draws
     FreeCam: hooked the view accessor at 0000... with an absolute jump (original kept at ...)
     FreeCam: the renderer asked about 0000... for the first time

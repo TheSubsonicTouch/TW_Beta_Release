@@ -48,7 +48,7 @@ x world up), fc_mat_from_pose writes both layouts, fc_pose_from_view reads the
 components out of the third block (m[2], m[6], m[10]) and only falls back to a
 forward-only comparison for a rolled camera.
 
-WHY K STOPPED WORKING, AND THE FIX
+WHY THE PLAYBACK KEY STOPPED WORKING, AND THE FIX
 ----------------------------------
 
 Hotkey::Pressed() consumed the key's edge: the second call in the same tick always
@@ -58,13 +58,17 @@ answered no. Build 8 added a frozen-camera guard that asked it twice
     else if (g_playKey.Pressed()) { ... the playback ... }
 
 so when the camera was not frozen the first test ate the press and the second test saw
-nothing: K did nothing at all. Pressed() now latches its answer until NewFrame(), which
+nothing: the playback key did nothing at all. Pressed() now latches its answer until
+NewFrame(), which
 the camera thread calls once per tick (BeginHotkeyFrame), so a key can be asked as often
 as the code likes. The same bug had already been fixed once by hand for P; latching
 means it cannot come back for any of them.
 
-K also thaws a frozen camera before playing, rather than refusing: a playback is the
-camera moving, so K means "show me the shot".
+It also thaws a frozen camera before playing, rather than refusing: a playback is the
+camera moving, so the key means "show me the shot".
+
+The key itself is J since build 11 (K up to build 10), so it sits next to L and is out of
+the way of the WASD hand.
 
 WHAT BUILD 9 ADDED
 ------------------
@@ -99,8 +103,8 @@ A frozen camera can aim. This is the second of the three states the camera has:
                    transform (which sits at the character's feet)
 
 fc_freeze() now also drops a move-follow (a follow would carry the frozen camera along)
-and thawing clears the aiming. K while frozen is refused with a line in the log: a
-playback would not be seen.
+and thawing clears the aiming. The playback key while frozen thaws the camera first: a
+playback would not be seen behind a freeze.
 
 WHAT BUILD 7 ADDED
 ------------------
