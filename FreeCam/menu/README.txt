@@ -314,6 +314,33 @@ walk the heap. FreeCamSetActive() only sets a flag and returns; the searching, t
 flying and the restoring happen on a thread of its own, two milliseconds at a time.
 The proxy hook only does a few pointer tests and a counter increment.
 
+FALSE VIRUS WARNINGS, AND WHAT IS DONE ABOUT THEM
+-------------------------------------------------
+
+An unsigned DLL that hooks a running game and is shipped in an archive gets flagged, and
+there is no way to make that impossible without a code-signing certificate. What can be
+done honestly is take the malware-shaped parts out of the delivery and describe the rest:
+
+  * FreeCam-Inject.exe is no longer shipped in TriadWars-FreeCam.zip. Its imports are
+    OpenProcess, VirtualAllocEx, WriteProcessMemory and CreateRemoteThread, which is the
+    signature of every DLL injector, and engines score it as a hack tool. (The menu DLL
+    imports none of those; the only "process" calls it makes are Toolhelp32/Thread32 and
+    SuspendThread, for stopping the game's threads while an accessor is patched.)
+  * the menu DLL is packed as FreeCam/menu-plugin.dll and Install-FreeCam.bat copies it to
+    dinput8.dll: a proxy DLL named after a system DLL, inside a downloaded archive, is a
+    thing heuristics look for by name. Once installed, the name is required by the game.
+  * both binaries now embed VERSIONINFO and an assembly manifest (menu/freecam_menu.rc,
+    src/freecam_standalone.rc, built with `zig rc`). Anonymous PEs score worse.
+  * the trampoline for the accessor hook is allocated PAGE_READWRITE and then made
+    PAGE_EXECUTE_READ, instead of being pages that are writable and executable at once
+    (InstallDetour in freecam_game.cpp).
+  * SHA256SUMS.txt is generated into the zip by make_zip.py, and the zip's own hash is
+    printed when it is built.
+
+What is deliberately not done: nothing is packed, encrypted or renamed to look like
+something else beyond the one install-time copy above, because a mod that hides from
+scanners is indistinguishable from the malware it is trying not to look like.
+
 BUILDING
 --------
 

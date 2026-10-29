@@ -36,6 +36,7 @@ cp patched/menu_core.h "$OUT/src/menu_core.h"
 cp patched/menu_core.cpp "$OUT/src/menu_core.cpp"
 cp patched/win_menu.cpp "$OUT/src/win_menu.cpp"
 cp patched/dinput8_proxy.cpp "$OUT/src/dinput8_proxy.cpp"
+cp freecam_menu.rc freecam_menu.manifest "$OUT/src/"
 cp freecam_game.h freecam_game.cpp input_block.h input_block.cpp "$OUT/src/"
 cp ../src/freecam.h ../src/freecam.c "$OUT/src/"
 
@@ -79,6 +80,9 @@ for f in src/dinput8_proxy.cpp src/win_menu.cpp src/menu_core.cpp src/log.cpp \
 done
 echo "   src/freecam.c"
 $ZIG cc -target x86_64-windows-gnu -std=c99 -c -O2 -w -Isrc -o freecam.o src/freecam.c
+
+echo "== resources (version information and a manifest, for the scanners)"
+$ZIG rc -- src/freecam_menu.rc freecam_menu.res.o
 
 echo "== linking"
 $ZIG c++ -target x86_64-windows-gnu -shared -O2 -o dinput8.dll \

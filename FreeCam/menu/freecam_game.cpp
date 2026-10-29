@@ -918,13 +918,24 @@ bool InstallDetour(Accessor &acc, void *detour) {
         return false;
     }
 
-    // Our own copy of the original, so the detour always has a working fallback.
-    void *copy = VirtualAlloc(nullptr, 0x100, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+    // Our own copy of the original, so the detour always has a working fallback. It is
+    // created not-executable, filled, and only then made executable: memory that is
+    // writable and executable at the same time is what a self-modifying loader looks
+    // like, and there is no reason for this copy to be both at once.
+    void *copy = VirtualAlloc(nullptr, 0x100, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     if (!copy) {
         TW_Log("FreeCam: could not allocate a trampoline for the %s accessor", acc.name);
         return false;
     }
     std::memcpy(copy, target, len);
+    {
+        DWORD codeProtect = 0;
+        if (!VirtualProtect(copy, 0x100, PAGE_EXECUTE_READ, &codeProtect)) {
+            VirtualFree(copy, 0, MEM_RELEASE);
+            TW_Log("FreeCam: could not seal the trampoline for the %s accessor", acc.name);
+            return false;
+        }
+    }
     FlushInstructionCache(GetCurrentProcess(), copy, len);
     acc.trampoline = copy;
     acc.at = at;
@@ -1524,7 +1535,7 @@ DWORD WINAPI Loop(LPVOID) {
     ULONGLONG lastReport = GetTickCount64();
 
     timeBeginPeriod(1);
-    TW_Log("FreeCam: camera thread up (build 12: J plays the path key to key, M clears it, frozen camera pans)");
+    TW_Log("FreeCam: camera thread up (build 13: J plays the path key to key, M clears it, frozen camera pans)");
 
     for (;;) {
         if (g_quit) break;

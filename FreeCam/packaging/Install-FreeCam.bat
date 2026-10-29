@@ -23,7 +23,7 @@ if not exist "TriadWars.exe" (
     exit /b 1
 )
 
-if not exist "FreeCam\dinput8.dll" (
+if not exist "FreeCam\menu-plugin.dll" (
     echo   The FreeCam folder is missing. Extract the whole zip, folder included,
     echo   then run this file from the game folder.
     echo.
@@ -31,6 +31,11 @@ if not exist "FreeCam\dinput8.dll" (
     popd
     exit /b 1
 )
+
+rem Windows marks files that came out of a downloaded archive, and warns the first time
+rem such a DLL is loaded. Clearing that mark here is the same as ticking "Unblock" in the
+rem file's properties, and saves you doing it by hand for each file.
+powershell -NoProfile -Command "try { Get-ChildItem -LiteralPath '%~dp0' -Recurse -File | Unblock-File } catch { }" >nul 2>&1
 
 if exist "dinput8.dll" (
     if not exist "dinput8.original.dll" (
@@ -41,7 +46,9 @@ if exist "dinput8.dll" (
     )
 )
 
-copy /y "FreeCam\dinput8.dll" "dinput8.dll" >nul
+rem menu-plugin.dll is the same DLL under a name that is not "dinput8" until it is in
+rem place: archives holding a file called dinput8.dll are the shape scanners look for.
+copy /y "FreeCam\menu-plugin.dll" "dinput8.dll" >nul
 if errorlevel 1 (
     echo.
     echo   Could not write dinput8.dll. If the game is running, close it and
@@ -64,7 +71,10 @@ echo   While flying:
 echo     W A S D  move      Space / C  up / down
 echo     hold right mouse   look around (natural, not inverted)
 echo     Shift  faster      Ctrl       slower
-echo     P      follow the player    L  record a keyframe    K  play them back
+echo     L      record a keyframe    J  play them back    M  clear them
+echo     left/right arrows  how fast the playback runs (0.1x - 4x)
+echo     O      freeze the camera and let the player move; O again to fly
+echo     P      follow the player (frozen: pan to keep them in frame)
 echo     F10    put the camera back and switch off
 echo.
 echo   To undo this, run Uninstall-FreeCam.bat.

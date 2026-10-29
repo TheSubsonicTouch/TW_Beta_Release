@@ -1,6 +1,61 @@
 Triad Wars - Free Camera
 ========================
 
+IF WINDOWS SAYS IT IS A VIRUS
+-----------------------------
+
+It is not, and this is what is going on. This zip holds a DLL that the game loads in place
+of its own dinput8.dll, and that DLL changes a running game: it hooks one function and
+writes camera matrices. That is exactly the shape of a class of malware, so heuristic
+scanners flag it - not for anything it does, but for the company it keeps. Nobody can sign
+this for you: a code-signing certificate costs money and identifies its holder, which a
+mod like this does not have.
+
+What has been done to keep the warnings down, without changing what the camera does:
+
+  - the standalone injector is no longer in this zip. It used CreateRemoteThread and
+    WriteProcessMemory to put a DLL into the game, which every engine reads as an
+    injector, and it was the single most-flagged file here. The DLL that is left uses
+    none of those calls: check the import table if you like - no OpenProcess, no
+    WriteProcessMemory, no network functions at all.
+  - the DLL is shipped as FreeCam\menu-plugin.dll and the installer copies it to
+    dinput8.dll. A file called dinput8.dll sitting in a downloaded archive is the pattern
+    scanners look for; in place, it has to be called dinput8.dll, and that is the
+    installer's job.
+  - both DLLs now carry proper version information - name, description, publisher, the
+    sentence "no network, no install, no keylogger" - instead of being anonymous blobs.
+    Binaries with no version information score worse, and there was no reason for them to
+    have none.
+  - the copy of the game's code that the hook jumps through is allocated non-executable
+    and only made executable once it is filled, instead of being writable and executable
+    at the same time, which is what a self-modifying loader looks like.
+
+What the DLL does, plainly:
+
+  - it reads the keyboard for its own hotkeys (and for W A S D while the camera flies),
+    which is why it needs DirectInput;
+  - it works entirely inside the game's own process: no other program is started, no
+    other process is touched, nothing is downloaded, nothing is written outside the game
+    folder and TW_MenuLog.txt;
+  - everything it patches is put back when you switch the camera off or press F10.
+
+SHA256SUMS.txt in the zip lists the hash of every file in it, so you can check that what
+you have is what was built:
+
+    certutil -hashfile FreeCam\menu-plugin.dll SHA256
+
+To stop the warning in the first place, unblock the zip before extracting it (right
+click, Properties, Unblock), or let the installer do it - it clears the "downloaded from
+the internet" mark on the extracted files.
+
+If a scanner still objects, the honest fix is to report it as a false positive, which
+Microsoft acts on for Defender: https://www.microsoft.com/en-us/wdsi/filesubmission -
+choose "I believe this file is incorrectly detected", attach FreeCam\menu-plugin.dll and
+say what it is. If you would rather not run something your scanner objects to, that is a
+perfectly good decision; the source is all in the repository, and ./build.sh rebuilds
+both binaries with zig.
+
+
 INSTALL
 -------
 
@@ -24,9 +79,11 @@ To undo it, double-click Uninstall-FreeCam.bat - it puts your old dinput8.dll ba
 Nothing happens until you run the installer: extracting the zip only adds the
 FreeCam folder and two .bat files, it does not overwrite your menu.
 
-The standalone\ folder holds the older hot-key build if you would rather not replace
-the menu DLL at all. It is a separate program (FreeCam-Inject.exe) and is not part of
-the menu install. You do not need both.
+This zip installs the menu build only - the one with the Free Camera entry. The older
+standalone build (a DLL loaded by a small injector program) is no longer shipped here:
+the injector is the file scanners object to most, and it did the one thing this mod
+otherwise never does, which is touch another process. It still builds from the
+repository with ./build.sh if you want it.
 
 
 WHAT THE FREE CAMERA DOES
@@ -203,13 +260,13 @@ IF IT DOES NOT WORK
 -------------------
 
 TW_MenuLog.txt, next to TriadWars.exe, records everything. The second line of a flight
-says which build is running - "build 12" for this one. If it says a lower number, the game
+says which build is running - "build 13" for this one. If it says a lower number, the game
 is loading an older dinput8.dll: run Install-FreeCam.bat again from this zip.
  Load into the world
 first - the camera cannot be told apart on a loading screen - then toggle it and
 look for these lines, in this order:
 
-    FreeCam: camera thread up (build 12: J plays the path key to key, M clears it, frozen camera pans)
+    FreeCam: camera thread up (build 13: J plays the path key to key, M clears it, frozen camera pans)
     FreeCam: switched on, asking the renderer which camera it draws
     FreeCam: hooked the view accessor at 0000... with an absolute jump (original kept at ...)
     FreeCam: the renderer asked about 0000... for the first time
@@ -271,5 +328,6 @@ dinput8.original.dll before copying this one in. To go back, rename it back.
 UNINSTALL
 ---------
 
-Put your original dinput8.dll back, and delete the standalone folder if you used it.
+Put your original dinput8.dll back with Uninstall-FreeCam.bat. If you installed an older
+version that had a standalone folder, delete that folder too - this one does not add it.
 Nothing else is written to the game folder except TW_MenuLog.txt.

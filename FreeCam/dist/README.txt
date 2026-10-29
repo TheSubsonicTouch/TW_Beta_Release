@@ -1,6 +1,13 @@
 Triad Wars - Free Camera
 ========================
 
+This is the standalone build. It is no longer in the download zip: the release is
+the menu build (menu/README.txt), which loads as the game's dinput8.dll and needs no
+injector at all. This one is kept for anyone who builds it from the repository with
+./build.sh - it is here because FreeCam-Inject.exe uses CreateRemoteThread and
+WriteProcessMemory, which every scanner reads as a process injector, and there is no
+reason for the release to carry that when it does not need it.
+
 A free camera for the offline Triad Wars build. Drop the four files in this folder into
 your game folder, next to TriadWars.exe, and press Caps Lock to fly.
 
