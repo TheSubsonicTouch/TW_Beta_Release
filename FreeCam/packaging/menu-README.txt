@@ -104,6 +104,18 @@ game carries on from its own camera and not from where you flew to.
 WHAT CHANGED IN THIS BUILD
 --------------------------
 
+  - The spawn items in the menu now actually do something. They did not before, for a
+    dull reason: the spawn is carried out on the camera thread - the only thread that
+    has the game's per-thread allocator - and that thread only existed once you had
+    flown the camera. Choosing "Spawn NPC" without ever flying left the request
+    sitting in a queue that nothing ran. The thread is now started when you ask for a
+    spawn, whether or not the camera is on.
+  - A spawn asked for too early - on a loading screen, or before the player exists -
+    is retried for eight seconds instead of failing, so pressing the key on the way
+    into the world still works.
+  - The spawn calls go through the menu's guarded trampoline, so a failure inside the
+    game's spawn code comes back as a line in the corner display instead of a crash.
+
   - B spawns an NPC three metres in front of the player, facing the way you face. N walks
     through the models, H switches between hostile and friendly, and the same three
     choices are in the menu: "NPC model", "NPC attitude" and "Spawn NPC in front".
@@ -290,13 +302,13 @@ IF IT DOES NOT WORK
 -------------------
 
 TW_MenuLog.txt, next to TriadWars.exe, records everything. The second line of a flight
-says which build is running - "build 14" for this one. If it says a lower number, the game
+says which build is running - "build 15" for this one. If it says a lower number, the game
 is loading an older dinput8.dll: run Install-FreeCam.bat again from this zip.
  Load into the world
 first - the camera cannot be told apart on a loading screen - then toggle it and
 look for these lines, in this order:
 
-    FreeCam: camera thread up (build 14: B spawns an NPC 3 m ahead - N picks the model, H the side)
+    FreeCam: camera thread up (build 15: B spawns an NPC 3 m ahead - N picks the model, H the side)
     FreeCam: switched on, asking the renderer which camera it draws
     FreeCam: hooked the view accessor at 0000... with an absolute jump (original kept at ...)
     FreeCam: the renderer asked about 0000... for the first time

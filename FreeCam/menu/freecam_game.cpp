@@ -1543,6 +1543,7 @@ bool StartFlying() {
 
     g_looking = false;
     g_live = 1;
+    timeBeginPeriod(1);      // 1 ms sleeps while flying; lowered in StopFlying
 
     // Once, when the camera is first found: stand in front of the game's own input, so
     // the character stops moving and fighting under the camera.
@@ -1565,6 +1566,7 @@ void StopFlying() {
     g_live = 0;
     g_looking = false;
     g_haveWrote = 0;
+    timeEndPeriod(1);    // paired with StartFlying; nothing else raises it
     RestoreMatrices();   // the matrices as they were when the flight started
     TW_Log("FreeCam: off after %.0f units", g_state.moved);
 }
@@ -1577,8 +1579,9 @@ DWORD WINAPI Loop(LPVOID) {
     int quietTicks = 0;   // loop turns (1 ms each) without a single accessor call
     ULONGLONG lastReport = GetTickCount64();
 
-    timeBeginPeriod(1);
-    TW_Log("FreeCam: camera thread up (build 14: B spawns an NPC 3 m ahead - N picks the model, H the side)");
+    // The 1 ms timer is raised in StartFlying and lowered in StopFlying: a thread that is
+    // only alive so the menu can spawn something must not hold the system timer down.
+    TW_Log("FreeCam: camera thread up (build 15: B spawns an NPC 3 m ahead - N picks the model, H the side)");
 
     for (;;) {
         if (g_quit) break;
@@ -1820,6 +1823,14 @@ void EnsureThread() {
 }
 
 }  // namespace
+
+// Public, so the NPC spawner can start the thread it needs without switching the camera
+// on: the spawn has to run on a thread that has the game's per-thread allocator, and that
+// thread is this one.
+bool FreeCamEnsureThread() {
+    EnsureThread();
+    return g_thread != nullptr;
+}
 
 int FreeCamHudLines(FreeCamHudLine *out, int max) { return HudCollect(out, max); }
 

@@ -39,6 +39,12 @@ struct FreeCamHudLine {
 // how many there are. Safe to call when free cam has never been switched on.
 int FreeCamHudLines(FreeCamHudLine *out, int max);
 
+// Starts the camera thread if it is not running yet, and says whether it is. The thread
+// is the only one that has run the game's per-thread allocator setup (see freecam_spawn.h),
+// so a spawn asked for while the camera has never been switched on needs it started
+// first - otherwise the request sits in the queue and nothing happens.
+bool FreeCamEnsureThread();
+
 // Per-frame housekeeping. The camera also runs its own thread because the game
 // rewrites its matrices every frame and we have to win that race; this is here
 // so the render loop can nudge it (and is safe to call when free cam is off).

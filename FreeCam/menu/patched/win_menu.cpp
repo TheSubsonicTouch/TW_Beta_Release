@@ -608,7 +608,11 @@ void buildMenu() {
         tw::game::SpawnSelectByName(model);
         tw::game::SpawnSetHostile(hostile);
         tw::game::SpawnRequest(model, hostile);
-        return std::string("Spawn: queued (") + (hostile ? "hostile" : "friendly") + ")";
+        // The spawn itself happens on the camera thread a few milliseconds later, so the
+        // menu can only say it was taken. The result appears in the corner display and in
+        // TW_MenuLog.txt.
+        return std::string("Spawn: queued (") + (hostile ? "hostile" : "friendly") +
+               ") - see the corner display";
     };
     hooks.setInvincible = [](bool on) { pushJob(Job{JobInvincible, std::string(), 0.0f, on}); };
     hooks.setHudHidden = [](bool on) { pushJob(Job{JobHudHidden, std::string(), 0.0f, on}); };

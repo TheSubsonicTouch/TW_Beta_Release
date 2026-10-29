@@ -59,6 +59,18 @@ void tw_spawn_guarded(void* idOut, void* hashPtr, const void* matrix, int flags)
     fn(idOut, hashPtr, matrix, flags, nullptr, nullptr);
     tw_in_spawn = 0;
 }
+// Same guarded call, but it hands back what the game function returned. The spawn call's
+// whole point is the object it creates, so a caller that needs it cannot use the void one.
+void* tw_spawn_call(void* target, void* a1, void* a2, const void* a3, int flags) {
+    typedef void* (*Fn)(void*, void*, const void*, int, void*, void*);
+    Fn fn = (Fn)target;
+    if (!fn) return nullptr;
+    tw_spawn_target = target;
+    tw_in_spawn = 1;
+    void* result = fn(a1, a2, a3, flags, nullptr, nullptr);
+    tw_in_spawn = 0;
+    return result;
+}
 }
 EOF
 

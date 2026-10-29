@@ -207,7 +207,7 @@ void buildDebugMenu(Menu& menu, const DebugHooks& hooks) {
         menu.addItem(attitude);
 
         MenuItem spawn;
-        spawn.label = "Spawn NPC in front";
+        spawn.label = "Spawn NPC 3 m ahead";
         spawn.onAction = [&menu, spawnBase, fn = hooks.spawnNpcInFront]() {
             if (!fn) { menu.setStatus("Spawn: not wired yet"); return; }
             const MenuItem& m = menu.items()[spawnBase];
