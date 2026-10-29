@@ -76,6 +76,8 @@ echo     left/right arrows  how fast the playback runs (0.1x - 4x)
 echo     O      freeze the camera and let the player move; O again to fly
 echo     P      follow the player (frozen: pan to keep them in frame)
 echo     F10    put the camera back and switch off
+echo     B      spawn an NPC 3 m in front    N  next model    H  hostile/friendly
+echo     (the same three choices are in the menu: NPC model, attitude, spawn)
 echo.
 echo   To undo this, run Uninstall-FreeCam.bat.
 echo.

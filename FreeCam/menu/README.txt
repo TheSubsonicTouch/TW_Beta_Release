@@ -10,9 +10,10 @@ WHAT WAS ADDED
     freecam_game.h / freecam_game.cpp     the camera: find it, hook it, fly it
     ../src/freecam.c, freecam.h           the portable half (poses, matrices, the movement
                                           state machine, world/view pairing and detection)
-    patched/menu_core.h                   DebugHooks gains setFreeCam
-    patched/menu_core.cpp                 the "Free Camera" toggle item
-    patched/win_menu.cpp                  wires the hook and includes the new module
+    patched/menu_core.h                   DebugHooks gains setFreeCam and spawnNpcInFront
+    patched/menu_core.cpp                 the "Free Camera" toggle, and the NPC model /
+                                          attitude / spawn items
+    patched/win_menu.cpp                  wires the hooks and includes the new modules
 
 Nothing else in the menu changed.
 
@@ -132,6 +133,8 @@ WHAT BUILD 7 ADDED
 ------------------
 
     input_block.h / input_block.cpp       holds the game's own controls back while the
+    freecam_spawn.h / freecam_spawn.cpp   spawns an NPC three metres in front of the
+                                          player, and picks its side
                                           camera flies (details below)
     fc_follow_update_angles(st, y, p)     P turns the camera with the player's own camera
     fc_play_set_speed / _shift / _speed   the arrow keys' playback speed, 0.1x to 4x
@@ -357,8 +360,53 @@ did:
 freecam_game.cpp is compiled with -fms-extensions so it can use __try/__except.
 
 The build needs spawn_guard.S from the menu project, which is not in the TestingSkybox
-repository; the script uses a C fallback instead. Spawning is not reachable from the
-menu any more (those items were removed), so the guarded call is never taken.
+repository; the script uses a C fallback instead. The menu's own spawn items (vehicle,
+weapon) are still removed, so the guarded call is only reached by the NPC spawn below,
+which calls the spawn functions directly and checks every pointer before using it.
+
+SPAWNING AN NPC
+---------------
+
+B puts a character three metres in front of the player; N walks the model list and H
+switches hostile/friendly. The menu offers the same three choices. The spawn itself runs
+on the camera thread, never on the render thread: the game's spawn path allocates through
+a per-thread allocator that lives in TLS, and the render thread does not have it, which is
+the fault that made the menu's original spawn items get removed. The camera thread runs
+the game's own initialiser for that allocator (0x4ba220) before it spawns.
+
+The chain is the one the game's encounters use at 0x431d9d for an on-foot unit:
+
+    hash = 0x1b82a0(&hash, "object-physical-character-police")
+    id   = 0x1c8a60(&table@0x23f2510, &id, "FreeCamNPCSpawn<n>")
+    obj  = 0x63deb0(&id, &hash, matrix, 0, NULL, NULL)
+
+The name hash is a table-driven CRC over the name (poly 0x04c11db7, init 0xffffffff), so
+it can be computed offline: hash("FactionClass") is 0x6384ec9a, which is exactly the
+constant the executable feeds to its member lookup, and that is how the table was
+confirmed rather than guessed.
+
+The matrix comes from fc_spawn_matrix() in freecam.c: the player's own transform, moved
+three metres along its facing with the pitch dropped, so the NPC stands upright at the
+player's height. That function is unit tested (a quarter turn, a pitched look, and garbage
+in / nothing out).
+
+Hostile or friendly is the faction field. The game's own script bindings give it away:
+
+    0x3960e0  get_faction(entity)  resolves the entity by the tag bits in word[+0x4c]
+                                   and returns the int at object+0xC8
+    0x5ebbc0  the end of set_faction: writes object+0xC8 (the id) and object+0xCC (the
+                                   name hash it looks up for that id)
+
+so friendly writes the player's own faction and hostile writes a different one. The write
+only happens when the resolved object still reads back the faction the game just reported
+for it - if the resolve does not land on that object, nothing is written at all. The ids
+are clamped to the range the game's name table actually has (0..38, and it does not
+range-check its own index).
+
+The model list is short because the character prefabs are not in the executable: it names
+only a handful of them, and the rest live in the game's data bundles. FreeCam.npc.txt next
+to TriadWars.exe replaces the list with any property-set names you want to try, one per
+line. A name the game does not know fails with a message in the log; it does not crash.
 
 ADDRESSES (this build of TriadWars.exe)
 ---------------------------------------

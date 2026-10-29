@@ -267,6 +267,56 @@ static void test_matrices(void)
     }
 }
 
+static void test_spawn_matrix(void)
+{
+    fc_mat player, spot;
+    float pos[3] = { 100.0f, 200.0f, 5.0f };
+    float spos[3], yaw = 0.0f, pitch = 0.0f;
+
+    /* Facing +Y at yaw 0: three metres in front is three metres up the Y axis, at the
+     * same height. This is the whole point of the feature, so it is checked exactly. */
+    fc_mat_from_pose(&player, pos, 0.0f, 0.0f, 0);
+    CHECK(fc_spawn_matrix(&spot, &player, 3.0f) == 1, "a good transform makes a spot");
+    CHECK(NEAR(spot.m[12], 100.0f, 1e-4) && NEAR(spot.m[13], 203.0f, 1e-4) &&
+          NEAR(spot.m[14], 5.0f, 1e-4),
+          "3 m in front is 3 m along +Y (got %f %f %f)", spot.m[12], spot.m[13], spot.m[14]);
+
+    /* The new transform faces the way the player faces, and is a world transform. */
+    CHECK(fc_mat_to_pose(&spot, spos, &yaw, &pitch, 0) == 1, "the spot decomposes");
+    CHECK(NEAR(yaw, 0.0f, 1e-4) && NEAR(pitch, 0.0f, 1e-4), "the spot faces where the player does");
+    CHECK(NEAR(spot.m[15], 1.0f, 1e-4), "the last row is completed");
+
+    /* Turned left: yaw +90 degrees looks along -X, so the spot moves to -X. */
+    fc_mat_from_pose(&player, pos, (float)(TEST_PI / 2.0), 0.0f, 0);
+    CHECK(fc_spawn_matrix(&spot, &player, 3.0f) == 1, "a turned transform makes a spot");
+    CHECK(NEAR(spot.m[12], 97.0f, 1e-3) && NEAR(spot.m[13], 200.0f, 1e-3),
+          "yaw +90 puts the spot along -X (got %f %f)", spot.m[12], spot.m[13]);
+
+    /* Looking at the sky must not lift the spot off the ground: pitch is dropped. */
+    fc_mat_from_pose(&player, pos, 0.0f, 1.2f, 0);
+    CHECK(fc_spawn_matrix(&spot, &player, 3.0f) == 1, "a pitched transform makes a spot");
+    CHECK(NEAR(spot.m[14], 5.0f, 1e-4), "pitch does not lift the spot (got %f)", spot.m[14]);
+    CHECK(NEAR(spot.m[13], 203.0f, 1e-3), "pitch does not shorten the distance");
+
+    /* Straight down is a special case worth pinning down: the yaw is undefined, but the
+     * spot must still be horizontal from the player rather than at their feet. */
+    fc_mat_from_pose(&player, pos, 0.0f, (float)(TEST_PI / 2.0), 0);
+    CHECK(fc_spawn_matrix(&spot, &player, 3.0f) == 1, "looking straight up still works");
+    CHECK(NEAR(spot.m[14], 5.0f, 1e-4), "looking straight up does not stack the spot overhead");
+
+    /* Garbage in, nothing out: the caller's matrix is left alone. */
+    {
+        fc_mat bad, untouched;
+        fc_mat_identity(&bad);
+        bad.m[0] = 1.0f / 0.0f;
+        untouched = bad;
+        CHECK(fc_spawn_matrix(&spot, &bad, 3.0f) == 0, "a broken transform is refused");
+        CHECK(fc_spawn_matrix(NULL, &player, 3.0f) == 0, "no output means no work");
+        CHECK(fc_spawn_matrix(&spot, NULL, 3.0f) == 0, "no input means no work");
+        CHECK(memcmp(&bad, &untouched, sizeof bad) == 0, "the input is not touched");
+    }
+}
+
 static void test_toggle(void)
 {
     fc_config cfg;
@@ -1240,6 +1290,7 @@ int main(void)
     test_pose_from_view_roll();
     test_config();
     test_matrices();
+    test_spawn_matrix();
     test_toggle();
     test_movement();
     test_look();

@@ -19,6 +19,7 @@
 #include "../game_hooks.h"
 #include "../menu_core.h"
 #include "freecam_game.h"
+#include "freecam_spawn.h"
 #include "input_block.h"
 #include "log.h"
 #include "spawn_guard.h"
@@ -571,7 +572,8 @@ DWORD WINAPI installThread(LPVOID) {
 void buildMenu() {
     tw::DebugHooks hooks;
     hooks.vehicleNames = tw::game::VehicleNames();
-    hooks.npcNames = tw::game::NpcNames();
+    // The spawn module owns the list, because it is also what FreeCam.npc.txt feeds.
+    hooks.npcNames = tw::game::SpawnModels();
     hooks.weaponNames = tw::game::WeaponNames();
     hooks.weatherPresets = tw::game::WeatherPresets();
     hooks.levelTargets = tw::game::LevelTargets();
@@ -598,6 +600,16 @@ void buildMenu() {
         return std::string("Teleport: queued");
     };
     hooks.setFreeCam = [](bool on) { return tw::game::FreeCamSetActive(on); };
+    // The spawn runs on the camera thread, which is the thread that has the game's
+    // per-thread allocator; the menu thread only queues it. The result goes to the HUD
+    // and to TW_MenuLog.txt, so the line here only says it was taken.
+    hooks.spawnNpcInFront = [](const std::string& model, bool hostile) {
+        // Take the menu's choice over as the hotkey one, so B repeats what you just did.
+        tw::game::SpawnSelectByName(model);
+        tw::game::SpawnSetHostile(hostile);
+        tw::game::SpawnRequest(model, hostile);
+        return std::string("Spawn: queued (") + (hostile ? "hostile" : "friendly") + ")";
+    };
     hooks.setInvincible = [](bool on) { pushJob(Job{JobInvincible, std::string(), 0.0f, on}); };
     hooks.setHudHidden = [](bool on) { pushJob(Job{JobHudHidden, std::string(), 0.0f, on}); };
     hooks.setTimeOfDay = [](float v) { pushJob(Job{JobTimeOfDay, std::string(), v, false}); };

@@ -11,8 +11,8 @@
 //   FILEFLAGSMASK 0x3f, FILEFLAGS 0      FILESUBTYPE 0
 
 1 VERSIONINFO
- FILEVERSION 1,0,0,13
- PRODUCTVERSION 1,0,0,13
+ FILEVERSION 1,0,0,14
+ PRODUCTVERSION 1,0,0,14
  FILEFLAGSMASK 0x3fL
  FILEFLAGS 0x0L
  FILEOS 0x40004L
@@ -25,12 +25,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName",      "TheSubsonicTouch"
             VALUE "FileDescription",  "Triad Wars Free Camera - standalone DLL"
-            VALUE "FileVersion",      "1.0.0.13"
+            VALUE "FileVersion",      "1.0.0.14"
             VALUE "InternalName",     "FreeCam"
             VALUE "LegalCopyright",   "Free camera by TheSubsonicTouch. Triad Wars is (c) United Front Games / Square Enix."
             VALUE "OriginalFilename", "FreeCam.dll"
             VALUE "ProductName",      "Triad Wars Free Camera"
-            VALUE "ProductVersion",   "1.0.0.13"
+            VALUE "ProductVersion",   "1.0.0.14"
             VALUE "Comments",         "Game camera control for the offline Triad Wars build. No network, no install, no keylogger: it reads the keyboard only for its own hotkeys and never sends anything anywhere."
         END
     END

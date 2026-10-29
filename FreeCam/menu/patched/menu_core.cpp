@@ -187,6 +187,37 @@ void buildDebugMenu(Menu& menu, const DebugHooks& hooks) {
     };
     menu.addItem(freecam);
 
+    // NPC spawn. The two selectors keep their own choice; the action reads them, the way
+    // "Apply level" reads its two items. The model list is whatever the spawn module can
+    // name - the character property sets the game itself names, or FreeCam.npc.txt - and
+    // "hostile" means "give it a faction that is not yours".
+    if (!hooks.npcNames.empty()) {
+        const std::size_t spawnBase = menu.items().size();
+
+        MenuItem model;
+        model.label = "NPC model";
+        model.kind = ItemKind::Selector;
+        model.options = hooks.npcNames;
+        menu.addItem(model);
+
+        MenuItem attitude;
+        attitude.label = "NPC attitude";
+        attitude.kind = ItemKind::Selector;
+        attitude.options = { "Friendly", "Hostile" };
+        menu.addItem(attitude);
+
+        MenuItem spawn;
+        spawn.label = "Spawn NPC in front";
+        spawn.onAction = [&menu, spawnBase, fn = hooks.spawnNpcInFront]() {
+            if (!fn) { menu.setStatus("Spawn: not wired yet"); return; }
+            const MenuItem& m = menu.items()[spawnBase];
+            const MenuItem& a = menu.items()[spawnBase + 1];
+            const std::string choice = m.options.empty() ? std::string() : m.options[m.optionIndex];
+            menu.setStatus(fn(choice, a.optionIndex == 1));
+        };
+        menu.addItem(spawn);
+    }
+
     MenuItem inv;
     inv.label = "Invincible";
     inv.kind = ItemKind::Toggle;

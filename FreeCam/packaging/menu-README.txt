@@ -104,6 +104,20 @@ game carries on from its own camera and not from where you flew to.
 WHAT CHANGED IN THIS BUILD
 --------------------------
 
+  - B spawns an NPC three metres in front of the player, facing the way you face. N walks
+    through the models, H switches between hostile and friendly, and the same three
+    choices are in the menu: "NPC model", "NPC attitude" and "Spawn NPC in front".
+    The result of each spawn, with the faction ids it read, goes to TW_MenuLog.txt.
+
+    The spawn is the game's own: the model's property-set name is hashed, the game makes
+    an id for it, and its SpawnAtXform builds the object - the same three calls its own
+    encounters make when they put an on-foot unit in the world. "Hostile" and "friendly"
+    are the faction field the game reads when it works out who is on whose side: friendly
+    sets the NPC to your faction, hostile gives it a different one. The model list holds
+    the character prefabs the game's executable names by itself; the rest live inside the
+    game's data files, so any others you know can go in FreeCam.npc.txt (one property-set
+    name per line, next to TriadWars.exe) and they join the list.
+
   - J plays the recorded keyframes back (it was K up to build 10). Builds 8 and 9 read
     the key twice in one frame to check the freeze first, which used the press up, so the
     playback never started at all; hotkeys now latch their press for the frame, so that
@@ -186,9 +200,25 @@ CONTROLS
     O                   freeze the camera where it is - the view stays put while the
                         player moves, fights and interacts; O again to unfreeze
     F10                 panic: put the camera back and switch off, from anywhere
+    B                   spawn the selected NPC three metres in front of the player,
+                        facing the way the player faces
+    N                   next NPC model (the list is in the menu too)
+    H                   NPCs spawn hostile or friendly (the menu has the same choice)
 
 The mouse is natural: push it forward and you look up, pull it back and you look down.
 Moving it right turns right.
+
+Spawning NPCs:
+
+  - B puts one on the ground three metres in front of the player, standing upright and
+    facing the same way. It is the game's own spawn call, so the NPC is a real character
+    of the chosen kind, not a model pasted into the scene.
+  - H decides whether it belongs to your faction (it will not fight you) or to a
+    different one (the game's AI reads that field when it works out who is on whose side).
+    The menu's "NPC attitude" selector does the same thing.
+  - A spawn never runs on the render thread: the game's spawn path allocates through a
+    per-thread allocator, so the camera thread carries it out after running the game's own
+    initialiser for that allocator. If it fails, the reason is in TW_MenuLog.txt.
 
 Follow and keyframes:
 
@@ -260,13 +290,13 @@ IF IT DOES NOT WORK
 -------------------
 
 TW_MenuLog.txt, next to TriadWars.exe, records everything. The second line of a flight
-says which build is running - "build 13" for this one. If it says a lower number, the game
+says which build is running - "build 14" for this one. If it says a lower number, the game
 is loading an older dinput8.dll: run Install-FreeCam.bat again from this zip.
  Load into the world
 first - the camera cannot be told apart on a loading screen - then toggle it and
 look for these lines, in this order:
 
-    FreeCam: camera thread up (build 13: J plays the path key to key, M clears it, frozen camera pans)
+    FreeCam: camera thread up (build 14: B spawns an NPC 3 m ahead - N picks the model, H the side)
     FreeCam: switched on, asking the renderer which camera it draws
     FreeCam: hooked the view accessor at 0000... with an absolute jump (original kept at ...)
     FreeCam: the renderer asked about 0000... for the first time

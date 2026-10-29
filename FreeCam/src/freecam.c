@@ -474,6 +474,33 @@ int fc_mat_to_pose(const fc_mat *m, float pos[3], float *yaw, float *pitch, int 
     return 1;
 }
 
+int fc_spawn_matrix(fc_mat *out, const fc_mat *player, float metres)
+{
+    float pos[3], yaw = 0.0f, pitch = 0.0f, f[3], r[3], u[3];
+
+    if (!out || !player) return 0;
+
+    /* The player's own transform: where they are and which way they face. fc_mat_to_pose
+     * is the same reader the camera uses on the game's matrices, so this works on the
+     * layout the game actually writes, not on an assumed one. */
+    if (!fc_mat_to_pose(player, pos, &yaw, &pitch, 0)) return 0;
+
+    /* Forward, flat: pitch belongs to the camera, not to the thing being placed. A pawn
+     * set down while the player looks at their feet would otherwise end up half in the
+     * road, and one placed while they look at the sky would be over their head. */
+    fc_basis(yaw, 0.0f, f, r, u);
+    (void)r; (void)u;
+
+    pos[0] += f[0] * metres;
+    pos[1] += f[1] * metres;
+    pos[2] += f[2] * metres;
+
+    /* A world transform: basis as rows, position in the translation. Upright, facing
+     * where the player faces. */
+    fc_mat_from_pose(out, pos, yaw, 0.0f, 0);
+    return 1;
+}
+
 int fc_pose_from_view(const fc_mat *view, float pos[3], float *yaw, float *pitch, int *sign)
 {
     float f[3], eye[3], y, pi;

@@ -2,7 +2,7 @@
 <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
   <assemblyIdentity type="win32"
                     name="TheSubsonicTouch.TriadWars.FreeCamera.Injector"
-                    version="1.0.0.13"
+                    version="1.0.0.14"
                     processorArchitecture="amd64"/>
   <description>Triad Wars Free Camera, standalone loader</description>
   <trustInfo xmlns="urn:schemas-microsoft-com:asm.v2">

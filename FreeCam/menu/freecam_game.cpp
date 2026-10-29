@@ -64,6 +64,7 @@ extern "C" {
 }
 
 #include "freecam_game.h"
+#include "freecam_spawn.h"
 #include "log.h"
 
 namespace tw {
@@ -1187,6 +1188,9 @@ Hotkey g_playKey{ 'J' };   // J - play the captured keyframes back
 Hotkey g_freezeKey{ 'O' };
 Hotkey g_clearKey{ 'M' };
 Hotkey g_slowerKey{ VK_LEFT };      // playback speed down
+Hotkey g_spawnKey{ 'B' };          // B - spawn the selected NPC three metres ahead
+Hotkey g_modelKey{ 'N' };          // N - next NPC model
+Hotkey g_sideKey{ 'H' };           // H - hostile / friendly
 Hotkey g_fasterKey{ VK_RIGHT };     // playback speed up
 
 // Start a new frame for every hotkey. One call per tick, before anything reads a key.
@@ -1198,6 +1202,9 @@ void BeginHotkeyFrame() {
     g_clearKey.NewFrame();
     g_slowerKey.NewFrame();
     g_fasterKey.NewFrame();
+    g_spawnKey.NewFrame();
+    g_modelKey.NewFrame();
+    g_sideKey.NewFrame();
 }
 
 // While the camera is flying, the player is not in control: the game's own input is
@@ -1313,6 +1320,42 @@ void HandlePlaybackSpeed() {
 // P - follow the player, L - keyframe, J - play the path back, M - forget the path,
 // O - freeze, left/right - how fast the path plays.
 void HandleHotkeys(const float player[3], bool havePlayer) {
+    // NPC spawn: B puts the selected model three metres in front of the player, N walks
+    // through the models, H flips hostile/friendly. The spawn itself runs in SpawnPump at
+    // the top of the loop, not here, so this stays a cheap key check.
+    if (g_modelKey.Pressed()) {
+        const auto &models = tw::game::SpawnModels();
+        if (models.empty()) {
+            Hud("N", "no models known");
+        } else {
+            tw::game::SpawnSetModel((tw::game::SpawnModelIndex() + 1) % static_cast<int>(models.size()));
+            const std::string &name = models[tw::game::SpawnModelIndex()];
+            Hud("N", tw::game::SpawnShortName(name).c_str());
+            TW_Log("FreeCam: NPC model %d of %d: %s", tw::game::SpawnModelIndex() + 1,
+                   static_cast<int>(models.size()), name.c_str());
+        }
+    }
+
+    if (g_sideKey.Pressed()) {
+        const bool hostile = !tw::game::SpawnHostile();
+        tw::game::SpawnSetHostile(hostile);
+        Hud("H", hostile ? "NPCs spawn hostile" : "NPCs spawn friendly");
+        TW_Log("FreeCam: NPCs will spawn %s", hostile ? "hostile (another faction)" : "friendly (your faction)");
+    }
+
+    if (g_spawnKey.Pressed()) {
+        const auto &models = tw::game::SpawnModels();
+        if (models.empty()) {
+            Hud("B", "no NPC models to spawn");
+        } else {
+            const std::string &name = models[tw::game::SpawnModelIndex()];
+            TW_Log("FreeCam: spawning %s %s, three metres ahead", name.c_str(),
+                   tw::game::SpawnHostile() ? "hostile" : "friendly");
+            Hud("B", "spawning...");
+            tw::game::SpawnRequest(name, tw::game::SpawnHostile());
+        }
+    }
+
     // Pressed() latches its answer for the frame, so reading a key more than once in a
     // tick is safe - but each key is still asked once here, for clarity.
     if (g_followKey.Pressed()) {
@@ -1535,10 +1578,16 @@ DWORD WINAPI Loop(LPVOID) {
     ULONGLONG lastReport = GetTickCount64();
 
     timeBeginPeriod(1);
-    TW_Log("FreeCam: camera thread up (build 13: J plays the path key to key, M clears it, frozen camera pans)");
+    TW_Log("FreeCam: camera thread up (build 14: B spawns an NPC 3 m ahead - N picks the model, H the side)");
 
     for (;;) {
         if (g_quit) break;
+
+        // A spawn asked for from the menu is carried out here and nowhere else: this
+        // thread is the one that has run the game's per-thread allocator init, and the
+        // spawn path allocates. The HUD line belongs to the same tick, so the answer
+        // shows up next to the hotkeys.
+        if (tw::game::SpawnPump()) Hud("B", tw::game::SpawnStatus().c_str());
 
         if (!g_want) {
             if (g_live) StopFlying();

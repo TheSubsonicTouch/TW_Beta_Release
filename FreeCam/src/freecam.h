@@ -203,6 +203,20 @@ int  fc_aim_at(fc_state *st, const float target[3], float dt);
  * forward = (-sin(yaw)cos(pitch), cos(yaw)cos(pitch), sin(pitch)). */
 void fc_angles_to(const float pos[3], const float target[3], float *yaw, float *pitch);
 
+/* ---- spawning things in front of the player ------------------------------------ */
+
+/* Where a new object should appear: `metres` in front of the transform `player`, facing
+ * the same way. The result is a world transform (basis as rows, position in m[12..14]),
+ * laid out like the one the game keeps for the player, which is what the game's own
+ * spawn call wants. Pitch is dropped, so the new object stands upright and stays at the
+ * player's height instead of being pushed into the ground or into the air when the
+ * player looks up or down.
+ *
+ * Returns 1 when `out` was written, 0 when `player` is not a usable transform (then
+ * `out` is left alone, so a caller that ignores the return value cannot act on
+ * garbage). */
+int fc_spawn_matrix(fc_mat *out, const fc_mat *player, float metres);
+
 /* ---- freezing ---------------------------------------------------------------- */
 
 /* Hold the camera where it is. While frozen, fc_step ignores every key and the mouse

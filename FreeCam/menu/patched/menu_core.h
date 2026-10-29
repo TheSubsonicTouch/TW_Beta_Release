@@ -83,6 +83,10 @@ struct DebugHooks {
     std::function<std::string(const std::string&)> setShader;
     std::function<std::string()> teleportToWaypoint;
     std::function<std::string(bool)> setFreeCam;   // free camera on/off, returns the status line
+    // NPC spawn: the model and the attitude are picked in the menu, and the spawn itself
+    // is carried out by the camera thread (it needs the game's per-thread allocator), so
+    // the hook returns a queued line rather than the result.
+    std::function<std::string(const std::string&, bool)> spawnNpcInFront;  // model, hostile
     std::function<void(bool)> setInvincible;
     std::function<void(bool)> setHudHidden;
     std::function<void(float)> setTimeOfDay;   // 0.0 .. 24.0
