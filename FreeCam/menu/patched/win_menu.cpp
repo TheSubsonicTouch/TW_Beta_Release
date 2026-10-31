@@ -19,7 +19,9 @@
 #include "../game_hooks.h"
 #include "../menu_core.h"
 #include "freecam_game.h"
+#include "freecam_noclip.h"
 #include "freecam_spawn.h"
+#include "freecam_unlock.h"
 #include "input_block.h"
 #include "log.h"
 #include "spawn_guard.h"
@@ -161,9 +163,15 @@ LONG CALLBACK vehHandler(EXCEPTION_POINTERS* ep) {
 
 tw::Menu g_menu;
 
+// Defined after the job queue; the model scan replaces the NPC selector's options,
+// so the menu is rebuilt in place once the scan has finished.
+void buildMenu();
+bool g_menuRebuild = false;
+
 enum JobKind {
     JobSpawnVehicle, JobSpawnNpc, JobSpawnWeapon, JobWeather, JobTeleport,
     JobInvincible, JobHudHidden, JobTimeOfDay, JobLevel, JobShader,
+    JobScanModels,
 };
 
 struct Job {
@@ -209,6 +217,12 @@ void runJob(const Job& j) {
         break;
     case JobShader:
         g_menu.setStatus(tw::game::SetShader(j.text));
+        break;
+    case JobScanModels:
+        // Reads the game's data files, so it runs here, on the game thread, once, rather
+        // than inside the menu's key handling.
+        g_menu.setStatus(tw::game::SpawnScanGameFiles());
+        g_menuRebuild = true;
         break;
     }
 }
@@ -487,6 +501,16 @@ HRESULT STDMETHODCALLTYPE hkPresent(IDXGISwapChain* sc, UINT sync, UINT flags) {
     if (g_imguiReady) {
         pollInput();
         drainJobs();   // run queued actions on the game thread, then show results
+        if (g_menuRebuild) {
+            // The scan replaced the model list: rebuild the menu with the new options and
+            // leave the cursor where it was.
+            g_menuRebuild = false;
+            const std::size_t sel = g_menu.selectedIndex();
+            const bool visible = g_menu.visible();
+            buildMenu();
+            g_menu.select(sel);
+            g_menu.setVisible(visible);
+        }
         renderFrame();
     }
     return oPresent(sc, sync, flags);
@@ -625,8 +649,33 @@ void buildMenu() {
         pushJob(Job{JobShader, n, 0.0f, false});
         return std::string("Shader: queued");
     };
+    // Unlock all is two halves: the content (vehicles, weapons, upgrades, levels) and the
+    // opportunities (rivals off cooldown, job ladder open). Neither is much use alone, so
+    // the one item does both and reports both.
     hooks.unlockAllContent = []() {
-        return tw::game::UnlockAllContent();
+        std::string content = tw::game::UnlockAllContent();
+        std::string raids = tw::game::UnlockRaidsAndEvents();
+        return content + " | " + raids;
+    };
+    hooks.unlockRaids = []() { return tw::game::UnlockRaidsAndEvents(); };
+
+    // Reading the game's data files takes a second or two, so the menu queues it like a
+    // spawn: the click returns at once and the list is replaced when the scan is done.
+    hooks.scanNpcModels = []() {
+        pushJob(Job{JobScanModels, std::string(), 0.0f, false});
+        return std::string("Scan: reading the game files - the list follows when it is done");
+    };
+    hooks.resetSpawnerLabel = "Reset spawner after a fault";
+    hooks.resetSpawner = []() {
+        tw::game::SpawnClearFault();
+        return std::string(tw::game::SpawnBlocked()
+                               ? "Spawn: still blocked - restart after a crash"
+                               : "Spawn: fault cleared");
+    };
+    hooks.setNoclip = [](bool on) {
+        tw::game::NoclipSet(on);
+        return std::string(on ? "Noclip: on - WASD, Space up, Ctrl down"
+                              : "Noclip: off - the character drops to the ground");
     };
 
     tw::buildDebugMenu(g_menu, hooks);

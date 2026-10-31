@@ -64,6 +64,7 @@ extern "C" {
 }
 
 #include "freecam_game.h"
+#include "freecam_noclip.h"
 #include "freecam_spawn.h"
 #include "log.h"
 
@@ -1192,6 +1193,8 @@ Hotkey g_spawnKey{ 'B' };          // B - spawn the selected NPC three metres ah
 Hotkey g_modelKey{ 'N' };          // N - next NPC model
 Hotkey g_sideKey{ 'H' };           // H - hostile / friendly
 Hotkey g_fasterKey{ VK_RIGHT };     // playback speed up
+Hotkey g_noclipKey{ 'U' };        // U - fly the player themselves
+Hotkey g_faultKey{ 'R' };         // R - allow one more spawn after a fault
 
 // Start a new frame for every hotkey. One call per tick, before anything reads a key.
 void BeginHotkeyFrame() {
@@ -1205,6 +1208,8 @@ void BeginHotkeyFrame() {
     g_spawnKey.NewFrame();
     g_modelKey.NewFrame();
     g_sideKey.NewFrame();
+    g_noclipKey.NewFrame();
+    g_faultKey.NewFrame();
 }
 
 // While the camera is flying, the player is not in control: the game's own input is
@@ -1354,6 +1359,21 @@ void HandleHotkeys(const float player[3], bool havePlayer) {
             Hud("B", "spawning...");
             tw::game::SpawnRequest(name, tw::game::SpawnHostile());
         }
+    }
+
+    if (g_faultKey.Pressed()) {
+        tw::game::SpawnClearFault();
+        Hud("R", tw::game::SpawnBlocked() ? "spawner still blocked" : "spawner reset");
+        TW_Log("FreeCam: spawner fault cleared by R");
+    }
+
+    // U flies the character rather than the camera, so it works with the camera off as
+    // well: it is the one thing here that does not need a camera to move.
+    if (g_noclipKey.Pressed()) {
+        const bool on = !tw::game::NoclipActive();
+        tw::game::NoclipSet(on);
+        Hud("U", on ? "noclip on - WASD, Space up, C down" : "noclip off - dropping to the ground");
+        TW_Log("FreeCam: noclip %s", on ? "on" : "off");
     }
 
     // Pressed() latches its answer for the frame, so reading a key more than once in a
@@ -1581,7 +1601,7 @@ DWORD WINAPI Loop(LPVOID) {
 
     // The 1 ms timer is raised in StartFlying and lowered in StopFlying: a thread that is
     // only alive so the menu can spawn something must not hold the system timer down.
-    TW_Log("FreeCam: camera thread up (build 15: B spawns an NPC 3 m ahead - N picks the model, H the side)");
+    TW_Log("FreeCam: camera thread up (build 16: B spawns an NPC 3 m ahead, N picks the model, H the side, U noclip, R clears a spawn fault)");
 
     for (;;) {
         if (g_quit) break;
@@ -1591,6 +1611,10 @@ DWORD WINAPI Loop(LPVOID) {
         // spawn path allocates. The HUD line belongs to the same tick, so the answer
         // shows up next to the hotkeys.
         if (tw::game::SpawnPump()) Hud("B", tw::game::SpawnStatus().c_str());
+
+        // Noclip moves the player, not the camera, so it runs whether or not the free
+        // camera is on - and it keeps its own clock for exactly that reason.
+        tw::game::NoclipStep();
 
         if (!g_want) {
             if (g_live) StopFlying();

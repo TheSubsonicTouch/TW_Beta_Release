@@ -5,7 +5,6 @@
 // crash. The addresses are all RVAs from the image base:
 //
 //   0x1b82a0  hash(name) -> uint32      - table-driven CRC, the engine's name hash
-//   0x1c8a60  MakeId(table, out, idStr) - the id the spawn call wants
 //   0x23f2510 the table object          - its address, not its contents
 //   0x63deb0  SpawnAtXform(id, hash, matrix, flags)
 //   0x3960e0  GetFaction(entity) -> int - reads [resolved + 0xC8]
@@ -24,6 +23,7 @@
 
 #include <windows.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cwchar>
@@ -50,7 +50,6 @@ namespace {
 // --- addresses -------------------------------------------------------------
 
 constexpr uintptr_t kHashFn        = 0x1b82a0;  // (uint32_t *out, const char *name)
-constexpr uintptr_t kMakeId        = 0x1c8a60;  // (table, uint32_t *out, const char *id)
 constexpr uintptr_t kIdTable       = 0x23f2510; // the table object itself
 constexpr uintptr_t kSpawnAtXform  = 0x63deb0;  // (id, second, matrix, flags)
 constexpr uintptr_t kResolveName   = 0x5c7610;  // (idOut, hash) - the encounter path's
@@ -142,19 +141,6 @@ void *GuardedCall(uintptr_t target, void *a1, void *a2, const void *a3, int flag
     return g_spawnFaulted ? nullptr : result;
 }
 
-bool MakeId(uint32_t *out) {
-    // The other way the game builds an id: hash the instance name through the id table.
-    // Kept as a second shape to try, because the encounter path above and this one have
-    // both been seen in this executable.
-    static uint32_t counter = 0;
-    char id[48];
-    std::snprintf(id, sizeof id, "FreeCamNPCSpawn%u", ++counter);
-    if (!GuardedCall(kMakeId, reinterpret_cast<void *>(Base() + kIdTable), out, id, 0)) {
-        TW_Log("Spawn: the game faulted making an id (see the VEH line above)");
-        return false;
-    }
-    return *out != 0 && *out != 0xFFFFFFFFu;
-}
 
 void *SpawnAtXform(uint32_t id, uint32_t second, const fc_mat &where, bool *faulted) {
     if (faulted) *faulted = false;
@@ -265,9 +251,14 @@ std::vector<std::string> LoadModels() {
     return out;
 }
 
+// Loaded once, replaced when the game files are scanned. The revision lets the menu know
+// it has to rebuild its list.
+std::vector<std::string> g_models;
+int g_modelsRev = 0;
+
 const std::vector<std::string> &Models() {
-    static const std::vector<std::string> models = LoadModels();
-    return models;
+    if (g_models.empty()) g_models = LoadModels();
+    return g_models;
 }
 
 // --- state ---------------------------------------------------------------
@@ -330,15 +321,55 @@ std::string Describe(bool hostile, const std::string &model, int npcFaction, int
     return buf;
 }
 
-// Runs on the camera thread. Everything it touches is the game's own code, in the order
-// the game itself uses.
-//
-// `retry` comes back true for the failures that only mean "not yet" - no player in the
-// world, allocator not up - so the caller can try again instead of reporting a failure the
-// player would have to fix by pressing the key at a better moment.
+// One attempt at the game's own spawn, with no C++ objects inside the __try: a fault is
+// turned into an outcome the caller can report, and nothing with a destructor is alive
+// while the handler runs.
+struct Outcome {
+    bool faulted = false;
+    bool resolved = false;
+    bool created = false;
+    uint32_t hash = 0;
+    uint32_t id = 0;
+    uint32_t code = 0;
+    void *npc = nullptr;
+};
+
+// Returns true when nothing faulted. The whole chain - hash, name lookup, spawn - runs
+// under one __try, because a bad address anywhere in it would otherwise take the game
+// down, and this is the code that has done that twice.
+static bool CallSpawnChain(const char *name, const fc_mat &spot, Outcome *out) {
+    __try {
+        out->hash = HashName(name);
+        out->resolved = ResolveName(out->hash, &out->id);
+        if (out->resolved) {
+            out->npc = SpawnAtXform(out->id, out->hash, spot, &out->faulted);
+            out->created = out->npc != nullptr && !out->faulted;
+        }
+        return !out->faulted;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        out->code = GetExceptionCode();
+        out->faulted = true;
+        out->created = false;
+        return false;
+    }
+}
+
+// Spawning is disabled by this after a fault, and only "try again" turns it back on. A
+// mod that keeps calling a function that has already crashed the game once is not being
+// useful, it is being stubborn.
+bool g_blocked = false;
+uint32_t g_blockedCode = 0;
+
 std::string DoSpawn(const std::string &model, bool hostile, bool *retry) {
     if (retry) *retry = false;
     if (model.empty()) return "Spawn failed: no model selected";
+    if (g_blocked) {
+        char buf[120];
+        std::snprintf(buf, sizeof buf,
+                      "Spawn is off after a fault (code %08X) - press R to try once more",
+                      g_blockedCode);
+        return buf;
+    }
 
     fc_mat player, spot;
     if (!PlayerTransform(&player)) {
@@ -350,61 +381,34 @@ std::string DoSpawn(const std::string &model, bool hostile, bool *retry) {
         return "Spawn: waiting for a usable transform";
     }
 
-    // The spawn path allocates through the game's per-thread allocator, which lives in
-    // TLS and is only there if the game's own init has run on this thread.
     if (!EnsureThreadAllocator()) {
         if (retry) *retry = true;
         return "Spawn: waiting for the game's allocator";
     }
 
-    const uint32_t hash = HashName(model.c_str());
+    Outcome out;
+    CallSpawnChain(model.c_str(), spot, &out);
 
-    // Try the shapes the game itself uses, in order, and stop at the first one that comes
-    // back with an object. A spawn that returns nothing created nothing, so a second
-    // attempt cannot leave two NPCs behind.
-    void *npc = nullptr;
-    const char *how = "";
-    uint32_t id = 0;
-    bool faulted = false;
+    TW_Log("Spawn: '%s' hash=%08X resolved=%d id=%08X -> %p faulted=%d code=%08X at %.2f %.2f %.2f",
+           model.c_str(), out.hash, out.resolved ? 1 : 0, out.id, out.npc,
+           out.faulted ? 1 : 0, out.code, spot.m[12], spot.m[13], spot.m[14]);
 
-    if (ResolveName(hash, &id)) {
-        npc = SpawnAtXform(id, hash, spot, &faulted);
-        how = "resolved name";
-    } else {
-        TW_Log("Spawn: the game does not know '%s' (hash %08X); no object came back from the "
-               "name table", model.c_str(), hash);
+    if (out.faulted) {
+        g_blocked = true;
+        g_blockedCode = out.code;
+        char buf[140];
+        std::snprintf(buf, sizeof buf,
+                      "Spawn crashed (code %08X) - spawner switched off, see the log", out.code);
+        return buf;
+    }
+    if (!out.resolved) {
+        return "Spawn failed: this build does not know '" + SpawnShortName(model) + "'";
+    }
+    if (!out.created) {
+        return "Spawn failed: the game made no object for '" + SpawnShortName(model) + "'";
     }
 
-    // A fault inside the spawn tree means the game was not ready after all (or that this
-    // shape is wrong for this build). Trying the next shape straight away would only fault
-    // again, so report it as "not yet" and let the retry loop come back to it.
-    if (!npc && !faulted && MakeId(&id)) {
-        npc = SpawnAtXform(id, hash, spot, &faulted);
-        how = "id from the table";
-    }
-
-    if (!npc && !faulted) {
-        // Last shape: both arguments the same id, which is what the encounter path hands
-        // over when it has no separate type id of its own to give.
-        uint32_t again = 0;
-        if (ResolveName(hash, &again)) {
-            npc = SpawnAtXform(again, again, spot, &faulted);
-            how = "resolved name twice";
-        }
-    }
-
-    if (faulted) {
-        if (retry) *retry = true;
-        return "Spawn: the game was not ready to spawn yet";
-    }
-
-    TW_Log("Spawn: '%s' hash=%08X id=%08X at %.2f %.2f %.2f -> %p (%s)", model.c_str(), hash, id,
-           spot.m[12], spot.m[13], spot.m[14], npc, npc ? how : "nothing");
-
-    if (!npc) {
-        return "Spawn failed: the game did not create '" + SpawnShortName(model) +
-               "' (see TW_MenuLog.txt)";
-    }
+    void *npc = out.npc;
 
     // Faction: the same field the game's get_faction reads and set_faction writes.
     int npcFaction = GetFaction(npc);
@@ -416,23 +420,17 @@ std::string DoSpawn(const std::string &model, bool hostile, bool *retry) {
     if (npcFaction > 0 && npcFaction <= kFactionIdMax) {
         int want = npcFaction;
         if (hostile) {
-            // Different from the player is what "hostile" means here: the game's AI sorts
-            // sides out from this id. If the prefab already belongs to another faction,
-            // leave it alone - that is its own faction and the right one.
             if (havePlayer && npcFaction == playerFaction) {
                 want = (playerFaction % kFactionIdMax) + 1;
                 if (want == playerFaction) want = (want % kFactionIdMax) + 1;
             }
         } else if (havePlayer && npcFaction != playerFaction) {
-            want = playerFaction;   // same side as the player, so it will not fight you
+            want = playerFaction;
         }
 
         if (want != npcFaction) {
             const int wasFaction = npcFaction;
             void *object = ResolveEntity(npc);
-            // Only write when the object really is the one the game reads the faction
-            // from; if the resolve is not the same object, doing nothing is better than
-            // writing into something else.
             if (object && Readable(static_cast<uint8_t *>(object) + 0xC8, 8) &&
                 *reinterpret_cast<int *>(static_cast<uint8_t *>(object) + 0xC8) == npcFaction) {
                 if (SetFaction(object, want)) {
@@ -458,6 +456,113 @@ std::string DoSpawn(const std::string &model, bool hostile, bool *retry) {
     return Describe(hostile, model, npcFaction, playerFaction, factionSet, note);
 }
 
+
+// --- finding NPC models in the game's own files ----------------------------
+
+// The executable names only a handful of character property sets; the rest live inside the
+// game's data files, which are opaque bundles. They are not encrypted, though: the names
+// are in there as plain strings, the same "object-physical-character-<name>" form the
+// executable uses. So instead of guessing names, this walks the game folder once and
+// collects every one it can see. It is a read-only scan, bounded in time and bytes, run
+// only when the menu asks for it.
+const char kCharacterPrefix[] = "object-physical-character-";
+
+bool PlausibleNameChar(char c) {
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+           c == '_' || c == '-';
+}
+
+// Collects the names in one buffer. A name has to be long enough to be a real model and
+// must not run into the end of the buffer.
+void ScanBuffer(const std::vector<unsigned char> &data, std::vector<std::string> *found) {
+    const size_t prefix = sizeof kCharacterPrefix - 1;
+    if (data.size() <= prefix) return;
+    for (size_t i = 0; i + prefix < data.size(); ++i) {
+        if (std::memcmp(&data[i], kCharacterPrefix, prefix) != 0) continue;
+        size_t j = i + prefix;
+        while (j < data.size() && PlausibleNameChar(static_cast<char>(data[j]))) ++j;
+        const size_t len = j - (i + prefix);
+        if (len >= 3 && len <= 64) {
+            std::string name(reinterpret_cast<const char *>(&data[i]), j - i);
+            if (std::find(found->begin(), found->end(), name) == found->end()) found->push_back(name);
+        }
+        i = j ? j - 1 : i;
+    }
+}
+
+bool ReadWholeFile(const std::wstring &path, std::vector<unsigned char> *out, size_t cap) {
+    HANDLE h = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                           nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (h == INVALID_HANDLE_VALUE) return false;
+    LARGE_INTEGER size{};
+    if (!GetFileSizeEx(h, &size) || size.QuadPart <= 0 ||
+        static_cast<unsigned long long>(size.QuadPart) > cap) {
+        CloseHandle(h);
+        return false;
+    }
+    out->resize(static_cast<size_t>(size.QuadPart));
+    DWORD got = 0, total = 0;
+    while (total < out->size() &&
+           ReadFile(h, out->data() + total, static_cast<DWORD>(out->size() - total), &got, nullptr) &&
+           got) {
+        total += got;
+    }
+    CloseHandle(h);
+    out->resize(total);
+    return total > 0;
+}
+
+// Walks the game folder. Returns how many names it found; writes the list next to the exe
+// so the next launch starts with it, and so the player can edit it.
+int ScanForModels(std::vector<std::string> *found, unsigned long long *bytesRead, int *filesRead) {
+    *bytesRead = 0;
+    *filesRead = 0;
+    const std::string folder = ExeFolder();
+    if (folder.empty()) return 0;
+
+    std::wstring root(folder.begin(), folder.end());   // the folder is ASCII in practice
+    if (!root.empty() && root.back() == L'\\') root.pop_back();
+
+    // Bounded: a game data folder is a few gigabytes and this runs a menu action.
+    const unsigned long long kByteBudget = 768ull << 20;   // 768 MB in total
+    const size_t kFileCap = 96ull << 20;                   // 96 MB per file
+    const int kMaxFiles = 4000;
+
+    std::vector<std::wstring> pending{ root };
+    std::vector<unsigned char> data;
+    std::vector<std::string> names;
+
+    while (!pending.empty() && *filesRead < kMaxFiles && *bytesRead < kByteBudget) {
+        std::wstring dir = pending.back();
+        pending.pop_back();
+
+        WIN32_FIND_DATAW fd{};
+        HANDLE h = FindFirstFileW((dir + L"\\*").c_str(), &fd);
+        if (h == INVALID_HANDLE_VALUE) continue;
+        do {
+            if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+                if (fd.cFileName[0] == L'.') continue;
+                if (fd.cFileName[0] == L'_' || fd.cFileName[0] == L'.') continue;
+                pending.push_back(dir + L"\\" + fd.cFileName);
+                continue;
+            }
+            if (*filesRead >= kMaxFiles || *bytesRead >= kByteBudget) break;
+            if (fd.nFileSizeHigh != 0 || fd.nFileSizeLow < 32 || fd.nFileSizeLow > kFileCap) continue;
+
+            data.clear();
+            if (!ReadWholeFile(dir + L"\\" + fd.cFileName, &data, kFileCap)) continue;
+            ++*filesRead;
+            *bytesRead += data.size();
+            ScanBuffer(data, &names);
+        } while (FindNextFileW(h, &fd));
+        FindClose(h);
+    }
+
+    std::sort(names.begin(), names.end());
+    *found = names;
+    return static_cast<int>(names.size());
+}
+
 }  // namespace
 
 // --- public interface ----------------------------------------------------
@@ -469,6 +574,62 @@ std::string SpawnShortName(const std::string &model) {
 }
 
 const std::vector<std::string> &SpawnModels() { return Models(); }
+
+int SpawnModelsRevision() { return g_modelsRev; }
+
+std::string SpawnScanGameFiles() {
+    std::vector<std::string> found;
+    unsigned long long bytes = 0;
+    int files = 0;
+    const int count = ScanForModels(&found, &bytes, &files);
+    TW_Log("Spawn scan: %d file(s), %.1f MB, %d character model(s)", files, bytes / (1024.0 * 1024.0),
+           count);
+    if (count == 0) {
+        return "Scan: no character models found in the game files";
+    }
+
+    // Keep the built-ins in front - they are the ones the executable itself vouches for -
+    // then everything the scan found, without duplicates.
+    std::vector<std::string> merged;
+    for (const char *name : kBuiltInModels) merged.push_back(name);
+    for (const std::string &name : found) {
+        if (std::find(merged.begin(), merged.end(), name) == merged.end()) merged.push_back(name);
+    }
+
+    // Written where the next launch reads it, so the list survives a restart and can be
+    // trimmed by hand.
+    const std::string folder = ExeFolder();
+    if (!folder.empty()) {
+        FILE *f = std::fopen((folder + "\\FreeCam.npc.txt").c_str(), "w");
+        if (f) {
+            std::fprintf(f, "# Character models found in the game files by the debug menu.\r\n"
+                            "# One property set per line. Lines starting with # are ignored.\r\n");
+            for (const std::string &name : merged) std::fprintf(f, "%s\r\n", name.c_str());
+            std::fclose(f);
+        }
+    }
+
+    Lock();
+    g_models = merged;
+    ++g_modelsRev;
+    if (g_model >= static_cast<int>(g_models.size())) g_model = 0;
+    const int total = static_cast<int>(g_models.size());
+    Unlock();
+
+    char buf[120];
+    std::snprintf(buf, sizeof buf, "Scan: %d model(s) (%d new) - N cycles them", total,
+                  count);
+    TW_Log("Spawn scan: model list is now %d long", total);
+    return buf;
+}
+
+void SpawnClearFault() {
+    g_blocked = false;
+    g_blockedCode = 0;
+    TW_Log("Spawn: fault cleared, one more attempt allowed");
+}
+
+bool SpawnBlocked() { return g_blocked; }
 
 void SpawnSelectByName(const std::string &model) {
     const auto &models = Models();

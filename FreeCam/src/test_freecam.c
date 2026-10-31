@@ -281,10 +281,30 @@ static void test_spawn_matrix(void)
           NEAR(spot.m[14], 5.0f, 1e-4),
           "3 m in front is 3 m along +Y (got %f %f %f)", spot.m[12], spot.m[13], spot.m[14]);
 
-    /* The new transform faces the way the player faces, and is a world transform. */
+    /* Everything except the translation is the player's, byte for byte. This is the
+     * property that keeps the spawn call from being handed a transform the engine did
+     * not write - the reason the first attempt crashed the game. */
+    {
+        int i, same = 1;
+        for (i = 0; i < 12; i++) if (spot.m[i] != player.m[i]) same = 0;
+        CHECK(same, "the rotation block is copied, not rebuilt");
+        CHECK(spot.m[15] == player.m[15], "the last element is copied too");
+    }
+
+    /* A rotated block is copied bit for bit as well - not merely close, which is what a
+     * rebuild through cos/sin would give. */
+    {
+        fc_mat turned, copy;
+        int i, exact = 1;
+        fc_mat_from_pose(&turned, pos, 0.83f, 0.0f, 0);
+        CHECK(fc_spawn_matrix(&copy, &turned, 3.0f) == 1, "a turned transform makes a spot");
+        for (i = 0; i < 12; i++) if (copy.m[i] != turned.m[i]) exact = 0;
+        CHECK(exact, "the rotation block survives bit for bit");
+    }
+
+    /* The new transform faces the way the player faces. */
     CHECK(fc_mat_to_pose(&spot, spos, &yaw, &pitch, 0) == 1, "the spot decomposes");
     CHECK(NEAR(yaw, 0.0f, 1e-4) && NEAR(pitch, 0.0f, 1e-4), "the spot faces where the player does");
-    CHECK(NEAR(spot.m[15], 1.0f, 1e-4), "the last row is completed");
 
     /* Turned left: yaw +90 degrees looks along -X, so the spot moves to -X. */
     fc_mat_from_pose(&player, pos, (float)(TEST_PI / 2.0), 0.0f, 0);
@@ -292,17 +312,19 @@ static void test_spawn_matrix(void)
     CHECK(NEAR(spot.m[12], 97.0f, 1e-3) && NEAR(spot.m[13], 200.0f, 1e-3),
           "yaw +90 puts the spot along -X (got %f %f)", spot.m[12], spot.m[13]);
 
-    /* Looking at the sky must not lift the spot off the ground: pitch is dropped. */
+    /* Looking up does not lift the spot off the ground: the offset uses flat forward, and
+     * the matrix itself is the player's, so nothing tilts. */
     fc_mat_from_pose(&player, pos, 0.0f, 1.2f, 0);
     CHECK(fc_spawn_matrix(&spot, &player, 3.0f) == 1, "a pitched transform makes a spot");
     CHECK(NEAR(spot.m[14], 5.0f, 1e-4), "pitch does not lift the spot (got %f)", spot.m[14]);
     CHECK(NEAR(spot.m[13], 203.0f, 1e-3), "pitch does not shorten the distance");
 
-    /* Straight down is a special case worth pinning down: the yaw is undefined, but the
-     * spot must still be horizontal from the player rather than at their feet. */
-    fc_mat_from_pose(&player, pos, 0.0f, (float)(TEST_PI / 2.0), 0);
-    CHECK(fc_spawn_matrix(&spot, &player, 3.0f) == 1, "looking straight up still works");
-    CHECK(NEAR(spot.m[14], 5.0f, 1e-4), "looking straight up does not stack the spot overhead");
+    /* Zero metres is the player's own position - the "spawn on top of me" case, which is
+     * the fallback when standing room three metres ahead is not clear. */
+    fc_mat_from_pose(&player, pos, 0.7f, 0.2f, 0);
+    CHECK(fc_spawn_matrix(&spot, &player, 0.0f) == 1, "zero metres still works");
+    CHECK(NEAR(spot.m[12], 100.0f, 1e-4) && NEAR(spot.m[13], 200.0f, 1e-4),
+          "zero metres leaves the player's position alone");
 
     /* Garbage in, nothing out: the caller's matrix is left alone. */
     {

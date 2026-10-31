@@ -477,6 +477,7 @@ int fc_mat_to_pose(const fc_mat *m, float pos[3], float *yaw, float *pitch, int 
 int fc_spawn_matrix(fc_mat *out, const fc_mat *player, float metres)
 {
     float pos[3], yaw = 0.0f, pitch = 0.0f, f[3], r[3], u[3];
+    int i;
 
     if (!out || !player) return 0;
 
@@ -485,19 +486,20 @@ int fc_spawn_matrix(fc_mat *out, const fc_mat *player, float metres)
      * layout the game actually writes, not on an assumed one. */
     if (!fc_mat_to_pose(player, pos, &yaw, &pitch, 0)) return 0;
 
-    /* Forward, flat: pitch belongs to the camera, not to the thing being placed. A pawn
-     * set down while the player looks at their feet would otherwise end up half in the
-     * road, and one placed while they look at the sky would be over their head. */
+    /* Forward, flat: pitch belongs to the camera, not to the thing being placed. */
     fc_basis(yaw, 0.0f, f, r, u);
     (void)r; (void)u;
 
-    pos[0] += f[0] * metres;
-    pos[1] += f[1] * metres;
-    pos[2] += f[2] * metres;
-
-    /* A world transform: basis as rows, position in the translation. Upright, facing
-     * where the player faces. */
-    fc_mat_from_pose(out, pos, yaw, 0.0f, 0);
+    /* The rotation block is copied, not rebuilt.
+     *
+     * Rebuilding it was the obvious thing to do and it is the thing that crashed the
+     * game: the spawn call is handed a transform the engine itself wrote, and anything
+     * it does not expect in the other twelve floats - a scale, a different handedness, a
+     * slot this reader does not know about - would go in as garbage. Copying the player's
+     * matrix and moving only its translation changes exactly one thing and leaves every
+     * other float as the game left it. */
+    *out = *player;
+    for (i = 0; i < 3; i++) out->m[12 + i] = player->m[12 + i] + f[i] * metres;
     return 1;
 }
 

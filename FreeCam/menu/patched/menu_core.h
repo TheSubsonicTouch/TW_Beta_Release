@@ -87,11 +87,16 @@ struct DebugHooks {
     // is carried out by the camera thread (it needs the game's per-thread allocator), so
     // the hook returns a queued line rather than the result.
     std::function<std::string(const std::string&, bool)> spawnNpcInFront;  // model, hostile
+    std::function<std::string()> scanNpcModels;  // look for NPC models in the game files
+    std::string resetSpawnerLabel;                 // empty: do not show the item
+    std::function<std::string()> resetSpawner;     // clear a spawn fault
+    std::function<std::string(bool)> setNoclip;    // fly the player themselves
     std::function<void(bool)> setInvincible;
     std::function<void(bool)> setHudHidden;
     std::function<void(float)> setTimeOfDay;   // 0.0 .. 24.0
     std::function<void()> reloadConfig;
     std::function<std::string()> unlockAllContent;
+    std::function<std::string()> unlockRaids;  // rivals off cooldown + job ladder open
 };
 
 void buildDebugMenu(Menu& menu, const DebugHooks& hooks);

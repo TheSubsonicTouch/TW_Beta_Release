@@ -45,6 +45,20 @@ std::string SpawnShortName(const std::string& model);
 // from the menu, so B and the menu agree afterwards). Ignored if the name is not listed.
 void SpawnSelectByName(const std::string& model);
 
+// A scan of the game folder that collects every character property set it can see in the
+// game's data files, merges them with the built-ins, writes FreeCam.npc.txt and makes them
+// the list the menu offers. Read-only, bounded, and only run when asked for. Returns the
+// status line for the menu.
+std::string SpawnScanGameFiles();
+
+// Goes up every time the model list is replaced, so the menu can rebuild its selector.
+int SpawnModelsRevision();
+
+// After a spawn has faulted the spawner switches itself off rather than call the same
+// function again; this turns it back on for one more try, and says when it is off.
+void SpawnClearFault();
+bool SpawnBlocked();
+
 // Ask for a spawn. Safe to call from any thread: the request is queued and carried out by
 // the camera thread (see SpawnPump), which is the only thread that has the game's
 // per-thread allocator. `model` empty means "the selected model".

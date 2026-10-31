@@ -38,6 +38,7 @@ cp patched/win_menu.cpp "$OUT/src/win_menu.cpp"
 cp patched/dinput8_proxy.cpp "$OUT/src/dinput8_proxy.cpp"
 cp freecam_menu.rc freecam_menu.manifest "$OUT/src/"
 cp freecam_game.h freecam_game.cpp freecam_spawn.h freecam_spawn.cpp \
+   freecam_noclip.h freecam_noclip.cpp freecam_unlock.h freecam_unlock.cpp \
    input_block.h input_block.cpp "$OUT/src/"
 cp ../src/freecam.h ../src/freecam.c "$OUT/src/"
 
@@ -84,7 +85,8 @@ echo "== compiling"
 cd "$OUT"
 for f in src/dinput8_proxy.cpp src/win_menu.cpp src/menu_core.cpp src/log.cpp \
          src/game_hooks.cpp src/asset_names.cpp src/spawn_guard_stub.cpp \
-         src/freecam_game.cpp src/freecam_spawn.cpp src/input_block.cpp \
+         src/freecam_game.cpp src/freecam_spawn.cpp src/freecam_noclip.cpp \
+         src/freecam_unlock.cpp src/input_block.cpp \
          src/imgui.cpp src/imgui_draw.cpp \
          src/imgui_tables.cpp src/imgui_widgets.cpp src/imgui_impl_win32.cpp \
          src/imgui_impl_dx11.cpp; do

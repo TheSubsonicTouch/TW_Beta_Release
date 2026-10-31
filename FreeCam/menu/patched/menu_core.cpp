@@ -216,6 +216,29 @@ void buildDebugMenu(Menu& menu, const DebugHooks& hooks) {
             menu.setStatus(fn(choice, a.optionIndex == 1));
         };
         menu.addItem(spawn);
+
+        if (hooks.scanNpcModels) {
+            MenuItem scan;
+            scan.label = "Scan game files for NPCs";
+            scan.onAction = [&menu, fn = hooks.scanNpcModels]() { menu.setStatus(fn()); };
+            menu.addItem(scan);
+        }
+        if (!hooks.resetSpawnerLabel.empty() && hooks.resetSpawner) {
+            MenuItem reset;
+            reset.label = hooks.resetSpawnerLabel;
+            reset.onAction = [&menu, fn = hooks.resetSpawner]() { menu.setStatus(fn()); };
+            menu.addItem(reset);
+        }
+    }
+
+    // Noclip: the player themselves is flown, the camera is left alone. It is a toggle,
+    // not a mode of the free camera, so it stays available with the camera switched off.
+    if (hooks.setNoclip) {
+        MenuItem noclip;
+        noclip.label = "Noclip (fly the player)";
+        noclip.kind = ItemKind::Toggle;
+        noclip.onToggle = [&menu, fn = hooks.setNoclip](bool on) { menu.setStatus(fn(on)); };
+        menu.addItem(noclip);
     }
 
     MenuItem inv;
@@ -266,6 +289,15 @@ void buildDebugMenu(Menu& menu, const DebugHooks& hooks) {
         menu.setStatus(fn());
     };
     menu.addItem(unlock);
+    // Rivals are on a post-raid cooldown and the job ladder is a chain, so the content
+    // being unlocked is not the same as there being anything to do. This is the second
+    // half, and it is a separate item because the cooldowns come back after every raid.
+    if (hooks.unlockRaids) {
+        MenuItem raids;
+        raids.label = "Unlock Raids and Events";
+        raids.onAction = [&menu, fn = hooks.unlockRaids]() { menu.setStatus(fn()); };
+        menu.addItem(raids);
+    }
 
 }
 }  // namespace tw

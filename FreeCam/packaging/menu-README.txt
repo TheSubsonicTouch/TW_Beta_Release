@@ -104,6 +104,34 @@ game carries on from its own camera and not from where you flew to.
 WHAT CHANGED IN THIS BUILD
 --------------------------
 
+  - Build 16. Three new things, and one that was already there but would not survive a
+    bad spawn.
+
+  - Noclip: the character is flown instead of a camera. Menu item "Noclip (fly the
+    player)", or U on the keyboard. WASD moves, Space goes up, C goes down, Shift is
+    fast and Ctrl is slow; the left and right arrows set the speed from 1x to 8x. Only
+    the character's position is written - never the rotation - so the game keeps its
+    bearing and its animations, and switching noclip off drops you wherever you are and
+    lets the game's own physics take over. That is how you get onto a roof: fly there,
+    switch off, land.
+
+  - The model list can be filled from the game's own data files: "Scan game files for
+    NPCs" in the menu walks the folder, reads the character property sets it finds in
+    the data files, adds them to the built-ins and writes them to FreeCam.npc.txt, so
+    the list also survives a restart and can be trimmed by hand. It takes a moment, and
+    it only reads.
+
+  - Unlock All now opens the raids and events too. Unlocking the content was only half
+    of it: every rival is on a post-raid cooldown and the jobs are a chain, so the map
+    could still be empty. The unlock now clears every rival's cooldown and marks the
+    earlier jobs as done, which opens the ladder. There is a separate "Unlock Raids and
+    Events" item for when the cooldowns come back after you have raided. The job board
+    re-rolls when it is used, so a job in progress is replaced by a new one.
+
+  - A spawn that faults inside the game no longer takes the next one down with it: the
+    spawner switches itself off, says so, and R (or "Reset spawner after a fault") gives
+    it one more try.
+
   - The spawn items in the menu now actually do something. They did not before, for a
     dull reason: the spawn is carried out on the camera thread - the only thread that
     has the game's per-thread allocator - and that thread only existed once you had
@@ -119,6 +147,7 @@ WHAT CHANGED IN THIS BUILD
   - B spawns an NPC three metres in front of the player, facing the way you face. N walks
     through the models, H switches between hostile and friendly, and the same three
     choices are in the menu: "NPC model", "NPC attitude" and "Spawn NPC in front".
+    U turns noclip on and off, R allows one more spawn after a fault.
     The result of each spawn, with the faction ids it read, goes to TW_MenuLog.txt.
 
     The spawn is the game's own: the model's property-set name is hashed, the game makes
@@ -216,6 +245,8 @@ CONTROLS
                         facing the way the player faces
     N                   next NPC model (the list is in the menu too)
     H                   NPCs spawn hostile or friendly (the menu has the same choice)
+    U                   noclip: fly the character themselves (menu item "Noclip")
+    R                   allow one more spawn after the spawner stopped itself
 
 The mouse is natural: push it forward and you look up, pull it back and you look down.
 Moving it right turns right.
@@ -231,6 +262,17 @@ Spawning NPCs:
   - A spawn never runs on the render thread: the game's spawn path allocates through a
     per-thread allocator, so the camera thread carries it out after running the game's own
     initialiser for that allocator. If it fails, the reason is in TW_MenuLog.txt.
+
+Noclip:
+
+  - U, or "Noclip (fly the player)" in the menu. WASD moves, Space up, C down, Shift is
+    fast, Ctrl is slow, and the arrows set 1x to 8x. It works with the camera off as
+    well - it is the character that moves, not a camera.
+  - Only the position is written. The rotation belongs to the game: the character keeps
+    facing the way it faced, the animation system keeps working, and switching noclip
+    off leaves the game to drop the character to the ground at that spot.
+  - The game's own movement still runs underneath, so you can walk normally with it on
+    as well; it does not take the controls away.
 
 Follow and keyframes:
 
@@ -302,12 +344,12 @@ IF IT DOES NOT WORK
 -------------------
 
 TW_MenuLog.txt, next to TriadWars.exe, records everything. The second line of a flight
-says which build is running - "build 15" for this one. If it says a lower number, the game
+says which build is running - "build 16" for this one. If it says a lower number, the game
 is loading an older dinput8.dll: run Install-FreeCam.bat again from this zip.
 Load into the world first - the camera cannot be told apart on a loading screen -
 then toggle it and look for these lines, in this order:
 
-    FreeCam: camera thread up (build 15: B spawns an NPC 3 m ahead - N picks the model, H the side)
+    FreeCam: camera thread up (build 16: B spawns an NPC 3 m ahead, N picks the model, H the side, U noclip, R clears a spawn fault)
     FreeCam: switched on, asking the renderer which camera it draws
     FreeCam: hooked the view accessor at 0000... with an absolute jump (original kept at ...)
     FreeCam: the renderer asked about 0000... for the first time

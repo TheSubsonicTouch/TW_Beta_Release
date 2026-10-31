@@ -1,0 +1,158 @@
+// freecam_noclip.cpp - fly the player themselves.
+//
+// The free camera writes a camera; this writes the character's own world transform, every
+// tick, so the game's movement and collision code never gets a say. It is the same two
+// hops the camera already uses to follow the player (0x23f25f8 -> +0x58 -> +0x80), read
+// and written through the same validation, with only the translation touched.
+#include "freecam_noclip.h"
+
+#include <windows.h>
+
+#include <cmath>
+#include <cstdio>
+#include <cstring>
+
+extern "C" {
+#include "../src/freecam.h"
+}
+
+#include "log.h"
+
+namespace tw {
+namespace game {
+namespace {
+
+constexpr uintptr_t kPlayerGlobal = 0x23f25f8;  // void *local player
+constexpr uintptr_t kPlayerNode   = 0x58;       // player -> node
+constexpr uintptr_t kNodeMatrix   = 0x80;       // node -> 4x4 world transform
+
+// Metres per second. A character walks about 1.8; this is meant to be a way to get from
+// one end of the map to the other, so the default is deliberately brisk.
+constexpr float kBaseSpeed = 8.0f;
+constexpr float kFastSpeed = 3.0f;    // Shift
+constexpr float kSlowSpeed = 0.3f;    // Ctrl
+constexpr float kMaxStep = 0.25f;     // a hitch in the loop must not teleport anybody
+
+bool g_active = false;
+float g_speed = 1.0f;                 // the arrow keys, 1x .. 8x
+float g_speedStep = 1.0f;
+ULONGLONG g_lastLog = 0;
+
+uintptr_t Base() { return reinterpret_cast<uintptr_t>(GetModuleHandleW(nullptr)); }
+
+bool Readable(const void *p, size_t n) {
+    if (!p) return false;
+    const uint8_t *b = static_cast<const uint8_t *>(p);
+    MEMORY_BASIC_INFORMATION mbi{};
+    if (VirtualQuery(b, &mbi, sizeof mbi) != sizeof mbi) return false;
+    if (mbi.State != MEM_COMMIT) return false;
+    if (mbi.Protect & (PAGE_GUARD | PAGE_NOACCESS)) return false;
+    const uint8_t *last = b + (n ? n - 1 : 0);
+    if ((reinterpret_cast<uintptr_t>(b) & ~uintptr_t(0xFFF)) !=
+        (reinterpret_cast<uintptr_t>(last) & ~uintptr_t(0xFFF))) {
+        MEMORY_BASIC_INFORMATION m2{};
+        if (VirtualQuery(last, &m2, sizeof m2) != sizeof m2) return false;
+        if (m2.State != MEM_COMMIT || (m2.Protect & (PAGE_GUARD | PAGE_NOACCESS))) return false;
+    }
+    // A matrix we are about to write has to be writable, not merely readable.
+    if (mbi.Protect & (PAGE_READONLY | PAGE_EXECUTE_READ | PAGE_EXECUTE)) return false;
+    return true;
+}
+
+// The live player transform, as the game keeps it. Null when the player is not in the
+// world (title screen, loading, between maps).
+float *PlayerMatrix() {
+    const uintptr_t base = Base();
+    if (!base || !Readable(reinterpret_cast<void *>(base + kPlayerGlobal), 8)) return nullptr;
+    void *player = *reinterpret_cast<void **>(base + kPlayerGlobal);
+    if (!Readable(player, 0x60)) return nullptr;
+    void *node = *reinterpret_cast<void **>(static_cast<uint8_t *>(player) + kPlayerNode);
+    if (!Readable(node, 0xC0)) return nullptr;
+    float *m = reinterpret_cast<float *>(static_cast<uint8_t *>(node) + kNodeMatrix);
+    if (!Readable(m, 64)) return nullptr;
+    return m;
+}
+
+bool KeyDown(int vk) { return (GetAsyncKeyState(vk) & 0x8000) != 0; }
+
+}  // namespace
+
+bool NoclipStep() {
+    if (!g_active) return false;
+
+    // Its own clock, because the camera loop's one is reset whenever the camera is idle and
+    // noclip has to keep working then.
+    static LARGE_INTEGER freq = {0}, last = {0};
+    if (freq.QuadPart == 0) QueryPerformanceFrequency(&freq);
+    LARGE_INTEGER now;
+    QueryPerformanceCounter(&now);
+    float dt = 0.0f;
+    if (last.QuadPart != 0 && freq.QuadPart != 0)
+        dt = static_cast<float>(now.QuadPart - last.QuadPart) / static_cast<float>(freq.QuadPart);
+    last.QuadPart = now.QuadPart;
+    if (!(dt > 0.0f)) return false;
+    if (dt > kMaxStep) dt = kMaxStep;
+
+    float *m = PlayerMatrix();
+    if (!m) return false;
+
+    // Which way the character is facing, flat. The camera's reader is used so this follows
+    // whatever the game wrote rather than an assumed layout.
+    fc_mat world;
+    std::memcpy(world.m, m, sizeof world.m);
+    fc_mat check = world;
+    float pos[3] = { 0.0f, 0.0f, 0.0f }, yaw = 0.0f, pitch = 0.0f;
+    if (!fc_mat_to_pose(&check, pos, &yaw, &pitch, 0)) return false;
+
+    float f[3], r[3], u[3];
+    fc_basis(yaw, 0.0f, f, r, u);
+
+    float wish[3] = { 0.0f, 0.0f, 0.0f };
+    if (KeyDown('W')) { wish[0] += f[0]; wish[1] += f[1]; wish[2] += f[2]; }
+    if (KeyDown('S')) { wish[0] -= f[0]; wish[1] -= f[1]; wish[2] -= f[2]; }
+    if (KeyDown('D')) { wish[0] += r[0]; wish[1] += r[1]; wish[2] += r[2]; }
+    if (KeyDown('A')) { wish[0] -= r[0]; wish[1] -= r[1]; wish[2] -= r[2]; }
+    if (KeyDown(VK_SPACE)) wish[2] += 1.0f;
+    if (KeyDown('C')) wish[2] -= 1.0f;
+
+    const float len = std::sqrt(wish[0] * wish[0] + wish[1] * wish[1] + wish[2] * wish[2]);
+    if (len <= 1e-4f) return false;
+
+    float speed = kBaseSpeed * g_speed;
+    if (KeyDown(VK_SHIFT)) speed *= kFastSpeed;
+    if (KeyDown(VK_CONTROL)) speed *= kSlowSpeed;
+    const float step = (speed * dt) / len;
+
+    // Only the translation. The rotation block belongs to the game.
+    m[12] += wish[0] * step;
+    m[13] += wish[1] * step;
+    m[14] += wish[2] * step;
+
+    const ULONGLONG tick = GetTickCount64();
+    if (tick - g_lastLog > 5000) {
+        g_lastLog = tick;
+        TW_Log("Noclip: player at %.1f %.1f %.1f, %.1fx", m[12], m[13], m[14], g_speed);
+    }
+    return true;
+}
+
+void NoclipSet(bool on) {
+    if (on == g_active) return;
+    g_active = on;
+    g_lastLog = 0;
+    TW_Log("Noclip: %s", on ? "on - the player is flown directly, collision is not consulted"
+                            : "off - the game's own movement takes the character back");
+}
+
+bool NoclipActive() { return g_active; }
+
+float NoclipSpeed() { return g_speed; }
+
+void NoclipSpeedStep(int direction) {
+    g_speed += (direction > 0) ? g_speedStep : -g_speedStep;
+    if (g_speed < 1.0f) g_speed = 1.0f;
+    if (g_speed > 8.0f) g_speed = 8.0f;
+}
+
+}  // namespace game
+}  // namespace tw
