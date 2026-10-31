@@ -1601,7 +1601,7 @@ DWORD WINAPI Loop(LPVOID) {
 
     // The 1 ms timer is raised in StartFlying and lowered in StopFlying: a thread that is
     // only alive so the menu can spawn something must not hold the system timer down.
-    TW_Log("FreeCam: camera thread up (build 16: B spawns an NPC 3 m ahead, N picks the model, H the side, U noclip, R clears a spawn fault)");
+    TW_Log("FreeCam: camera thread up (build 17: B spawns an NPC 3 m ahead, N picks the model, H the side, U noclip, R clears a spawn fault)");
 
     for (;;) {
         if (g_quit) break;

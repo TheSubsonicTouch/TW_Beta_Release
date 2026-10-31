@@ -37,6 +37,8 @@ cp patched/menu_core.cpp "$OUT/src/menu_core.cpp"
 cp patched/win_menu.cpp "$OUT/src/win_menu.cpp"
 cp patched/dinput8_proxy.cpp "$OUT/src/dinput8_proxy.cpp"
 cp freecam_menu.rc freecam_menu.manifest "$OUT/src/"
+mkdir -p "$OUT/src/assets"
+cp assets/triadmenu_bg.png "$OUT/src/assets/"
 cp freecam_game.h freecam_game.cpp freecam_spawn.h freecam_spawn.cpp \
    freecam_noclip.h freecam_noclip.cpp freecam_unlock.h freecam_unlock.cpp \
    input_block.h input_block.cpp "$OUT/src/"
@@ -104,6 +106,7 @@ echo "== linking"
 $ZIG c++ -target x86_64-windows-gnu -shared -O2 -o dinput8.dll \
     ./*.o lib/d3dcompiler_47.lib \
     -ld3d11 -ldxgi -ldwmapi -lgdi32 -luser32 -lshell32 -lole32 -lxinput1_3 \
+    -lwindowscodecs \
     -ldinput8 -lversion -lwinmm
 
 mkdir -p ../dist

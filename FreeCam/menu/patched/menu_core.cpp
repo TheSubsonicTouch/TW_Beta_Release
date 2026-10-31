@@ -12,23 +12,43 @@ void Menu::clear() {
     selected_ = 0;
 }
 
+// Section titles are not selectable, so Up and Down step over them. A menu that is
+// only titles (or empty) leaves the cursor alone.
+void Menu::step(int delta) {
+    if (items_.empty()) return;
+    const int n = static_cast<int>(items_.size());
+    int i = static_cast<int>(selected_);
+    for (int guard = 0; guard < n; ++guard) {
+        i = (i + delta + n) % n;
+        if (!items_[i].header) {
+            selected_ = static_cast<std::size_t>(i);
+            return;
+        }
+    }
+}
+
 bool Menu::handleKey(Key key) {
     if (key == Key::Toggle) {
         toggleVisible();
         return true;
     }
     if (!visible_ || items_.empty()) return false;
+    // The first entry can be a section title; put the cursor on a real item before any
+    // key is acted on.
+    if (selected_ >= items_.size()) selected_ = 0;
+    if (items_[selected_].header) step(1);
 
     switch (key) {
     case Key::Up:
-        selected_ = (selected_ == 0) ? items_.size() - 1 : selected_ - 1;
+        step(-1);
         return true;
     case Key::Down:
-        selected_ = (selected_ + 1) % items_.size();
+        step(1);
         return true;
     case Key::Left:
     case Key::Right: {
         MenuItem& it = items_[selected_];
+        if (it.header) return true;
         float dir = (key == Key::Right) ? 1.0f : -1.0f;
         if (it.kind == ItemKind::Slider) {
             it.value = std::clamp(it.value + dir * it.step, it.minValue, it.maxValue);
@@ -44,6 +64,7 @@ bool Menu::handleKey(Key key) {
     }
     case Key::Select: {
         MenuItem& it = items_[selected_];
+        if (it.header) return true;
         switch (it.kind) {
         case ItemKind::Action:
             if (it.onAction) it.onAction();
@@ -77,10 +98,15 @@ std::vector<std::string> Menu::renderLines() const {
     std::vector<std::string> lines;
     if (!visible_) return lines;
 
-    lines.push_back("Triad Wars Debug Menu");
+    lines.push_back("TriadMenu");
     for (std::size_t i = 0; i < items_.size(); ++i) {
         const MenuItem& it = items_[i];
         char buf[512];
+        if (it.header) {
+            std::snprintf(buf, sizeof buf, "  -- %s --", it.label.c_str());
+            lines.emplace_back(buf);
+            continue;
+        }
         const char* prefix = (i == selected_) ? "> " : "  ";
         switch (it.kind) {
         case ItemKind::Action:
@@ -108,15 +134,13 @@ std::vector<std::string> Menu::renderLines() const {
 void buildDebugMenu(Menu& menu, const DebugHooks& hooks) {
     menu.clear();
 
-    auto wrapAction = [&menu](const std::string& name, std::function<void()> fn) {
-        return [&menu, name, fn]() {
-            if (fn) {
-                fn();
-                menu.setStatus(name + ": done");
-            } else {
-                menu.setStatus(name + ": not wired yet");
-            }
-        };
+    // Section titles. They are drawn but never selected, so Up and Down still walk the
+    // whole menu in one motion - the titles only break it up on screen.
+    auto header = [&menu](const char* text) {
+        MenuItem it;
+        it.label = text;
+        it.header = true;
+        menu.addItem(it);
     };
 
     auto makeSelector = [&menu](const std::string& name,
@@ -127,18 +151,48 @@ void buildDebugMenu(Menu& menu, const DebugHooks& hooks) {
         it.kind = ItemKind::Selector;
         it.options = std::move(options);
         it.onPick = [&menu, name, fn](const std::string& opt) -> std::string {
-            if (!fn) return name + ": not wired yet";
+            if (!fn) return name + ": not available in this build";
             if (opt.empty()) return name + ": no assets known";
             return fn(opt);
         };
         return it;
     };
 
-    // Spawn selectors removed: every spawn path goes through the game's
-    // per-thread allocator, which is not initialized on the render thread,
-    // so spawning always faults (game+0x1F3FEE). Weather is safe (direct
-    // field write) and stays.
-    menu.addItem(makeSelector("Weather", hooks.weatherPresets, hooks.setWeather));
+    // ---- Camera ----------------------------------------------------------
+    header("CAMERA");
+
+    MenuItem freecam;
+    freecam.label = "Free Camera";
+    freecam.kind = ItemKind::Toggle;
+    freecam.onToggle = [&menu, fn = hooks.setFreeCam](bool on) {
+        if (!fn) { menu.setStatus("Free camera: not available in this build"); return; }
+        menu.setStatus(fn(on));
+    };
+    menu.addItem(freecam);
+
+    if (hooks.setNoclip) {
+        MenuItem noclip;
+        noclip.label = "Noclip (fly the player)";
+        noclip.kind = ItemKind::Toggle;
+        noclip.onToggle = [&menu, fn = hooks.setNoclip](bool on) { menu.setStatus(fn(on)); };
+        menu.addItem(noclip);
+    }
+
+    // ---- World -----------------------------------------------------------
+    if (!hooks.weatherPresets.empty()) {
+        header("WORLD");
+        menu.addItem(makeSelector("Weather", hooks.weatherPresets, hooks.setWeather));
+    }
+
+    if (!hooks.shaderPresets.empty()) {
+        if (hooks.weatherPresets.empty()) header("WORLD");
+        menu.addItem(makeSelector("ReShade preset", hooks.shaderPresets, hooks.setShader));
+    }
+
+    // ---- Progression -----------------------------------------------------
+    if (!hooks.levelTargets.empty() || hooks.unlockAllContent) {
+        header("PROGRESSION");
+    }
 
     if (!hooks.levelTargets.empty()) {
         const std::size_t base = menu.items().size();
@@ -160,7 +214,7 @@ void buildDebugMenu(Menu& menu, const DebugHooks& hooks) {
         MenuItem apply;
         apply.label = "Apply level";
         apply.onAction = [&menu, base, fn = hooks.setLevel]() {
-            if (!fn) { menu.setStatus("Level: not wired yet"); return; }
+            if (!fn) { menu.setStatus("Level: not available in this build"); return; }
             const MenuItem& t = menu.items()[base];
             const MenuItem& v = menu.items()[base + 1];
             const std::string target =
@@ -170,150 +224,23 @@ void buildDebugMenu(Menu& menu, const DebugHooks& hooks) {
         menu.addItem(apply);
     }
 
-    MenuItem tp;
-    tp.label = "Teleport to waypoint";
-    tp.onAction = [&menu, fn = hooks.teleportToWaypoint]() {
-        menu.setStatus(fn ? fn() : std::string("Teleport: not wired yet"));
-    };
-    menu.addItem(tp);
-
-    // Free camera: the camera leaves the player and flies on its own.
-    MenuItem freecam;
-    freecam.label = "Free Camera";
-    freecam.kind = ItemKind::Toggle;
-    freecam.onToggle = [&menu, fn = hooks.setFreeCam](bool on) {
-        if (!fn) { menu.setStatus("Free camera: not wired yet"); return; }
-        menu.setStatus(fn(on));
-    };
-    menu.addItem(freecam);
-
-    // NPC spawn. The two selectors keep their own choice; the action reads them, the way
-    // "Apply level" reads its two items. The model list is whatever the spawn module can
-    // name - the character property sets the game itself names, or FreeCam.npc.txt - and
-    // "hostile" means "give it a faction that is not yours".
-    if (!hooks.npcNames.empty()) {
-        const std::size_t spawnBase = menu.items().size();
-
-        MenuItem model;
-        model.label = "NPC model";
-        model.kind = ItemKind::Selector;
-        model.options = hooks.npcNames;
-        menu.addItem(model);
-
-        MenuItem attitude;
-        attitude.label = "NPC attitude";
-        attitude.kind = ItemKind::Selector;
-        attitude.options = { "Friendly", "Hostile" };
-        menu.addItem(attitude);
-
-        MenuItem spawn;
-        spawn.label = "Spawn NPC 3 m ahead";
-        spawn.onAction = [&menu, spawnBase, fn = hooks.spawnNpcInFront]() {
-            if (!fn) { menu.setStatus("Spawn: not wired yet"); return; }
-            const MenuItem& m = menu.items()[spawnBase];
-            const MenuItem& a = menu.items()[spawnBase + 1];
-            const std::string choice = m.options.empty() ? std::string() : m.options[m.optionIndex];
-            menu.setStatus(fn(choice, a.optionIndex == 1));
-        };
-        menu.addItem(spawn);
-
-        // The same spawn with no offset at all, for a spot where there is no room in
-        // front of the player - and the way out if three metres keeps being refused.
-        if (hooks.spawnNpcOnPlayer) {
-            MenuItem onMe;
-            onMe.label = "Spawn NPC on me";
-            onMe.onAction = [&menu, spawnBase, fn = hooks.spawnNpcOnPlayer]() {
-                if (!fn) { menu.setStatus("Spawn: not wired yet"); return; }
-                const MenuItem& m = menu.items()[spawnBase];
-                const MenuItem& a = menu.items()[spawnBase + 1];
-                const std::string choice =
-                    m.options.empty() ? std::string() : m.options[m.optionIndex];
-                menu.setStatus(fn(choice, a.optionIndex == 1));
-            };
-            menu.addItem(onMe);
-        }
-
-        if (hooks.scanNpcModels) {
-            MenuItem scan;
-            scan.label = "Scan game files for NPCs";
-            scan.onAction = [&menu, fn = hooks.scanNpcModels]() { menu.setStatus(fn()); };
-            menu.addItem(scan);
-        }
-        if (!hooks.resetSpawnerLabel.empty() && hooks.resetSpawner) {
-            MenuItem reset;
-            reset.label = hooks.resetSpawnerLabel;
-            reset.onAction = [&menu, fn = hooks.resetSpawner]() { menu.setStatus(fn()); };
-            menu.addItem(reset);
-        }
+    if (hooks.unlockAllContent) {
+        MenuItem unlock;
+        unlock.label = "Unlock all content";
+        unlock.onAction = [&menu, fn = hooks.unlockAllContent]() { menu.setStatus(fn()); };
+        menu.addItem(unlock);
     }
 
-    // Noclip: the player themselves is flown, the camera is left alone. It is a toggle,
-    // not a mode of the free camera, so it stays available with the camera switched off.
-    if (hooks.setNoclip) {
-        MenuItem noclip;
-        noclip.label = "Noclip (fly the player)";
-        noclip.kind = ItemKind::Toggle;
-        noclip.onToggle = [&menu, fn = hooks.setNoclip](bool on) { menu.setStatus(fn(on)); };
-        menu.addItem(noclip);
-    }
-
-    MenuItem inv;
-    inv.label = "Invincible";
-    inv.kind = ItemKind::Toggle;
-    inv.onToggle = [&menu, fn = hooks.setInvincible](bool on) {
-        if (fn) { fn(on); menu.setStatus(std::string("Invincible ") + (on ? "on" : "off")); }
-        else menu.setStatus("Invincible: not wired yet");
-    };
-    menu.addItem(inv);
-
-    MenuItem hud;
-    hud.label = "Hide HUD";
-    hud.kind = ItemKind::Toggle;
-    hud.onToggle = [&menu, fn = hooks.setHudHidden](bool on) {
-        if (fn) { fn(on); menu.setStatus(std::string("HUD ") + (on ? "hidden" : "shown")); }
-        else menu.setStatus("Hide HUD: not wired yet");
-    };
-    menu.addItem(hud);
-
-    MenuItem tod;
-    tod.label = "Time of day";
-    tod.kind = ItemKind::Slider;
-    tod.value = 12.0f;
-    tod.minValue = 0.0f;
-    tod.maxValue = 24.0f;
-    tod.step = 0.5f;
-    tod.onChange = [&menu, fn = hooks.setTimeOfDay](float v) {
-        if (fn) { fn(v); menu.setStatus("Time set"); }
-        else menu.setStatus("Time of day: not wired yet");
-    };
-    menu.addItem(tod);
-
-    MenuItem reload;
-    reload.label = "Reload config";
-    reload.onAction = wrapAction("Reload", hooks.reloadConfig);
-    menu.addItem(reload);
-
-    if (!hooks.shaderPresets.empty()) {
-        menu.addItem(makeSelector("Shader", hooks.shaderPresets, hooks.setShader));
-    }
-
-    // Unlock All Content
-    MenuItem unlock;
-    unlock.label = "Unlock All Content";
-    unlock.onAction = [&menu, fn = hooks.unlockAllContent]() {
-        if (!fn) { menu.setStatus("UnlockAll: not wired yet"); return; }
-        menu.setStatus(fn());
-    };
-    menu.addItem(unlock);
-    // Rivals are on a post-raid cooldown and the job ladder is a chain, so the content
-    // being unlocked is not the same as there being anything to do. This is the second
-    // half, and it is a separate item because the cooldowns come back after every raid.
     if (hooks.unlockRaids) {
+        // The cooldowns come back after every raid, so this is a separate item rather
+        // than something that only happens once with the content unlock.
         MenuItem raids;
-        raids.label = "Unlock Raids and Events";
+        raids.label = "Unlock raids and events";
         raids.onAction = [&menu, fn = hooks.unlockRaids]() { menu.setStatus(fn()); };
         menu.addItem(raids);
     }
 
+    // Put the cursor on the first entry that can be used, not on the CAMERA title.
+    menu.select(0);
 }
 }  // namespace tw

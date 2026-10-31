@@ -11,8 +11,8 @@
 //   FILEFLAGSMASK 0x3f, FILEFLAGS 0      FILESUBTYPE 0
 
 1 VERSIONINFO
- FILEVERSION 1,0,0,16
- PRODUCTVERSION 1,0,0,16
+ FILEVERSION 1,0,0,17
+ PRODUCTVERSION 1,0,0,17
  FILEFLAGSMASK 0x3fL
  FILEFLAGS 0x0L
  FILEOS 0x40004L
@@ -25,12 +25,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName",      "TheSubsonicTouch"
             VALUE "FileDescription",  "Triad Wars Free Camera - debug menu with a free camera"
-            VALUE "FileVersion",      "1.0.0.16"
+            VALUE "FileVersion",      "1.0.0.17"
             VALUE "InternalName",     "dinput8"
             VALUE "LegalCopyright",   "Free camera by TheSubsonicTouch. Triad Wars is (c) United Front Games / Square Enix."
             VALUE "OriginalFilename", "dinput8.dll"
             VALUE "ProductName",      "Triad Wars Free Camera"
-            VALUE "ProductVersion",   "1.0.0.16"
+            VALUE "ProductVersion",   "1.0.0.17"
             VALUE "Comments",         "Game camera control for the offline Triad Wars build. No network, no install, no keylogger: it reads the keyboard only for its own hotkeys and never sends anything anywhere."
         END
     END
@@ -43,3 +43,7 @@ END
 // The side-by-side assembly identity. Purely descriptive: no dependencies, no
 // requestedExecutionLevel (a DLL has none), nothing that changes loading.
 1 24 "freecam_menu.manifest"
+// The menu background: the red dragon pattern draw by the overlay. It is a resource
+// rather than a byte array so the artwork stays a picture in the repository and
+// the DLL carries it as data, which is what it is.
+2 RCDATA "assets/triadmenu_bg.png"

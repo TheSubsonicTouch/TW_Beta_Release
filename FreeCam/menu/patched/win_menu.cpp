@@ -5,12 +5,14 @@
 #include <windows.h>
 #include <d3d11.h>
 #include <dxgi.h>
+#include <wincodec.h>
 #include <xinput.h>
 
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include <vector>
 
 #include "imgui.h"
 #include "imgui_impl_win32.h"
@@ -163,19 +165,14 @@ LONG CALLBACK vehHandler(EXCEPTION_POINTERS* ep) {
 
 tw::Menu g_menu;
 
-// Defined after the job queue; the model scan replaces the NPC selector's options,
-// so the menu is rebuilt in place once the scan has finished.
-void buildMenu();
-bool g_menuRebuild = false;
 
-enum JobKind {
-    JobSpawnVehicle, JobSpawnNpc, JobSpawnWeapon, JobWeather, JobTeleport,
-    JobInvincible, JobHudHidden, JobTimeOfDay, JobLevel, JobShader,
-    JobScanModels,
-};
+// Only the work that has to happen on the game thread: the three actions that call into
+// the game or write a save file. Everything the camera does is hotkeyed and runs on its
+// own thread (freecam_game.cpp), so it does not pass through here.
+enum JobKind { JobWeather, JobLevel, JobShader };
 
 struct Job {
-    JobKind kind = JobSpawnVehicle;
+    JobKind kind = JobWeather;
     std::string text;
     float value = 0.0f;
     bool flag = false;
@@ -196,33 +193,14 @@ void pushJob(Job j) {
 
 void runJob(const Job& j) {
     switch (j.kind) {
-    case JobSpawnVehicle: g_menu.setStatus(tw::game::SpawnAsset("Spawn", j.text)); break;
-    case JobSpawnNpc:     g_menu.setStatus(tw::game::SpawnAsset("Spawn", j.text)); break;
-    case JobSpawnWeapon:  g_menu.setStatus(tw::game::SpawnAsset("Spawn", j.text)); break;
-    case JobWeather:      g_menu.setStatus(tw::game::SetWeather(j.text)); break;
-    case JobTeleport:     g_menu.setStatus(tw::game::TeleportToWaypoint()); break;
-    case JobInvincible:   // TODO: no verified RVA yet
-        g_menu.setStatus(std::string("Invincible ") + (j.flag ? "on" : "off") +
-                         " (not wired yet)");
-        break;
-    case JobHudHidden:
-        g_menu.setStatus(std::string("HUD ") + (j.flag ? "hidden" : "shown") +
-                         " (not wired yet)");
-        break;
-    case JobTimeOfDay:
-        g_menu.setStatus("Time set (not wired yet)");
+    case JobWeather:
+        g_menu.setStatus(tw::game::SetWeather(j.text));
         break;
     case JobLevel:
         g_menu.setStatus(tw::game::SetLevel(j.text, static_cast<int>(j.value)));
         break;
     case JobShader:
         g_menu.setStatus(tw::game::SetShader(j.text));
-        break;
-    case JobScanModels:
-        // Reads the game's data files, so it runs here, on the game thread, once, rather
-        // than inside the menu's key handling.
-        g_menu.setStatus(tw::game::SpawnScanGameFiles());
-        g_menuRebuild = true;
         break;
     }
 }
@@ -330,6 +308,105 @@ void releaseRenderTarget() {
     }
 }
 
+
+// ---------------------------------------------------------------------------
+// Background: the red dragon the menu is drawn on.
+// ---------------------------------------------------------------------------
+
+// The artwork is a PNG in the DLL's resources (freecam_menu.rc, RCDATA 2). Windows
+// Imaging Component decodes it once, at startup, into a D3D11 texture; ImGui then draws
+// it behind the menu rows with a fixed alpha, so the pattern is always the backdrop and
+// never competes with the text.
+constexpr int kBgResourceId = 2;
+ID3D11ShaderResourceView* g_bgSrv = nullptr;
+int g_bgW = 0;
+int g_bgH = 0;
+
+// Every COM object is released on every exit path, including the failures: this runs
+// inside the game's process, and a leak here is the game's leak.
+bool decodePng(ID3D11Device* dev, const void* data, DWORD size) {
+    IWICImagingFactory* factory = nullptr;
+    IWICStream* stream = nullptr;
+    IWICBitmapDecoder* decoder = nullptr;
+    IWICBitmapFrameDecode* frame = nullptr;
+    IWICFormatConverter* converter = nullptr;
+    ID3D11Texture2D* texture = nullptr;
+    bool ok = false;
+
+    do {
+        if (FAILED(CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER,
+                                    IID_PPV_ARGS(&factory)))) break;
+        if (FAILED(factory->CreateStream(&stream))) break;
+        if (FAILED(stream->InitializeFromMemory(reinterpret_cast<BYTE*>(const_cast<void*>(data)),
+                                                size))) break;
+        if (FAILED(factory->CreateDecoderFromStream(stream, nullptr, WICDecodeMetadataCacheOnDemand,
+                                                    &decoder))) break;
+        if (FAILED(decoder->GetFrame(0, &frame))) break;
+
+        UINT w = 0, h = 0;
+        if (FAILED(frame->GetSize(&w, &h)) || w == 0 || h == 0) break;
+        if (FAILED(factory->CreateFormatConverter(&converter))) break;
+        if (FAILED(converter->Initialize(frame, GUID_WICPixelFormat32bppRGBA,
+                                         WICBitmapDitherTypeNone, nullptr, 0.0,
+                                         WICBitmapPaletteTypeCustom))) break;
+
+        std::vector<BYTE> pixels(static_cast<size_t>(w) * h * 4);
+        if (FAILED(converter->CopyPixels(nullptr, w * 4, static_cast<UINT>(pixels.size()),
+                                         pixels.data()))) break;
+
+        D3D11_TEXTURE2D_DESC desc{};
+        desc.Width = w;
+        desc.Height = h;
+        desc.MipLevels = 1;
+        desc.ArraySize = 1;
+        desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+        desc.SampleDesc.Count = 1;
+        desc.Usage = D3D11_USAGE_IMMUTABLE;
+        desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+
+        D3D11_SUBRESOURCE_DATA init{};
+        init.pSysMem = pixels.data();
+        init.SysMemPitch = w * 4;
+        if (FAILED(dev->CreateTexture2D(&desc, &init, &texture))) break;
+
+        if (FAILED(dev->CreateShaderResourceView(texture, nullptr, &g_bgSrv))) break;
+        g_bgW = static_cast<int>(w);
+        g_bgH = static_cast<int>(h);
+        ok = true;
+    } while (false);
+
+    if (texture) texture->Release();
+    if (converter) converter->Release();
+    if (frame) frame->Release();
+    if (decoder) decoder->Release();
+    if (stream) stream->Release();
+    if (factory) factory->Release();
+    return ok;
+}
+
+void loadBackground(ID3D11Device* dev) {
+    if (g_bgSrv || !dev) return;
+    HINSTANCE self = GetModuleHandleW(nullptr);
+    HRSRC res = FindResourceW(self, MAKEINTRESOURCEW(kBgResourceId),
+                                       MAKEINTRESOURCEW(10) /* RT_RCDATA */);
+    if (!res) {
+        TW_Log("Menu background: the dragon artwork is not in this DLL.");
+        return;
+    }
+    HGLOBAL block = LoadResource(self, res);
+    const void* bytes = block ? LockResource(block) : nullptr;
+    const DWORD size = SizeofResource(self, res);
+    if (!bytes || size == 0) {
+        TW_Log("Menu background: the artwork could not be read.");
+        return;
+    }
+    if (!decodePng(dev, bytes, size)) {
+        TW_Log("Menu background: the artwork could not be decoded; using the plain panel.");
+        return;
+    }
+    TW_Log("Menu background: %dx%d dragon pattern loaded.", g_bgW, g_bgH);
+}
+
 void initImGui(IDXGISwapChain* sc) {
     if (FAILED(sc->GetDevice(__uuidof(ID3D11Device), reinterpret_cast<void**>(&g_dev)))) return;
     g_dev->GetImmediateContext(&g_ctx);
@@ -411,6 +488,11 @@ void initImGui(IDXGISwapChain* sc) {
     colors[ImGuiCol_NavWindowingDimBg] = ImVec4(0.00f, 0.00f, 0.00f, 0.60f);
     colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.00f, 0.00f, 0.00f, 0.60f);
 
+    // WIC needs COM on this thread; the game already has it up in most builds, and
+    // RPC_E_CHANGED_MODE just means it is in the other apartment model.
+    CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+    loadBackground(g_dev);
+
     ImGui_ImplWin32_Init(g_hwnd);
     ImGui_ImplDX11_Init(g_dev, g_ctx);
 
@@ -458,6 +540,162 @@ void renderHotkeyHud() {
     ImGui::PopStyleVar(2);
 }
 
+
+// One row of the menu. The label sits on the left, the current state on the right, and
+// the whole row is clickable: the first click puts the cursor on it, a second one acts,
+// which is how the keyboard already behaves (arrows move, Enter acts). The right mouse
+// button is the arrows' Left/Right, for the two kinds that have a value.
+const char* rowValue(const tw::MenuItem& it) {
+    static char buf[64];
+    switch (it.kind) {
+    case tw::ItemKind::Toggle:
+        return it.toggled ? "ON" : "OFF";
+    case tw::ItemKind::Slider:
+        std::snprintf(buf, sizeof buf, "%d", static_cast<int>(it.value));
+        return buf;
+    case tw::ItemKind::Selector:
+        if (it.options.empty()) return "-";
+        return it.options[it.optionIndex < it.options.size() ? it.optionIndex : 0].c_str();
+    default:
+        return "";
+    }
+}
+
+void renderMenu() {
+    const ImVec4 gold(0.93f, 0.78f, 0.42f, 1.0f);
+    const ImVec4 goldDim(0.72f, 0.55f, 0.28f, 1.0f);
+    const ImVec4 bone(0.94f, 0.92f, 0.88f, 1.0f);
+    const ImVec4 red(0.86f, 0.24f, 0.22f, 1.0f);
+    const ImVec4 cyan(0.55f, 0.85f, 0.92f, 1.0f);
+
+    ImGui::SetNextWindowPos(ImVec2(26, 26), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(520, 0), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSizeConstraints(ImVec2(400, 0), ImVec2(1000, 4000));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(14, 12));
+    ImGui::Begin("TriadMenu", nullptr, ImGuiWindowFlags_NoCollapse);
+
+    // The dragon, behind everything the window draws: cover-fit, so the tiles never
+    // stretch. It is drawn at a little over half strength and the window background stays
+    // dark, so the rows keep their contrast.
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    const ImVec2 wp = ImGui::GetWindowPos();
+    // The content region, not the whole window: the window's own draw list is painted
+    // after its title bar, so an image over the window rect would sit on top of the name.
+    const ImVec2 cmin = ImGui::GetWindowContentRegionMin();
+    const ImVec2 cmax = ImGui::GetWindowContentRegionMax();
+    const ImVec2 ws(cmax.x - cmin.x, cmax.y - cmin.y);
+    const ImVec2 origin(wp.x + cmin.x, wp.y + cmin.y);
+    if (g_bgSrv && ws.x > 1.0f && ws.y > 1.0f) {
+        ImVec2 uv0(0.0f, 0.0f), uv1(1.0f, 1.0f);
+        const float imgAspect = static_cast<float>(g_bgW) / static_cast<float>(g_bgH);
+        const float winAspect = ws.x / ws.y;
+        if (winAspect > imgAspect) {
+            const float keep = imgAspect / winAspect;
+            uv0.y = (1.0f - keep) * 0.5f;
+            uv1.y = 1.0f - uv0.y;
+        } else {
+            const float keep = winAspect / imgAspect;
+            uv0.x = (1.0f - keep) * 0.5f;
+            uv1.x = 1.0f - uv0.x;
+        }
+        dl->AddImageRounded(reinterpret_cast<ImTextureID>(g_bgSrv), origin,
+                            ImVec2(origin.x + ws.x, origin.y + ws.y), uv0, uv1,
+                            IM_COL32(255, 255, 255, 120), 4.0f);
+    }
+
+    // Title block: the name, a rule, and where the keys are.
+    ImGui::PushStyleColor(ImGuiCol_Text, gold);
+    ImGui::SetWindowFontScale(1.35f);
+    ImGui::TextUnformatted("TriadMenu");
+    ImGui::SetWindowFontScale(1.0f);
+    ImGui::PopStyleColor();
+    ImGui::PushStyleColor(ImGuiCol_Text, goldDim);
+    ImGui::TextUnformatted("Triad Wars debug menu");
+    ImGui::PopStyleColor();
+    ImGui::Separator();
+
+    const float rowHeight = 26.0f;
+    const auto& items = g_menu.items();
+    const float rowWidth = ImGui::GetContentRegionAvail().x;
+    for (std::size_t i = 0; i < items.size(); ++i) {
+        const tw::MenuItem& it = items[i];
+
+        if (it.header) {
+            ImGui::Dummy(ImVec2(1.0f, 4.0f));
+            ImGui::PushStyleColor(ImGuiCol_Text, red);
+            ImGui::TextUnformatted(it.label.c_str());
+            ImGui::PopStyleColor();
+            const ImVec2 p = ImGui::GetCursorScreenPos();
+            dl->AddLine(ImVec2(p.x, p.y + 1.0f), ImVec2(p.x + rowWidth, p.y + 1.0f),
+                        ImGui::GetColorU32(ImVec4(0.55f, 0.32f, 0.14f, 0.55f)), 1.0f);
+            ImGui::Dummy(ImVec2(1.0f, 2.0f));
+            continue;
+        }
+
+        const bool selected = (i == g_menu.selectedIndex());
+        ImGui::PushID(static_cast<int>(i));
+        const ImVec2 p = ImGui::GetCursorScreenPos();
+        ImGui::Selectable("##row", selected, ImGuiSelectableFlags_None,
+                          ImVec2(rowWidth, rowHeight));
+        const bool hovered = ImGui::IsItemHovered();
+        const bool leftClick = ImGui::IsItemClicked(0);
+        const bool rightClick = ImGui::IsItemClicked(1);
+        ImGui::PopID();
+
+        // Selection bar.
+        if (selected) {
+            dl->AddRectFilled(ImVec2(p.x, p.y), ImVec2(p.x + rowWidth, p.y + rowHeight),
+                              ImGui::GetColorU32(ImVec4(0.55f, 0.10f, 0.10f, 0.55f)), 4.0f);
+            dl->AddRectFilled(ImVec2(p.x, p.y + 2.0f), ImVec2(p.x + 2.5f, p.y + rowHeight - 2.0f),
+                              ImGui::GetColorU32(gold), 1.0f);
+        } else if (hovered) {
+            dl->AddRectFilled(ImVec2(p.x, p.y), ImVec2(p.x + rowWidth, p.y + rowHeight),
+                              ImGui::GetColorU32(ImVec4(0.45f, 0.10f, 0.10f, 0.28f)), 4.0f);
+        }
+
+        const float textY = p.y + (rowHeight - ImGui::GetTextLineHeight()) * 0.5f;
+        dl->AddText(ImVec2(p.x + 12.0f, textY), ImGui::GetColorU32(selected ? bone : gold),
+                    it.label.c_str());
+
+        const char* value = rowValue(it);
+        if (value && *value) {
+            const ImVec2 size = ImGui::CalcTextSize(value);
+            const ImU32 col = ImGui::GetColorU32(
+                it.kind == tw::ItemKind::Toggle ? (it.toggled ? ImVec4(0.45f, 0.90f, 0.45f, 1.0f) : ImVec4(0.62f, 0.58f, 0.52f, 1.0f))
+                                                : ImVec4(0.86f, 0.76f, 0.52f, 1.0f));
+            dl->AddText(ImVec2(p.x + rowWidth - size.x - 12.0f, textY), col, value);
+        }
+
+        if (leftClick) {
+            if (selected) g_menu.handleKey(tw::Key::Select);
+            else g_menu.select(i);
+        }
+        if (rightClick && selected) g_menu.handleKey(tw::Key::Right);
+    }
+
+    // Status line: what the last action did.
+    ImGui::Dummy(ImVec2(1.0f, 2.0f));
+    ImGui::Separator();
+    if (!g_menu.status().empty()) {
+        ImGui::PushStyleColor(ImGuiCol_Text, cyan);
+        ImGui::TextWrapped("%s", g_menu.status().c_str());
+        ImGui::PopStyleColor();
+    } else {
+        ImGui::PushStyleColor(ImGuiCol_Text, goldDim);
+        ImGui::TextUnformatted("Pick an entry with the arrow keys and Enter.");
+        ImGui::PopStyleColor();
+    }
+
+    ImGui::Dummy(ImVec2(1.0f, 2.0f));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.55f, 0.52f, 0.48f, 1.0f));
+    ImGui::TextUnformatted("Up/Down move   Left/Right change   Enter apply");
+    ImGui::TextUnformatted("Right click = right arrow   Insert / Backspace close");
+    ImGui::PopStyleColor();
+
+    ImGui::End();
+    ImGui::PopStyleVar();
+}
+
 void renderFrame() {
     const bool menuOn = g_menu.visible();
     tw::game::FreeCamHudLine probe[1];
@@ -468,24 +706,7 @@ void renderFrame() {
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
 
-    if (menuOn) {
-        ImGui::SetNextWindowPos(ImVec2(20, 20), ImGuiCond_FirstUseEver);
-        ImGui::SetNextWindowSize(ImVec2(520, 0), ImGuiCond_FirstUseEver);
-        ImGui::Begin("Triad Wars Debug Menu", nullptr, ImGuiWindowFlags_NoCollapse);
-        for (const auto& line : g_menu.renderLines()) {
-            if (line.rfind("> ", 0) == 0) {
-                ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.2f, 1.0f), "%s", line.c_str());
-            } else if (line.rfind("Status: ", 0) == 0) {
-                ImGui::TextColored(ImVec4(0.6f, 0.9f, 1.0f, 1.0f), "%s", line.c_str());
-            } else {
-                ImGui::TextUnformatted(line.c_str());
-            }
-        }
-        ImGui::Separator();
-        ImGui::TextDisabled("Keyboard: Insert / arrows / Enter / Backspace");
-        ImGui::TextDisabled("Gamepad: Start / D-pad / A / B");
-        ImGui::End();
-    }
+    if (menuOn) renderMenu();
 
     renderHotkeyHud();
 
@@ -501,16 +722,6 @@ HRESULT STDMETHODCALLTYPE hkPresent(IDXGISwapChain* sc, UINT sync, UINT flags) {
     if (g_imguiReady) {
         pollInput();
         drainJobs();   // run queued actions on the game thread, then show results
-        if (g_menuRebuild) {
-            // The scan replaced the model list: rebuild the menu with the new options and
-            // leave the cursor where it was.
-            g_menuRebuild = false;
-            const std::size_t sel = g_menu.selectedIndex();
-            const bool visible = g_menu.visible();
-            buildMenu();
-            g_menu.select(sel);
-            g_menu.setVisible(visible);
-        }
         renderFrame();
     }
     return oPresent(sc, sync, flags);
@@ -595,95 +806,38 @@ DWORD WINAPI installThread(LPVOID) {
 
 void buildMenu() {
     tw::DebugHooks hooks;
-    hooks.vehicleNames = tw::game::VehicleNames();
-    // The spawn module owns the list, because it is also what FreeCam.npc.txt feeds.
-    hooks.npcNames = tw::game::SpawnModels();
-    hooks.weaponNames = tw::game::WeaponNames();
+    // Only what the menu still offers. The camera, the spawner and noclip keep their
+    // hotkeys (see freecam_game.cpp); the menu is for the things that are easier to read
+    // than to remember, and for the actions that write a save file.
     hooks.weatherPresets = tw::game::WeatherPresets();
     hooks.levelTargets = tw::game::LevelTargets();
     hooks.shaderPresets = tw::game::ShaderPresets();
 
-    hooks.spawnVehicle = [](const std::string& n) {
-        pushJob(Job{JobSpawnVehicle, n, 0.0f, false});
-        return std::string("Spawn: queued");
-    };
-    hooks.spawnNpc = [](const std::string& n) {
-        pushJob(Job{JobSpawnNpc, n, 0.0f, false});
-        return std::string("Spawn: queued");
-    };
-    hooks.spawnWeapon = [](const std::string& n) {
-        pushJob(Job{JobSpawnWeapon, n, 0.0f, false});
-        return std::string("Spawn: queued");
-    };
     hooks.setWeather = [](const std::string& n) {
         pushJob(Job{JobWeather, n, 0.0f, false});
         return std::string("Weather: queued");
     };
-    hooks.teleportToWaypoint = [] {
-        pushJob(Job{JobTeleport, std::string(), 0.0f, false});
-        return std::string("Teleport: queued");
-    };
     hooks.setFreeCam = [](bool on) { return tw::game::FreeCamSetActive(on); };
-    // The spawn runs on the camera thread, which is the thread that has the game's
-    // per-thread allocator; the menu thread only queues it. The result goes to the HUD
-    // and to TW_MenuLog.txt, so the line here only says it was taken.
-    hooks.spawnNpcInFront = [](const std::string& model, bool hostile) {
-        // Take the menu's choice over as the hotkey one, so B repeats what you just did.
-        tw::game::SpawnSelectByName(model);
-        tw::game::SpawnSetHostile(hostile);
-        tw::game::SpawnRequest(model, hostile);
-        // The spawn itself happens on the camera thread a few milliseconds later, so the
-        // menu can only say it was taken. The result appears in the corner display and in
-        // TW_MenuLog.txt.
-        return std::string("Spawn: queued (") + (hostile ? "hostile" : "friendly") +
-               ") - see the corner display";
-    };
-    // The same spawn with no offset, for the places where three metres ahead is inside a
-    // wall. The spawner falls back to this by itself; the item is for when you want it.
-    hooks.spawnNpcOnPlayer = [](const std::string& model, bool hostile) {
-        tw::game::SpawnSelectByName(model);
-        tw::game::SpawnSetHostile(hostile);
-        tw::game::SpawnRequestAt(model, hostile, 0.0f);
-        return std::string("Spawn: queued on you (") + (hostile ? "hostile" : "friendly") +
-               ") - see the corner display";
-    };
-    hooks.setInvincible = [](bool on) { pushJob(Job{JobInvincible, std::string(), 0.0f, on}); };
-    hooks.setHudHidden = [](bool on) { pushJob(Job{JobHudHidden, std::string(), 0.0f, on}); };
-    hooks.setTimeOfDay = [](float v) { pushJob(Job{JobTimeOfDay, std::string(), v, false}); };
     hooks.setLevel = [](const std::string& t, int l) {
         pushJob(Job{JobLevel, t, static_cast<float>(l), false});
         return std::string("Level: queued");
     };
     hooks.setShader = [](const std::string& n) {
         pushJob(Job{JobShader, n, 0.0f, false});
-        return std::string("Shader: queued");
+        return std::string("ReShade preset: queued");
     };
     // Unlock all is two halves: the content (vehicles, weapons, upgrades, levels) and the
     // opportunities (rivals off cooldown, job ladder open). Neither is much use alone, so
-    // the one item does both and reports both.
+    // the one entry does both and reports both.
     hooks.unlockAllContent = []() {
         std::string content = tw::game::UnlockAllContent();
         std::string raids = tw::game::UnlockRaidsAndEvents();
-        return content + " | " + raids;
+        return content + "   |   " + raids;
     };
     hooks.unlockRaids = []() { return tw::game::UnlockRaidsAndEvents(); };
-
-    // Reading the game's data files takes a second or two, so the menu queues it like a
-    // spawn: the click returns at once and the list is replaced when the scan is done.
-    hooks.scanNpcModels = []() {
-        pushJob(Job{JobScanModels, std::string(), 0.0f, false});
-        return std::string("Scan: reading the game files - the list follows when it is done");
-    };
-    hooks.resetSpawnerLabel = "Reset spawner after a fault";
-    hooks.resetSpawner = []() {
-        tw::game::SpawnClearFault();
-        return std::string(tw::game::SpawnBlocked()
-                               ? "Spawn: still blocked - restart after a crash"
-                               : "Spawn: fault cleared");
-    };
     hooks.setNoclip = [](bool on) {
         tw::game::NoclipSet(on);
-        return std::string(on ? "Noclip: on - WASD, Space up, Ctrl down"
+        return std::string(on ? "Noclip: on - WASD, Space up, C down, Shift/Ctrl for speed"
                               : "Noclip: off - the character drops to the ground");
     };
 

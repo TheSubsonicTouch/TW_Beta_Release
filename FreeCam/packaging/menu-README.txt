@@ -104,6 +104,22 @@ game carries on from its own camera and not from where you flew to.
 WHAT CHANGED IN THIS BUILD
 --------------------------
 
+  - Build 17. The menu is called TriadMenu now, and it has been cleaned up and dressed
+    up.
+
+    - The list is shorter. Everything that could not work or was a duplicate is gone:
+      the NPC spawn entries (spawning is on B, N and H - see below), Time of day,
+      Teleport to waypoint, Hide HUD, Invincible and Reload config. Those last four
+      were entries that answered "not wired yet", and a menu that offers what it cannot
+      do is worse than a short one.
+    - What is left is grouped: CAMERA, WORLD, PROGRESSION.
+    - Every entry shows its state on the right - ON/OFF, the weather that is selected,
+      the level, the preset - so the menu can be read without pressing anything.
+    - The mouse works: click an entry to select it, click it again to use it. The right
+      mouse button is the right arrow, for the entries that have a value.
+    - The background is a red Chinese dragon, tattoo style, drawn behind the list at a
+      little over half strength so the text stays readable.
+
   - Build 16. Three new things, and one that was already there but would not survive a
     bad spawn.
 
@@ -115,11 +131,11 @@ WHAT CHANGED IN THIS BUILD
     lets the game's own physics take over. That is how you get onto a roof: fly there,
     switch off, land.
 
-  - The model list can be filled from the game's own data files: "Scan game files for
-    NPCs" in the menu walks the folder, reads the character property sets it finds in
-    the data files, adds them to the built-ins and writes them to FreeCam.npc.txt, so
-    the list also survives a restart and can be trimmed by hand. It takes a moment, and
-    it only reads.
+  - The model list can be filled from the game's own data files. The scan walks the
+    folder, reads the character property sets it finds in the data files, adds them to
+    the built-ins and writes them to FreeCam.npc.txt, so the list survives a restart and
+    can be trimmed by hand. It has no menu entry since build 17; FreeCam.npc.txt next to
+    TriadWars.exe is the supported way to add a model.
 
   - Unlock All now opens the raids and events too. Unlocking the content was only half
     of it: every rival is on a post-raid cooldown and the jobs are a chain, so the map
@@ -129,8 +145,7 @@ WHAT CHANGED IN THIS BUILD
     re-rolls when it is used, so a job in progress is replaced by a new one.
 
   - A spawn that faults inside the game no longer takes the next one down with it: the
-    spawner switches itself off, says so, and R (or "Reset spawner after a fault") gives
-    it one more try.
+    spawner switches itself off, says so, and R gives it one more try.
 
   - The spawn items in the menu now actually do something. They did not before, for a
     dull reason: the spawn is carried out on the camera thread - the only thread that
@@ -145,9 +160,9 @@ WHAT CHANGED IN THIS BUILD
     game's spawn code comes back as a line in the corner display instead of a crash.
 
   - B spawns an NPC three metres in front of the player, facing the way you face. N walks
-    through the models, H switches between hostile and friendly, and the same three
-    choices are in the menu: "NPC model", "NPC attitude" and "Spawn NPC in front".
-    U turns noclip on and off, R allows one more spawn after a fault.
+    through the models, H switches between hostile and friendly. U turns noclip on and
+    off, R allows one more spawn after a fault. The spawner is hotkey-only since build
+    17; the menu does not carry it any more.
     The result of each spawn, with the faction ids it read, goes to TW_MenuLog.txt.
 
     The spawn is the game's own: the model's property-set name is hashed, the game makes
@@ -223,7 +238,7 @@ WHAT CHANGED IN THIS BUILD
 CONTROLS
 --------
 
-    Insert              open the debug menu
+    Insert              open TriadMenu
     Free Camera         toggle it in the menu
     W A S D             move forward, back, left, right
     Space / C           up / down
@@ -243,7 +258,7 @@ CONTROLS
     F10                 panic: put the camera back and switch off, from anywhere
     B                   spawn the selected NPC three metres in front of the player,
                         facing the way the player faces
-    N                   next NPC model (the list is in the menu too)
+    N                   next NPC model
     H                   NPCs spawn hostile or friendly (the menu has the same choice)
     U                   noclip: fly the character themselves (menu item "Noclip")
     R                   allow one more spawn after the spawner stopped itself
@@ -350,12 +365,12 @@ IF IT DOES NOT WORK
 -------------------
 
 TW_MenuLog.txt, next to TriadWars.exe, records everything. The second line of a flight
-says which build is running - "build 16" for this one. If it says a lower number, the game
+says which build is running - "build 17" for this one. If it says a lower number, the game
 is loading an older dinput8.dll: run Install-FreeCam.bat again from this zip.
 Load into the world first - the camera cannot be told apart on a loading screen -
 then toggle it and look for these lines, in this order:
 
-    FreeCam: camera thread up (build 16: B spawns an NPC 3 m ahead, N picks the model, H the side, U noclip, R clears a spawn fault)
+    FreeCam: camera thread up (build 17: B spawns an NPC 3 m ahead, N picks the model, H the side, U noclip, R clears a spawn fault)
     FreeCam: switched on, asking the renderer which camera it draws
     FreeCam: hooked the view accessor at 0000... with an absolute jump (original kept at ...)
     FreeCam: the renderer asked about 0000... for the first time
@@ -405,13 +420,14 @@ raw mouse and the polling functions are still blocked, and P or O still work.
 IS THIS SAFE FOR MY GAME
 ------------------------
 
-It is the game's own debug menu, built from its sources, with three modules added
-rather than patched into it: the free camera (freecam_game.cpp), the input hold-back
-that keeps your character still while the camera flies (input_block.cpp), and the NPC
-spawner (freecam_spawn.cpp). The menu's own features are untouched, the crash guard is
-still installed at startup, and every memory address is checked before it is read or
-written - the spawner in particular never writes unless the object it found reads back
-what the game just reported for it.
+It is the game's own debug menu (now called TriadMenu), built from its sources, with
+four modules added rather than patched into it: the free camera (freecam_game.cpp), the
+input hold-back that keeps your character still while the camera flies (input_block.cpp),
+the NPC spawner (freecam_spawn.cpp), the noclip (freecam_noclip.cpp) and the raids and
+events unlock (freecam_unlock.cpp). The menu's own features are untouched, the crash
+guard is still installed at startup, and every memory address is checked before it is
+read or written - the spawner in particular never writes unless the object it found
+reads back what the game just reported for it.
 
 Keep a copy of the file you replace: rename your current dinput8.dll to
 dinput8.original.dll before copying this one in. To go back, rename it back.

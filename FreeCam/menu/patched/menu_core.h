@@ -15,6 +15,9 @@ enum class ItemKind { Action, Toggle, Slider, Selector };
 struct MenuItem {
     std::string label;
     ItemKind kind = ItemKind::Action;
+    // A section title: drawn on its own, never selected and never acted on. It is
+    // there so a twelve-item list reads as four short ones.
+    bool header = false;
     bool toggled = false;             // for Toggle
     float value = 0.0f;               // for Slider
     float minValue = 0.0f;
@@ -44,7 +47,16 @@ public:
     void toggleVisible() { visible_ = !visible_; }
 
     std::size_t selectedIndex() const { return selected_; }
-    void select(std::size_t i) { if (i < items_.size()) selected_ = i; }
+    // Selecting a section title lands on the next real item instead, so the cursor is
+    // always on something that can be used.
+    void select(std::size_t i) {
+        if (i >= items_.size()) return;
+        for (std::size_t k = i; k < items_.size(); ++k) {
+            if (!items_[k].header) { selected_ = k; return; }
+        }
+        if (items_[i].header) return;
+        selected_ = i;
+    }
     const std::vector<MenuItem>& items() const { return items_; }
 
     // Text lines for a renderer to draw. The selected row starts with "> ".
@@ -55,6 +67,8 @@ public:
     const std::string& status() const { return status_; }
 
 private:
+    void step(int delta);   // move the cursor, skipping section titles
+
     std::vector<MenuItem> items_;
     std::size_t selected_ = 0;
     bool visible_ = false;
