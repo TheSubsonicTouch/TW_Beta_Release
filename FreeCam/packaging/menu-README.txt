@@ -109,9 +109,9 @@ WHAT CHANGED IN THIS BUILD
 
     - The list is shorter. Everything that could not work or was a duplicate is gone:
       the NPC spawn entries (spawning is on B, N and H - see below), Time of day,
-      Teleport to waypoint, Hide HUD, Invincible and Reload config. Those last four
-      were entries that answered "not wired yet", and a menu that offers what it cannot
-      do is worse than a short one.
+      Teleport to waypoint, Hide HUD, Invincible and Reload config. All of those
+      answered "not wired yet" or did nothing at all, and a menu that offers what it
+      cannot do is worse than a short one.
     - What is left is grouped: CAMERA, WORLD, PROGRESSION.
     - Every entry shows its state on the right - ON/OFF, the weather that is selected,
       the level, the preset - so the menu can be read without pressing anything.
