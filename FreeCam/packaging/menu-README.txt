@@ -259,6 +259,10 @@ Spawning NPCs:
   - H decides whether it belongs to your faction (it will not fight you) or to a
     different one (the game's AI reads that field when it works out who is on whose side).
     The menu's "NPC attitude" selector does the same thing.
+  - If that spot is refused - a doorway, a wall, the middle of the road - the same call
+    is made once more at the player's own position, and the corner display says "on you"
+    instead of "3 m ahead". So one key press either makes one NPC or says why it could
+    not; it does not keep trying and filling the street.
   - A spawn never runs on the render thread: the game's spawn path allocates through a
     per-thread allocator, so the camera thread carries it out after running the game's own
     initialiser for that allocator. If it fails, the reason is in TW_MenuLog.txt.

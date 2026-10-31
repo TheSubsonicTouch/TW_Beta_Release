@@ -404,8 +404,37 @@ std::string DoSpawn(const std::string &model, bool hostile, bool *retry) {
     if (!out.resolved) {
         return "Spawn failed: this build does not know '" + SpawnShortName(model) + "'";
     }
+
+    // Nothing appeared three metres ahead. That spot can be refused - a doorway, a wall,
+    // the middle of the road - so the same call is tried once more at the player's own
+    // position, which is always somewhere the game already agreed a character can be. It
+    // is one extra attempt and only when the first made nothing, so a working spawn is
+    // still exactly one NPC.
+    const char *where = "3 m ahead";
     if (!out.created) {
-        return "Spawn failed: the game made no object for '" + SpawnShortName(model) + "'";
+        TW_Log("Spawn: nothing placed 3 m ahead, trying the player's own position");
+        Outcome again;
+        CallSpawnChain(model.c_str(), player, &again);
+        TW_Log("Spawn: '%s' at the player -> %p faulted=%d code=%08X at %.2f %.2f %.2f",
+               model.c_str(), again.npc, again.faulted ? 1 : 0, again.code, player.m[12],
+               player.m[13], player.m[14]);
+        if (again.faulted) {
+            g_blocked = true;
+            g_blockedCode = again.code;
+            char buf[140];
+            std::snprintf(buf, sizeof buf,
+                          "Spawn crashed (code %08X) - spawner switched off, see the log",
+                          again.code);
+            return buf;
+        }
+        if (again.created) {
+            out = again;
+            where = "on you";
+        }
+    }
+    if (!out.created) {
+        return "Spawn failed: the game made no object for '" + SpawnShortName(model) +
+               "' (3 m ahead or on you)";
     }
 
     void *npc = out.npc;
@@ -415,7 +444,8 @@ std::string DoSpawn(const std::string &model, bool hostile, bool *retry) {
     int playerFaction = 0;
     const bool havePlayer = PlayerFaction(&playerFaction);
     bool factionSet = false;
-    const char *note = "3 m ahead";
+    // "3 m ahead" or "on you", with the reason when the side could not be written.
+    std::string note = where;
 
     if (npcFaction > 0 && npcFaction <= kFactionIdMax) {
         int want = npcFaction;
@@ -437,10 +467,10 @@ std::string DoSpawn(const std::string &model, bool hostile, bool *retry) {
                     factionSet = true;
                     npcFaction = want;
                 } else {
-                    note = "3 m ahead, own side";
+                    note = std::string(where) + ", own side";
                 }
             } else {
-                note = "3 m ahead, own side";
+                note = std::string(where) + ", own side";
             }
             TW_Log("Spawn: faction %d -> %d (yours %d), resolved object %p, wrote %s",
                    wasFaction, want, playerFaction, object, factionSet ? "yes" : "no");
@@ -453,7 +483,7 @@ std::string DoSpawn(const std::string &model, bool hostile, bool *retry) {
                npcFaction);
     }
 
-    return Describe(hostile, model, npcFaction, playerFaction, factionSet, note);
+    return Describe(hostile, model, npcFaction, playerFaction, factionSet, note.c_str());
 }
 
 
