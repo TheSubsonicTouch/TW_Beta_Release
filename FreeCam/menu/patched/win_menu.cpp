@@ -164,6 +164,7 @@ LONG CALLBACK vehHandler(EXCEPTION_POINTERS* ep) {
 // ---------------------------------------------------------------------------
 
 tw::Menu g_menu;
+std::function<void()> g_syncState;   // see DebugHooks::syncState
 
 
 // Only the work that has to happen on the game thread: the three actions that call into
@@ -508,10 +509,14 @@ void initImGui(IDXGISwapChain* sc) {
 void renderHotkeyHud() {
     tw::game::FreeCamHudLine lines[8];
     const int n = tw::game::FreeCamHudLines(lines, 8);
-    if (n <= 0) return;
+    // While noclip is on the corner says so all the time, not just for a second after the
+    // key: a mode that moves the character is worth being able to see at a glance.
+    const bool noclip = tw::game::NoclipActive();
+    if (n <= 0 && !noclip) return;
 
     float freshest = 0.0f;
     for (int i = 0; i < n; ++i) if (lines[i].alpha > freshest) freshest = lines[i].alpha;
+    if (noclip) freshest = 1.0f;
 
     const ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - 14.0f, 14.0f), ImGuiCond_Always,
@@ -525,6 +530,17 @@ void renderHotkeyHud() {
                  ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoNav |
                  ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings |
                  ImGuiWindowFlags_NoFocusOnAppearing);
+    if (noclip) {
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.45f, 0.38f, 1.0f));
+        ImGui::TextUnformatted("NOCLIP");
+        ImGui::PopStyleColor();
+        ImGui::SameLine();
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.92f, 0.94f, 0.97f, 1.0f));
+        ImGui::Text("%s   WASD / Space / C   [ ] speed",
+                    tw::game::NoclipSpeedLabels()[tw::game::NoclipSpeedIndex()]);
+        ImGui::PopStyleColor();
+        if (n > 0) ImGui::Separator();
+    }
     for (int i = 0; i < n; ++i) {
         const float a = lines[i].alpha;
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.87f, 0.35f, a));
@@ -704,7 +720,7 @@ void renderFrame() {
     const bool menuOn = g_menu.visible();
     tw::game::FreeCamHudLine probe[1];
     const bool hudOn = tw::game::FreeCamHudLines(probe, 1) > 0;
-    if (!menuOn && !hudOn) return;
+    if (!menuOn && !hudOn && !tw::game::NoclipActive()) return;
 
     ImGui_ImplDX11_NewFrame();
     ImGui_ImplWin32_NewFrame();
@@ -725,6 +741,7 @@ HRESULT STDMETHODCALLTYPE hkPresent(IDXGISwapChain* sc, UINT sync, UINT flags) {
     }
     if (g_imguiReady) {
         pollInput();
+        if (g_syncState) g_syncState();   // hotkeys can change what the menu shows
         drainJobs();   // run queued actions on the game thread, then show results
         renderFrame();
     }
@@ -839,13 +856,36 @@ void buildMenu() {
         return content + "   |   " + raids;
     };
     hooks.unlockRaids = []() { return tw::game::UnlockRaidsAndEvents(); };
+    // Noclip: the toggle, the speed picker and two way of keeping them honest.
+    static const char* const kNoclipSpeeds[] = { "1x", "2x", "3x", "4x", "6x", "8x" };
+    for (int i = 0; i < tw::game::NoclipSpeedCount(); ++i)
+        hooks.noclipSpeeds.push_back(kNoclipSpeeds[i]);
     hooks.setNoclip = [](bool on) {
         tw::game::NoclipSet(on);
-        return std::string(on ? "Noclip: on - WASD, Space up, C down, Shift/Ctrl for speed"
+        return std::string(on ? "Noclip: on - WASD, Space up, C down; [ and ] change the speed"
                               : "Noclip: off - the character drops to the ground");
+    };
+    hooks.setNoclipSpeed = [](const std::string& label) {
+        for (int i = 0; i < tw::game::NoclipSpeedCount(); ++i) {
+            if (label == kNoclipSpeeds[i]) {
+                tw::game::NoclipSetSpeedIndex(i);
+                break;
+            }
+        }
+        return std::string("Noclip speed: ") + label;
+    };
+
+    // U turns noclip on and the menu has to agree with it, and the speed keys move the
+    // picker; the camera can also be switched off from the free camera's own hotkeys. One
+    // pass per frame keeps what is drawn equal to what is true.
+    hooks.syncState = []() {
+        g_menu.setToggled("Free Camera", tw::game::FreeCamActive());
+        g_menu.setToggled("Noclip (fly the player)", tw::game::NoclipActive());
+        g_menu.setOptionIndex("Noclip speed", static_cast<std::size_t>(tw::game::NoclipSpeedIndex()));
     };
 
     tw::buildDebugMenu(g_menu, hooks);
+    g_syncState = hooks.syncState;
 }
 
 }  // namespace

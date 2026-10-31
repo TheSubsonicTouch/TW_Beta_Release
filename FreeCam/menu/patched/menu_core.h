@@ -26,6 +26,9 @@ struct MenuItem {
     std::vector<std::string> options; // for Selector
     std::size_t optionIndex = 0;      // for Selector
     std::function<void()> onAction;   // Action: runs on Select
+    // Selector: applies the new choice as soon as Left/Right changes it, rather than
+    // waiting for Enter. Used where the choice is a setting rather than a command.
+    bool applyOnChange = false;
     std::function<void(bool)> onToggle;   // Toggle: receives new state
     std::function<void(float)> onChange;  // Slider: receives new value
     // Selector: runs on Select with the current option; returns the status
@@ -66,6 +69,12 @@ public:
     void setStatus(std::string s) { status_ = std::move(s); }
     const std::string& status() const { return status_; }
 
+    // Keep an entry in step with something that can also be changed from outside the menu
+    // (a hotkey, or the game itself). Both return false when there is no such entry, so a
+    // caller can stay unconditional.
+    bool setToggled(const std::string& label, bool on);
+    bool setOptionIndex(const std::string& label, std::size_t index);
+
 private:
     void step(int delta);   // move the cursor, skipping section titles
 
@@ -83,35 +92,31 @@ private:
 // a non-empty option; the wrapper in buildDebugMenu turns an empty option
 // list into "<name>: no assets known".
 struct DebugHooks {
-    std::vector<std::string> vehicleNames;
-    std::vector<std::string> npcNames;
-    std::vector<std::string> weaponNames;
+    // Everything below is optional: an entry with no hook is simply not built, except the
+    // Free Camera toggle, which is listed either way and says so if it cannot work.
+
+    // Camera.
+    std::function<std::string(bool)> setFreeCam;   // on/off, returns the status line
+    std::function<std::string(bool)> setNoclip;    // fly the player themselves
+    std::vector<std::string> noclipSpeeds;         // "1x" .. "8x"; empty: no speed entry
+    std::function<std::string(const std::string&)> setNoclipSpeed;
+
+    // World.
     std::vector<std::string> weatherPresets;
-    std::function<std::string(const std::string&)> spawnVehicle;
-    std::function<std::string(const std::string&)> spawnNpc;
-    std::function<std::string(const std::string&)> spawnWeapon;
     std::function<std::string(const std::string&)> setWeather;
-    std::vector<std::string> levelTargets;          // Enforcer/Rackets/Triad/Rivals
-    std::function<std::string(const std::string&, int)> setLevel;  // target, 1..50
     std::vector<std::string> shaderPresets;
     std::function<std::string(const std::string&)> setShader;
-    std::function<std::string()> teleportToWaypoint;
-    std::function<std::string(bool)> setFreeCam;   // free camera on/off, returns the status line
-    // NPC spawn: the model and the attitude are picked in the menu, and the spawn itself
-    // is carried out by the camera thread (it needs the game's per-thread allocator), so
-    // the hook returns a queued line rather than the result.
-    std::function<std::string(const std::string&, bool)> spawnNpcInFront;  // model, hostile
-    std::function<std::string(const std::string&, bool)> spawnNpcOnPlayer;  // model, hostile
-    std::function<std::string()> scanNpcModels;  // look for NPC models in the game files
-    std::string resetSpawnerLabel;                 // empty: do not show the item
-    std::function<std::string()> resetSpawner;     // clear a spawn fault
-    std::function<std::string(bool)> setNoclip;    // fly the player themselves
-    std::function<void(bool)> setInvincible;
-    std::function<void(bool)> setHudHidden;
-    std::function<void(float)> setTimeOfDay;   // 0.0 .. 24.0
-    std::function<void()> reloadConfig;
+
+    // Progression.
+    std::vector<std::string> levelTargets;          // Enforcer/Rackets/Triad/Rivals
+    std::function<std::string(const std::string&, int)> setLevel;  // target, 1..50
     std::function<std::string()> unlockAllContent;
-    std::function<std::string()> unlockRaids;  // rivals off cooldown + job ladder open
+    std::function<std::string()> unlockRaids;
+
+    // Called once per frame before the menu is drawn, so that a toggle flipped by a hotkey
+    // (U for noclip, or the camera being switched off elsewhere) shows the truth. This is
+    // the one hook that is not the result of something the player did in the menu.
+    std::function<void()> syncState;
 };
 
 void buildDebugMenu(Menu& menu, const DebugHooks& hooks);

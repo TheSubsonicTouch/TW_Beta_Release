@@ -1195,6 +1195,8 @@ Hotkey g_sideKey{ 'H' };           // H - hostile / friendly
 Hotkey g_fasterKey{ VK_RIGHT };     // playback speed up
 Hotkey g_noclipKey{ 'U' };        // U - fly the player themselves
 Hotkey g_faultKey{ 'R' };         // R - allow one more spawn after a fault
+Hotkey g_noclipSlower{ VK_OEM_4 };  // [ - noclip speed down
+Hotkey g_noclipFaster{ VK_OEM_6 };  // ] - noclip speed up
 
 // Start a new frame for every hotkey. One call per tick, before anything reads a key.
 void BeginHotkeyFrame() {
@@ -1210,6 +1212,8 @@ void BeginHotkeyFrame() {
     g_sideKey.NewFrame();
     g_noclipKey.NewFrame();
     g_faultKey.NewFrame();
+    g_noclipSlower.NewFrame();
+    g_noclipFaster.NewFrame();
 }
 
 // While the camera is flying, the player is not in control: the game's own input is
@@ -1372,8 +1376,30 @@ void HandleHotkeys(const float player[3], bool havePlayer) {
     if (g_noclipKey.Pressed()) {
         const bool on = !tw::game::NoclipActive();
         tw::game::NoclipSet(on);
-        Hud("U", on ? "noclip on - WASD, Space up, C down" : "noclip off - dropping to the ground");
+        if (on) {
+            char line[44];
+            std::snprintf(line, sizeof line, "noclip %s - WASD, Space/C",
+                          tw::game::NoclipSpeedLabels()[tw::game::NoclipSpeedIndex()]);
+            Hud("U", line);
+        } else {
+            Hud("U", "noclip off - dropping to the ground");
+        }
         TW_Log("FreeCam: noclip %s", on ? "on" : "off");
+    }
+
+    // [ and ] change the flying speed while noclip is on. They are the two keys next to
+    // each other on every layout, and they are not used by anything else here.
+    if (tw::game::NoclipActive()) {
+        if (g_noclipSlower.Pressed()) {
+            tw::game::NoclipSpeedStep(-1);
+            Hud("[", (std::string("noclip speed ") +
+                      tw::game::NoclipSpeedLabels()[tw::game::NoclipSpeedIndex()]).c_str());
+        }
+        if (g_noclipFaster.Pressed()) {
+            tw::game::NoclipSpeedStep(1);
+            Hud("]", (std::string("noclip speed ") +
+                      tw::game::NoclipSpeedLabels()[tw::game::NoclipSpeedIndex()]).c_str());
+        }
     }
 
     // Pressed() latches its answer for the frame, so reading a key more than once in a
@@ -1601,7 +1627,7 @@ DWORD WINAPI Loop(LPVOID) {
 
     // The 1 ms timer is raised in StartFlying and lowered in StopFlying: a thread that is
     // only alive so the menu can spawn something must not hold the system timer down.
-    TW_Log("FreeCam: camera thread up (build 17: B spawns an NPC 3 m ahead, N picks the model, H the side, U noclip, R clears a spawn fault)");
+    TW_Log("FreeCam: camera thread up (build 18: B spawns an NPC 3 m ahead, N picks the model, H the side, U noclip, R clears a spawn fault)");
 
     for (;;) {
         if (g_quit) break;
@@ -1617,12 +1643,21 @@ DWORD WINAPI Loop(LPVOID) {
         tw::game::NoclipStep();
 
         if (!g_want) {
+            // The camera is off but noclip may still be flying the character; F10 is the
+            // panic key for both, so it has to be read here as well.
+            if (KeyDown(VK_F10) && tw::game::NoclipActive()) {
+                tw::game::NoclipSet(false);
+                Hud("F10", "noclip off");
+                TW_Log("FreeCam: F10 while the camera was off, noclip switched off too");
+            }
             if (g_live) StopFlying();
             if (g_cam.obj) {
                 g_cam.obj = nullptr;
                 ClearProbes();     // whatever was learned belongs to the last flight
             }
-            Sleep(5);
+            // A thread that is only alive for the menu sleeps; one that is flying the
+            // character writes its position often enough to beat the game's own tick.
+            Sleep(tw::game::NoclipActive() ? 1 : 5);
             prev.QuadPart = 0;
             continue;
         }
@@ -1636,6 +1671,7 @@ DWORD WINAPI Loop(LPVOID) {
         if (KeyDown(VK_F10)) {
             TW_Log("FreeCam: panic key, putting the camera back and the accessor back");
             Hud("F10", "free cam off");
+            tw::game::NoclipSet(false);   // panic means everything off, not just the camera
             fc_freeze(&g_state, 0);
             InputBlockSetActive(false);
             g_want = 0;

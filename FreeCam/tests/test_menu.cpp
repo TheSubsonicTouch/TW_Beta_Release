@@ -71,6 +71,11 @@ tw::DebugHooks fullHooks(int* toggles, int* picks, int* levels) {
     };
     hooks.unlockAllContent = [] { return std::string("everything unlocked"); };
     hooks.unlockRaids = [] { return std::string("raids open"); };
+    hooks.noclipSpeeds = { "1x", "2x", "3x", "4x", "6x", "8x" };
+    hooks.setNoclipSpeed = [picks](const std::string& s) {
+        ++*picks;
+        return "Noclip speed: " + s;
+    };
     return hooks;
 }
 
@@ -86,6 +91,7 @@ void testStructure() {
     // What the menu offers, and in which order.
     check(hasLabel(menu, "Free Camera"), "Free Camera is there");
     check(hasLabel(menu, "Noclip (fly the player)"), "noclip is there");
+    check(hasLabel(menu, "Noclip speed"), "the noclip speed picker is there");
     check(hasLabel(menu, "Weather"), "weather is there");
     check(hasLabel(menu, "ReShade preset"), "the ReShade preset picker is there");
     check(hasLabel(menu, "Level target"), "the level target is there");
@@ -164,16 +170,22 @@ void testActions() {
     menu.handleKey(tw::Key::Select);
     check(toggles == 2, "Enter on the second toggle calls its own hook");
 
-    // Weather is a selector: Left/Right moves through the options.
+    // Weather is a live selector: Left/Right moves through the options and applies the one
+    // it lands on, because a setting that only takes effect on Enter is a setting people
+    // think they have changed when they have not.
+    menu.handleKey(tw::Key::Down);   // Noclip speed
+    check(menu.items()[menu.selectedIndex()].label == "Noclip speed", "the speed picker follows");
     menu.handleKey(tw::Key::Down);
     check(menu.items()[menu.selectedIndex()].label == "Weather", "down again reaches Weather");
     const std::size_t before = menu.items()[menu.selectedIndex()].optionIndex;
     menu.handleKey(tw::Key::Right);
     check(menu.items()[menu.selectedIndex()].optionIndex != before, "Right changes the choice");
+    check(picks == 1, "Right applies the new choice");
     menu.handleKey(tw::Key::Left);
     check(menu.items()[menu.selectedIndex()].optionIndex == before, "Left puts it back");
+    check(picks == 2, "Left applies it too");
     menu.handleKey(tw::Key::Select);
-    check(picks == 1, "Enter on a selector picks it");
+    check(picks == 3, "Enter on a selector picks it again");
 
     // The level pair: the slider is set, Apply reads both entries.
     selectLabel(menu, "Level value");
@@ -188,6 +200,57 @@ void testActions() {
     menu.handleKey(tw::Key::Back);
     check(!menu.visible(), "Backspace closes the menu");
     check(menu.renderLines().empty(), "a closed menu draws nothing");
+}
+
+void testNoclip() {
+    // The noclip entries: the toggle, and a speed picker that is a setting rather than a
+    // command. Both have to survive a hotkey changing them outside the menu.
+    int toggles = 0, picks = 0, levels = 0;
+    tw::Menu menu;
+    menu.setVisible(true);
+    tw::DebugHooks hooks = fullHooks(&toggles, &picks, &levels);
+    bool noclipOn = false;
+    hooks.setNoclip = [&noclipOn](bool on) {
+        noclipOn = on;
+        return std::string(on ? "Noclip: on" : "Noclip: off");
+    };
+    int speedIndex = 0;
+    hooks.setNoclipSpeed = [&speedIndex](const std::string& s) {
+        speedIndex = s == "8x" ? 5 : speedIndex;
+        return "Noclip speed: " + s;
+    };
+    hooks.syncState = [&menu, &noclipOn, &speedIndex] {
+        menu.setToggled("Noclip (fly the player)", noclipOn);
+        menu.setOptionIndex("Noclip speed", static_cast<std::size_t>(speedIndex));
+    };
+    tw::buildDebugMenu(menu, hooks);
+
+    selectLabel(menu, "Noclip (fly the player)");
+    menu.handleKey(tw::Key::Select);
+    check(noclipOn, "Enter on the noclip toggle turns it on");
+    check(menu.items()[menu.selectedIndex()].toggled, "and the row says ON");
+
+    // U was pressed in game: the state changed without the menu, and the next sync pass
+    // has to put the row back in step.
+    noclipOn = false;
+    if (hooks.syncState) hooks.syncState();
+    check(!menu.items()[menu.selectedIndex()].toggled, "a hotkey switch off shows up in the menu");
+
+    selectLabel(menu, "Noclip speed");
+    check(menu.items()[menu.selectedIndex()].label == "Noclip speed", "the speed picker is there");
+    check(menu.items()[menu.selectedIndex()].applyOnChange, "the speed applies while browsing");
+    for (int i = 0; i < 5; ++i) menu.handleKey(tw::Key::Right);
+    check(menu.items()[menu.selectedIndex()].optionIndex == 5, "Right walks the speeds");
+    check(speedIndex == 5, "and the last one applied");
+
+    // A speed key pressed in game moves the picker too.
+    speedIndex = 0;
+    if (hooks.syncState) hooks.syncState();
+    check(menu.items()[menu.selectedIndex()].optionIndex == 0, "the picker follows the hotkey");
+
+    // Clicking (or Enter) on the picker must not undo what is selected.
+    menu.handleKey(tw::Key::Select);
+    check(menu.items()[menu.selectedIndex()].optionIndex == 0, "Enter keeps the choice");
 }
 
 void testSparseHooks() {
@@ -218,6 +281,7 @@ int main() {
     testStructure();
     testCursorSkipsHeaders();
     testActions();
+    testNoclip();
     testSparseHooks();
     std::printf("menu: %d check(s), %d failure(s)\n", g_checks, g_failures);
     return g_failures == 0 ? 0 : 1;

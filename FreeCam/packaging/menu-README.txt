@@ -104,6 +104,22 @@ game carries on from its own camera and not from where you flew to.
 WHAT CHANGED IN THIS BUILD
 --------------------------
 
+  - Build 18. Noclip is a proper mode now, in the menu and on the keyboard.
+
+    - It is the second entry in TriadMenu (CAMERA section), "Noclip (fly the player)",
+      and it can be switched on with U without opening the menu at all. It works with
+      the free camera switched off: it moves the character, not a camera.
+    - The character stays where you put it. Before, the position was only written while
+      a key was held, so letting go meant the game's gravity pulled you down between
+      presses - a very fast lift rather than noclip. Now the position the mode owns is
+      written every tick, so you hover, walk off a roof and keep going, and land only
+      when you switch it off.
+    - "Noclip speed" is a menu entry next to it: 1x to 8x, applied as you browse it. On
+      the keyboard [ and ] step through the same list, and the corner display shows the
+      speed while noclip is on, not just for a second after the key.
+    - F10 now switches noclip off as well, whether or not the free camera is on: the
+      panic key means "give me the character back", not "put the camera back".
+
   - Build 17. The menu is called TriadMenu now, and it has been cleaned up and dressed
     up.
 
@@ -260,7 +276,9 @@ CONTROLS
                         facing the way the player faces
     N                   next NPC model
     H                   NPCs spawn hostile or friendly (the menu has the same choice)
-    U                   noclip: fly the character themselves (menu item "Noclip")
+    U                   noclip on/off: fly the character themselves (menu item
+                        "Noclip (fly the player)")
+    [ / ]               noclip speed down / up, 1x to 8x (only while noclip is on)
     R                   allow one more spawn after the spawner stopped itself
 
 The mouse is natural: push it forward and you look up, pull it back and you look down.
@@ -287,13 +305,18 @@ Spawning NPCs:
 Noclip:
 
   - U, or "Noclip (fly the player)" in the menu. WASD moves, Space up, C down, Shift is
-    fast, Ctrl is slow, and the arrows set 1x to 8x. It works with the camera off as
-    well - it is the character that moves, not a camera.
+    fast, Ctrl is slow. It works with the camera off as well - it is the character that
+    moves, not a camera.
+  - The speed is 1x to 8x: "Noclip speed" in the menu, or [ and ] on the keyboard. The
+    corner display shows the current speed the whole time noclip is on.
+  - You stay where you are put. The position is written every tick, so the character
+    hovers instead of falling, and walking off a ledge keeps you at the same height.
   - Only the position is written. The rotation belongs to the game: the character keeps
     facing the way it faced, the animation system keeps working, and switching noclip
-    off leaves the game to drop the character to the ground at that spot.
-  - The game's own movement still runs underneath, so you can walk normally with it on
-    as well; it does not take the controls away.
+    off hands the character back to the game, which drops them to the ground from that
+    spot.
+  - The game's own controls still work underneath, so you can shoot or interact while
+    flying; the game's own walking is simply overwritten by the position being held.
 
 Follow and keyframes:
 
@@ -365,12 +388,12 @@ IF IT DOES NOT WORK
 -------------------
 
 TW_MenuLog.txt, next to TriadWars.exe, records everything. The second line of a flight
-says which build is running - "build 17" for this one. If it says a lower number, the game
+says which build is running - "build 18" for this one. If it says a lower number, the game
 is loading an older dinput8.dll: run Install-FreeCam.bat again from this zip.
 Load into the world first - the camera cannot be told apart on a loading screen -
 then toggle it and look for these lines, in this order:
 
-    FreeCam: camera thread up (build 17: B spawns an NPC 3 m ahead, N picks the model, H the side, U noclip, R clears a spawn fault)
+    FreeCam: camera thread up (build 18: B spawns an NPC 3 m ahead, N picks the model, H the side, U noclip, R clears a spawn fault)
     FreeCam: switched on, asking the renderer which camera it draws
     FreeCam: hooked the view accessor at 0000... with an absolute jump (original kept at ...)
     FreeCam: the renderer asked about 0000... for the first time

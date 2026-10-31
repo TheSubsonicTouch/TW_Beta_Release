@@ -59,6 +59,11 @@ bool Menu::handleKey(Key key) {
                 it.optionIndex = (it.optionIndex + 1) % n;
             else
                 it.optionIndex = (it.optionIndex + n - 1) % n;
+            // A setting, not a command: the new choice takes effect as it is browsed.
+            if (it.applyOnChange && it.onPick) {
+                std::string status = it.onPick(it.options[it.optionIndex]);
+                if (!status.empty()) status_ = std::move(status);
+            }
         }
         return true;
     }
@@ -131,6 +136,27 @@ std::vector<std::string> Menu::renderLines() const {
     return lines;
 }
 
+bool Menu::setToggled(const std::string& label, bool on) {
+    for (MenuItem& it : items_) {
+        if (!it.header && it.label == label && it.kind == ItemKind::Toggle) {
+            it.toggled = on;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool Menu::setOptionIndex(const std::string& label, std::size_t index) {
+    for (MenuItem& it : items_) {
+        if (it.header || it.label != label || it.kind != ItemKind::Selector) continue;
+        if (it.options.empty()) return true;
+        const std::size_t clamped = index < it.options.size() ? index : it.options.size() - 1;
+        it.optionIndex = clamped;
+        return true;
+    }
+    return false;
+}
+
 void buildDebugMenu(Menu& menu, const DebugHooks& hooks) {
     menu.clear();
 
@@ -177,11 +203,19 @@ void buildDebugMenu(Menu& menu, const DebugHooks& hooks) {
         noclip.onToggle = [&menu, fn = hooks.setNoclip](bool on) { menu.setStatus(fn(on)); };
         menu.addItem(noclip);
     }
+    if (hooks.setNoclipSpeed && !hooks.noclipSpeeds.empty()) {
+        MenuItem speed = makeSelector("Noclip speed", hooks.noclipSpeeds,
+                                      hooks.setNoclipSpeed);
+        speed.applyOnChange = true;   // the speed applies as it is browsed
+        menu.addItem(speed);
+    }
 
     // ---- World -----------------------------------------------------------
     if (!hooks.weatherPresets.empty()) {
         header("WORLD");
-        menu.addItem(makeSelector("Weather", hooks.weatherPresets, hooks.setWeather));
+        MenuItem weather = makeSelector("Weather", hooks.weatherPresets, hooks.setWeather);
+        weather.applyOnChange = true;
+        menu.addItem(weather);
     }
 
     if (!hooks.shaderPresets.empty()) {
