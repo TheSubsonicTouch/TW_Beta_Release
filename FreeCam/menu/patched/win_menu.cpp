@@ -614,7 +614,10 @@ void renderMenu() {
     ImGui::PopStyleColor();
     ImGui::Separator();
 
+    // Rows sit flush against each other, so the selection reads as one bar rather than a
+    // row with gaps either side of it.
     const float rowHeight = 26.0f;
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8.0f, 1.0f));
     const auto& items = g_menu.items();
     const float rowWidth = ImGui::GetContentRegionAvail().x;
     for (std::size_t i = 0; i < items.size(); ++i) {
@@ -672,6 +675,7 @@ void renderMenu() {
         }
         if (rightClick && selected) g_menu.handleKey(tw::Key::Right);
     }
+    ImGui::PopStyleVar();
 
     // Status line: what the last action did.
     ImGui::Dummy(ImVec2(1.0f, 2.0f));
