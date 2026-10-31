@@ -10,7 +10,7 @@ namespace tw {
 
 enum class Key { None, Up, Down, Left, Right, Select, Back, Toggle };
 
-enum class ItemKind { Action, Toggle, Slider, Selector };
+enum class ItemKind { Action, Toggle, Slider, Selector, Input };
 
 struct MenuItem {
     std::string label;
@@ -23,6 +23,7 @@ struct MenuItem {
     float minValue = 0.0f;
     float maxValue = 1.0f;
     float step = 0.1f;
+    std::string text;                 // for Input: the text being edited
     std::vector<std::string> options; // for Selector
     std::size_t optionIndex = 0;      // for Selector
     std::function<void()> onAction;   // Action: runs on Select
@@ -61,6 +62,9 @@ public:
         selected_ = i;
     }
     const std::vector<MenuItem>& items() const { return items_; }
+    // The entry with this label, or null. Writable so the renderer can put what was typed
+    // back into the model; everything else goes through the hooks and the key handling.
+    MenuItem* item(const std::string& label);
 
     // Text lines for a renderer to draw. The selected row starts with "> ".
     std::vector<std::string> renderLines() const;
@@ -74,6 +78,10 @@ public:
     // caller can stay unconditional.
     bool setToggled(const std::string& label, bool on);
     bool setOptionIndex(const std::string& label, std::size_t index);
+    // The text of an Input entry, set from the renderer while it is being typed in and
+    // from a selector when one fills it in.
+    bool setInputText(const std::string& label, std::string text);
+    const std::string* inputText(const std::string& label) const;
 
 private:
     void step(int delta);   // move the cursor, skipping section titles
@@ -106,6 +114,12 @@ struct DebugHooks {
     std::function<std::string(const std::string&)> setWeather;
     std::vector<std::string> shaderPresets;
     std::function<std::string(const std::string&)> setShader;
+
+    // Spawn: the name is typed in the menu, or picked from the list, and the spawner puts
+    // the character three metres in front of the player.
+    std::vector<std::string> pedNames;          // "Ped model (list)"; empty: no list
+    std::string pedDefault;                     // what the name field starts with
+    std::function<std::string(const std::string&)> spawnPed;
 
     // Progression.
     std::vector<std::string> levelTargets;          // Enforcer/Rackets/Triad/Rivals

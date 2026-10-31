@@ -104,6 +104,24 @@ game carries on from its own camera and not from where you flew to.
 WHAT CHANGED IN THIS BUILD
 --------------------------
 
+  - Build 19. "Spawn Ped" is back in the menu, as one entry.
+
+    - It is in the menu under SPAWN: "Spawn Ped". Click the field, type a character's
+      property-set name, press Enter, and that character is spawned three metres in
+      front of the player. Any name the game knows works, including ones this build has
+      never seen - the spawner hands the name to the game's own spawn call, and a name
+      it does not know comes back as a line in the corner display instead of a crash.
+    - "Ped model (list)" underneath fills the field in with a name the spawner already
+      knows, so it can be spawned without typing (and the name can still be edited
+      afterwards). The list is the built-ins plus anything in FreeCam.npc.txt.
+    - "Hostile" is not on the menu any more: a ped spawned this way belongs to its own
+      default side. The B hotkey and its H switch still work as before.
+    - While the menu is open the game's hotkeys are not read. Typing "before" into the
+      field used to also spawn the hotkey ped (B), walk the models (N) and switch
+      noclip (U), because those keys are read straight from the keyboard rather than
+      through the menu. They are ignored while the menu is open, and the free camera
+      and noclip hold still for the same reason.
+
   - Build 18. Noclip is a proper mode now, in the menu and on the keyboard.
 
     - It is the second entry in TriadMenu (CAMERA section), "Noclip (fly the player)",
@@ -124,7 +142,8 @@ WHAT CHANGED IN THIS BUILD
     up.
 
     - The list is shorter. Everything that could not work or was a duplicate is gone:
-      the NPC spawn entries (spawning is on B, N and H - see below), Time of day,
+      the old NPC spawn entries (they came back in build 19 as the single "Spawn Ped"
+      entry; B, N and H are unchanged), Time of day,
       Teleport to waypoint, Hide HUD, Invincible and Reload config. All of those
       answered "not wired yet" or did nothing at all, and a menu that offers what it
       cannot do is worse than a short one.
@@ -273,7 +292,8 @@ CONTROLS
                         player moves, fights and interacts; O again to unfreeze
     F10                 panic: put the camera back and switch off, from anywhere
     B                   spawn the selected NPC three metres in front of the player,
-                        facing the way the player faces
+                        facing the way the player faces (the menu's "Spawn Ped" does the
+                        same with a name you type)
     N                   next NPC model
     H                   NPCs spawn hostile or friendly (the menu has the same choice)
     U                   noclip on/off: fly the character themselves (menu item
@@ -286,8 +306,12 @@ Moving it right turns right.
 
 Spawning NPCs:
 
+  - "Spawn Ped" in the menu (SPAWN section): type the character's property-set name in
+    the field and press Enter. Three metres in front, standing upright, facing the way
+    you face. This is the way to spawn a ped whose name is not in any list; a name the
+    game does not know is reported, not crashed on.
   - B puts one on the ground three metres in front of the player, standing upright and
-    facing the same way. It is the game's own spawn call, so the NPC is a real character
+    facing the same way, using the model picked with N. It is the game's own spawn call, so the NPC is a real character
     of the chosen kind, not a model pasted into the scene.
   - H decides whether it belongs to your faction (it will not fight you) or to a
     different one (the game's AI reads that field when it works out who is on whose side).
@@ -388,12 +412,12 @@ IF IT DOES NOT WORK
 -------------------
 
 TW_MenuLog.txt, next to TriadWars.exe, records everything. The second line of a flight
-says which build is running - "build 18" for this one. If it says a lower number, the game
+says which build is running - "build 19" for this one. If it says a lower number, the game
 is loading an older dinput8.dll: run Install-FreeCam.bat again from this zip.
 Load into the world first - the camera cannot be told apart on a loading screen -
 then toggle it and look for these lines, in this order:
 
-    FreeCam: camera thread up (build 18: B spawns an NPC 3 m ahead, N picks the model, H the side, U noclip, R clears a spawn fault)
+    FreeCam: camera thread up (build 19: B spawns an NPC 3 m ahead, N picks the model, H the side, U noclip, R clears a spawn fault)
     FreeCam: switched on, asking the renderer which camera it draws
     FreeCam: hooked the view accessor at 0000... with an absolute jump (original kept at ...)
     FreeCam: the renderer asked about 0000... for the first time

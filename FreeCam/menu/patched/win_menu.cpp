@@ -256,12 +256,29 @@ void pollInput() {
                 gA = false, gB = false;
 
     if (edge(keyDown(VK_INSERT), kInsert)) { g_menu.handleKey(tw::Key::Toggle); TW_Log("Key: Insert (menu visible=%d)", g_menu.visible()); }
-    if (edge(keyDown(VK_UP), kUp)) g_menu.handleKey(tw::Key::Up);
-    if (edge(keyDown(VK_DOWN), kDown)) g_menu.handleKey(tw::Key::Down);
-    if (edge(keyDown(VK_LEFT), kLeft)) g_menu.handleKey(tw::Key::Left);
-    if (edge(keyDown(VK_RIGHT), kRight)) g_menu.handleKey(tw::Key::Right);
-    if (edge(keyDown(VK_RETURN), kEnter)) g_menu.handleKey(tw::Key::Select);
-    if (edge(keyDown(VK_BACK), kBack)) g_menu.handleKey(tw::Key::Back);
+
+    // While a text field has the keyboard - the Spawn Ped name - every key belongs to it:
+    // otherwise a Backspace would close the menu and an arrow key would change the weather
+    // while you are editing a name. Insert still works, so the menu can be closed.
+    //
+    // The edges are still read (and the latch updated) while typing, they are only not
+    // acted on: otherwise the Enter that ends a name would be seen as a fresh press on the
+    // next frame, and the ped would be spawned twice.
+    const bool typing = ImGui::GetIO().WantTextInput;
+    const bool up = edge(keyDown(VK_UP), kUp);
+    const bool down = edge(keyDown(VK_DOWN), kDown);
+    const bool left = edge(keyDown(VK_LEFT), kLeft);
+    const bool right = edge(keyDown(VK_RIGHT), kRight);
+    const bool enter = edge(keyDown(VK_RETURN), kEnter);
+    const bool back = edge(keyDown(VK_BACK), kBack);
+    if (!typing) {
+        if (up) g_menu.handleKey(tw::Key::Up);
+        if (down) g_menu.handleKey(tw::Key::Down);
+        if (left) g_menu.handleKey(tw::Key::Left);
+        if (right) g_menu.handleKey(tw::Key::Right);
+        if (enter) g_menu.handleKey(tw::Key::Select);
+        if (back) g_menu.handleKey(tw::Key::Back);
+    }
 
     XINPUT_STATE xs{};
     if (XInputGetState(0, &xs) == ERROR_SUCCESS) {
@@ -676,6 +693,41 @@ void renderMenu() {
         dl->AddText(ImVec2(p.x + 12.0f, textY), ImGui::GetColorU32(selected ? bone : gold),
                     it.label.c_str());
 
+        // A text entry draws its own field instead of a value on the right: what is typed
+        // there is the name that will be spawned.
+        if (it.kind == tw::ItemKind::Input) {
+            const float fieldX = p.x + 12.0f + ImGui::CalcTextSize(it.label.c_str()).x + 14.0f;
+            const float fieldW = p.x + rowWidth - 10.0f - fieldX;
+            if (fieldW > 60.0f) {
+                char buf[128];
+                std::snprintf(buf, sizeof buf, "%s", it.text.c_str());
+                ImGui::SetCursorScreenPos(ImVec2(fieldX, p.y + 3.0f));
+                ImGui::SetNextItemWidth(fieldW);
+                ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(5.0f, 3.0f));
+                ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.10f, 0.04f, 0.05f, 0.90f));
+                ImGui::PushID(static_cast<int>(i) + 1000);
+                const bool entered =
+                    ImGui::InputText("##text", buf, sizeof buf, ImGuiInputTextFlags_EnterReturnsTrue);
+                const bool changed = ImGui::IsItemEdited();
+                const bool active = ImGui::IsItemActive();
+                ImGui::PopID();
+                ImGui::PopStyleColor();
+                ImGui::PopStyleVar();
+                if (active) g_menu.select(i);          // typing here means working on this entry
+                if (changed) g_menu.setInputText(it.label, buf);
+                if (entered) {
+                    // The field gave the keyboard back and the name is committed; the
+                    // Enter is the "do it" that every other entry uses.
+                    g_menu.setInputText(it.label, buf);
+                    g_menu.select(i);
+                    g_menu.handleKey(tw::Key::Select);
+                }
+                ImGui::SetCursorScreenPos(ImVec2(p.x, p.y + rowHeight));
+            }
+            if (leftClick) g_menu.select(i);
+            continue;
+        }
+
         const char* value = rowValue(it);
         if (value && *value) {
             const ImVec2 size = ImGui::CalcTextSize(value);
@@ -742,6 +794,10 @@ HRESULT STDMETHODCALLTYPE hkPresent(IDXGISwapChain* sc, UINT sync, UINT flags) {
     if (g_imguiReady) {
         pollInput();
         if (g_syncState) g_syncState();   // hotkeys can change what the menu shows
+        // The camera thread reads the keyboard directly, so it has to be told when the
+        // menu is the one using it - otherwise typing a name in Spawn Ped would also fly
+        // the camera, spawn the hotkey ped and toggle noclip.
+        tw::game::FreeCamSetMenuOpen(g_menu.visible());
         drainJobs();   // run queued actions on the game thread, then show results
         renderFrame();
     }
@@ -856,6 +912,23 @@ void buildMenu() {
         return content + "   |   " + raids;
     };
     hooks.unlockRaids = []() { return tw::game::UnlockRaidsAndEvents(); };
+    // Spawn Ped: a character named in the menu, put three metres in front of the player.
+    // The names offered in the list are whatever the spawner knows - the built-ins, plus
+    // anything in FreeCam.npc.txt - and the field accepts any other property set the game
+    // knows, which is how a ped that is in nobody's list can still be spawned.
+    {
+        const std::vector<std::string>& peds = tw::game::SpawnModels();
+        hooks.pedNames = peds;
+        if (!peds.empty()) hooks.pedDefault = peds.front();
+    }
+    hooks.spawnPed = [](const std::string& model) {
+        // Spawning sets the hotkey model as well, so B spawns what the menu just did.
+        tw::game::SpawnSelectByName(model);
+        tw::game::SpawnSetHostile(false);
+        tw::game::SpawnRequest(model, false);
+        return "Spawn Ped: " + model + " - queued, see the corner display";
+    };
+
     // Noclip: the toggle, the speed picker and two way of keeping them honest.
     static const char* const kNoclipSpeeds[] = { "1x", "2x", "3x", "4x", "6x", "8x" };
     for (int i = 0; i < tw::game::NoclipSpeedCount(); ++i)

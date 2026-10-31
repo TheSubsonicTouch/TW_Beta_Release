@@ -48,7 +48,9 @@ bool Menu::handleKey(Key key) {
     case Key::Left:
     case Key::Right: {
         MenuItem& it = items_[selected_];
-        if (it.header) return true;
+        // An Input's text is edited with the keyboard itself, so the arrows are the
+        // caret's while it is being typed in - not a value to step.
+        if (it.header || it.kind == ItemKind::Input) return true;
         float dir = (key == Key::Right) ? 1.0f : -1.0f;
         if (it.kind == ItemKind::Slider) {
             it.value = std::clamp(it.value + dir * it.step, it.minValue, it.maxValue);
@@ -72,6 +74,7 @@ bool Menu::handleKey(Key key) {
         if (it.header) return true;
         switch (it.kind) {
         case ItemKind::Action:
+        case ItemKind::Input:
             if (it.onAction) it.onAction();
             break;
         case ItemKind::Toggle:
@@ -129,11 +132,34 @@ std::vector<std::string> Menu::renderLines() const {
             std::snprintf(buf, sizeof buf, "%s%s < %s >", prefix, it.label.c_str(), opt);
             break;
         }
+        case ItemKind::Input:
+            std::snprintf(buf, sizeof buf, "%s%s: %s", prefix, it.label.c_str(),
+                          it.text.empty() ? "(type a name)" : it.text.c_str());
+            break;
         }
         lines.emplace_back(buf);
     }
     if (!status_.empty()) lines.push_back("Status: " + status_);
     return lines;
+}
+
+MenuItem* Menu::item(const std::string& label) {
+    for (MenuItem& it : items_)
+        if (!it.header && it.label == label) return &it;
+    return nullptr;
+}
+
+bool Menu::setInputText(const std::string& label, std::string text) {
+    MenuItem* it = item(label);
+    if (!it || it->kind != ItemKind::Input) return false;
+    it->text = std::move(text);
+    return true;
+}
+
+const std::string* Menu::inputText(const std::string& label) const {
+    for (const MenuItem& it : items_)
+        if (!it.header && it.label == label && it.kind == ItemKind::Input) return &it.text;
+    return nullptr;
 }
 
 bool Menu::setToggled(const std::string& label, bool on) {
@@ -208,6 +234,49 @@ void buildDebugMenu(Menu& menu, const DebugHooks& hooks) {
                                       hooks.setNoclipSpeed);
         speed.applyOnChange = true;   // the speed applies as it is browsed
         menu.addItem(speed);
+    }
+
+    // ---- Spawn -----------------------------------------------------------
+    // One entry, "Spawn Ped", which spawns whatever character is named in it three metres
+    // in front of the player. The name is typed into the entry itself - any property set
+    // the game knows, not just the ones this build guesses - and the list underneath fills
+    // it in for the names that are already known (built-ins and FreeCam.npc.txt).
+    if (hooks.spawnPed) {
+        header("SPAWN");
+
+        auto spawnPedFn = hooks.spawnPed;
+
+        MenuItem ped;
+        ped.label = "Spawn Ped";
+        ped.kind = ItemKind::Input;
+        ped.text = hooks.pedDefault;
+        ped.onAction = [&menu, spawnPedFn]() {
+            const MenuItem* it = menu.item("Spawn Ped");
+            if (!it) return;
+            // A name typed by hand tends to arrive with a space on the end.
+            std::string name = it->text;
+            const std::size_t first = name.find_first_not_of(" \t");
+            const std::size_t last = name.find_last_not_of(" \t");
+            name = (first == std::string::npos) ? std::string() : name.substr(first, last - first + 1);
+            if (name.empty()) {
+                menu.setStatus("Spawn Ped: type a model name first");
+                return;
+            }
+            menu.setStatus(spawnPedFn(name));
+        };
+        menu.addItem(ped);
+
+        if (!hooks.pedNames.empty()) {
+            // Picking from the list fills the field in; it does not spawn, so a name can be
+            // adjusted before it is used.
+            MenuItem list = makeSelector("Ped model (list)", hooks.pedNames,
+                                         [&menu](const std::string& name) {
+                                             menu.setInputText("Spawn Ped", name);
+                                             return "Spawn Ped: " + name;
+                                         });
+            list.applyOnChange = true;
+            menu.addItem(list);
+        }
     }
 
     // ---- World -----------------------------------------------------------

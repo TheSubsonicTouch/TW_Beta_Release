@@ -56,7 +56,8 @@ bool anyLabelContains(const tw::Menu& menu, const std::string& needle) {
 }
 
 // A full set of hooks: everything this build can actually do.
-tw::DebugHooks fullHooks(int* toggles, int* picks, int* levels) {
+tw::DebugHooks fullHooks(int* toggles, int* picks, int* levels,
+                         std::vector<std::string>* spawned) {
     tw::DebugHooks hooks;
     hooks.weatherPresets = { "Clear", "Rain" };
     hooks.levelTargets = { "Enforcer", "Rackets", "Triad", "Rivals" };
@@ -71,6 +72,13 @@ tw::DebugHooks fullHooks(int* toggles, int* picks, int* levels) {
     };
     hooks.unlockAllContent = [] { return std::string("everything unlocked"); };
     hooks.unlockRaids = [] { return std::string("raids open"); };
+    hooks.pedNames = { "object-physical-character-police",
+                       "object-physical-character-player" };
+    hooks.pedDefault = hooks.pedNames.front();
+    hooks.spawnPed = [spawned](const std::string& model) {
+        spawned->push_back(model);
+        return "Spawn Ped: " + model;
+    };
     hooks.noclipSpeeds = { "1x", "2x", "3x", "4x", "6x", "8x" };
     hooks.setNoclipSpeed = [picks](const std::string& s) {
         ++*picks;
@@ -81,9 +89,10 @@ tw::DebugHooks fullHooks(int* toggles, int* picks, int* levels) {
 
 void testStructure() {
     int toggles = 0, picks = 0, levels = 0;
+    std::vector<std::string> spawned;
     tw::Menu menu;
     menu.setVisible(true);
-    tw::buildDebugMenu(menu, fullHooks(&toggles, &picks, &levels));
+    tw::buildDebugMenu(menu, fullHooks(&toggles, &picks, &levels, &spawned));
 
     const auto lines = menu.renderLines();
     check(!lines.empty() && lines[0] == "TriadMenu", "the menu is titled TriadMenu");
@@ -100,14 +109,19 @@ void testStructure() {
     check(hasLabel(menu, "Unlock all content"), "Unlock all content is there");
     check(hasLabel(menu, "Unlock raids and events"), "Unlock raids is there");
 
-    check(hasHeader(menu, "CAMERA") && hasHeader(menu, "WORLD") &&
-              hasHeader(menu, "PROGRESSION"),
-          "the three sections are there");
+    check(hasLabel(menu, "Spawn Ped"), "Spawn Ped is in the menu");
+    check(hasLabel(menu, "Ped model (list)"), "the ped list is under it");
+
+    check(hasHeader(menu, "CAMERA") && hasHeader(menu, "SPAWN") &&
+              hasHeader(menu, "WORLD") && hasHeader(menu, "PROGRESSION"),
+          "the four sections are there");
 
     // What was taken out must stay out: those entries either could not work or were
     // replaced by hotkeys, and a menu that offers them is worse than a short one.
-    const char* gone[] = { "Spawn", "Teleport", "Hide HUD", "Time of", "Invincible",
-                           "Reload" };
+    // The old spawn entries (model/attitude/on-me/scan) were removed in build 17; what is
+    // left is the single Spawn Ped entry, so these words must not appear twice.
+    const char* gone[] = { "Teleport", "Hide HUD", "Time of", "Invincible", "Reload",
+                           "NPC model", "NPC attitude", "on me", "Scan game" };
     for (const char* word : gone) {
         check(!anyLabelContains(menu, word), std::string("no entry mentions ") + word);
     }
@@ -118,9 +132,10 @@ void testStructure() {
 
 void testCursorSkipsHeaders() {
     int toggles = 0, picks = 0, levels = 0;
+    std::vector<std::string> spawned;
     tw::Menu menu;
     menu.setVisible(true);
-    tw::buildDebugMenu(menu, fullHooks(&toggles, &picks, &levels));
+    tw::buildDebugMenu(menu, fullHooks(&toggles, &picks, &levels, &spawned));
 
     // The build leaves the cursor on the first usable entry, not on the CAMERA title.
     check(!menu.items()[menu.selectedIndex()].header, "the cursor starts on an entry");
@@ -149,15 +164,19 @@ void testCursorSkipsHeaders() {
     check(menu.items()[menu.selectedIndex()].label == "Unlock raids and events",
           "Up wraps round to the last entry");
 
-    check(total == static_cast<std::size_t>(usable) + 3,
-          "the list is the usable entries plus the three titles");
+    int titles = 0;
+    for (const auto& item : menu.items()) if (item.header) ++titles;
+    check(total == static_cast<std::size_t>(usable + titles),
+          "the list is the usable entries plus the section titles");
+    check(titles == 4, "CAMERA, SPAWN, WORLD, PROGRESSION");
 }
 
 void testActions() {
     int toggles = 0, picks = 0, levels = 0;
+    std::vector<std::string> spawned;
     tw::Menu menu;
     menu.setVisible(true);
-    tw::buildDebugMenu(menu, fullHooks(&toggles, &picks, &levels));
+    tw::buildDebugMenu(menu, fullHooks(&toggles, &picks, &levels, &spawned));
 
     // Free Camera is first: Enter must flip it and call the hook.
     menu.select(0);
@@ -175,7 +194,10 @@ void testActions() {
     // think they have changed when they have not.
     menu.handleKey(tw::Key::Down);   // Noclip speed
     check(menu.items()[menu.selectedIndex()].label == "Noclip speed", "the speed picker follows");
-    menu.handleKey(tw::Key::Down);
+    menu.handleKey(tw::Key::Down);   // Spawn Ped
+    check(menu.items()[menu.selectedIndex()].label == "Spawn Ped", "then the spawn section");
+    menu.handleKey(tw::Key::Down);   // Ped model (list)
+    menu.handleKey(tw::Key::Down);   // Weather
     check(menu.items()[menu.selectedIndex()].label == "Weather", "down again reaches Weather");
     const std::size_t before = menu.items()[menu.selectedIndex()].optionIndex;
     menu.handleKey(tw::Key::Right);
@@ -202,13 +224,77 @@ void testActions() {
     check(menu.renderLines().empty(), "a closed menu draws nothing");
 }
 
+void testSpawnPed() {
+    // Spawn Ped: one entry, a name typed into it, and Enter spawns that name. The list
+    // underneath only fills the field in - it must not spawn by itself.
+    int toggles = 0, picks = 0, levels = 0;
+    std::vector<std::string> spawned;
+    tw::Menu menu;
+    menu.setVisible(true);
+    tw::buildDebugMenu(menu, fullHooks(&toggles, &picks, &levels, &spawned));
+
+    selectLabel(menu, "Spawn Ped");
+    const tw::MenuItem& ped = menu.items()[menu.selectedIndex()];
+    check(ped.kind == tw::ItemKind::Input, "Spawn Ped is a text entry");
+    check(ped.text == "object-physical-character-police", "it starts on a known model");
+
+    // Enter on it, untouched, spawns the model it shows.
+    menu.handleKey(tw::Key::Select);
+    check(spawned.size() == 1, "Enter on Spawn Ped spawns one ped");
+    check(!spawned.empty() && spawned.back() == "object-physical-character-police",
+          "and it spawns the model shown");
+
+    // A name typed by hand - including one nobody has in a list - is what gets spawned.
+    check(menu.setInputText("Spawn Ped", "  object-physical-character-taxi_driver_faceaction "),
+          "the field takes a typed name");
+    menu.handleKey(tw::Key::Select);
+    check(spawned.size() == 2, "a typed name spawns once");
+    check(spawned.size() == 2 &&
+              spawned.back() == "object-physical-character-taxi_driver_faceaction",
+          "and the spaces around it are trimmed");
+
+    // An empty field says so rather than calling the spawner with nothing.
+    check(menu.setInputText("Spawn Ped", "   "), "the field can be emptied");
+    menu.handleKey(tw::Key::Select);
+    check(spawned.size() == 2, "an empty name spawns nothing");
+    check(menu.status().find("type a model name") != std::string::npos,
+          "an empty name says why");
+
+    // The list is a way to fill the field in, not a second spawn button.
+    selectLabel(menu, "Ped model (list)");
+    menu.handleKey(tw::Key::Right);
+    check(spawned.size() == 2, "the list does not spawn on its own");
+    const std::string* text = menu.inputText("Spawn Ped");
+    check(text && *text == "object-physical-character-player", "the list fills the field in");
+    menu.handleKey(tw::Key::Left);
+    check(menu.inputText("Spawn Ped") && *menu.inputText("Spawn Ped") ==
+              "object-physical-character-police",
+          "walking the list backwards fills it in too");
+
+    // Left/Right on the entry itself must not edit the text - the arrows are the caret's
+    // while a name is being typed.
+    selectLabel(menu, "Spawn Ped");
+    const std::string before = *menu.inputText("Spawn Ped");
+    menu.handleKey(tw::Key::Right);
+    check(menu.inputText("Spawn Ped") && *menu.inputText("Spawn Ped") == before,
+          "the arrows do not edit a typed name");
+
+    // A menu with no spawner has no Spawn Ped entry and no SPAWN section.
+    tw::Menu bare;
+    tw::DebugHooks none;
+    tw::buildDebugMenu(bare, none);
+    check(!hasLabel(bare, "Spawn Ped"), "no spawner, no Spawn Ped entry");
+    check(!hasHeader(bare, "SPAWN"), "no spawner, no SPAWN section");
+}
+
 void testNoclip() {
     // The noclip entries: the toggle, and a speed picker that is a setting rather than a
     // command. Both have to survive a hotkey changing them outside the menu.
     int toggles = 0, picks = 0, levels = 0;
+    std::vector<std::string> spawned;
     tw::Menu menu;
     menu.setVisible(true);
-    tw::DebugHooks hooks = fullHooks(&toggles, &picks, &levels);
+    tw::DebugHooks hooks = fullHooks(&toggles, &picks, &levels, &spawned);
     bool noclipOn = false;
     hooks.setNoclip = [&noclipOn](bool on) {
         noclipOn = on;
@@ -281,6 +367,7 @@ int main() {
     testStructure();
     testCursorSkipsHeaders();
     testActions();
+    testSpawnPed();
     testNoclip();
     testSparseHooks();
     std::printf("menu: %d check(s), %d failure(s)\n", g_checks, g_failures);

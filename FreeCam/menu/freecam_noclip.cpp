@@ -162,13 +162,17 @@ bool NoclipStep() {
     float f[3], r[3], u[3];
     fc_basis(yaw, 0.0f, f, r, u);
 
+    // The menu has the keyboard while it is open; this reads the keys directly, so a name
+    // being typed must not also fly the character around. The position is still written
+    // below, so switching the menu on does not drop the player out of the air.
     float wish[3] = { 0.0f, 0.0f, 0.0f };
-    if (KeyDown('W')) { wish[0] += f[0]; wish[1] += f[1]; wish[2] += f[2]; }
-    if (KeyDown('S')) { wish[0] -= f[0]; wish[1] -= f[1]; wish[2] -= f[2]; }
-    if (KeyDown('D')) { wish[0] += r[0]; wish[1] += r[1]; wish[2] += r[2]; }
-    if (KeyDown('A')) { wish[0] -= r[0]; wish[1] -= r[1]; wish[2] -= r[2]; }
-    if (KeyDown(VK_SPACE)) { wish[0] += u[0]; wish[1] += u[1]; wish[2] += u[2]; }
-    if (KeyDown('C')) { wish[0] -= u[0]; wish[1] -= u[1]; wish[2] -= u[2]; }
+    const bool typing = FreeCamMenuOpen();
+    if (!typing && KeyDown('W')) { wish[0] += f[0]; wish[1] += f[1]; wish[2] += f[2]; }
+    if (!typing && KeyDown('S')) { wish[0] -= f[0]; wish[1] -= f[1]; wish[2] -= f[2]; }
+    if (!typing && KeyDown('D')) { wish[0] += r[0]; wish[1] += r[1]; wish[2] += r[2]; }
+    if (!typing && KeyDown('A')) { wish[0] -= r[0]; wish[1] -= r[1]; wish[2] -= r[2]; }
+    if (!typing && KeyDown(VK_SPACE)) { wish[0] += u[0]; wish[1] += u[1]; wish[2] += u[2]; }
+    if (!typing && KeyDown('C')) { wish[0] -= u[0]; wish[1] -= u[1]; wish[2] -= u[2]; }
 
     const float len = std::sqrt(wish[0] * wish[0] + wish[1] * wish[1] + wish[2] * wish[2]);
     if (len > 1e-4f) {

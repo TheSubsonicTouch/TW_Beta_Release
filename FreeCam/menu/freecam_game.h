@@ -45,6 +45,13 @@ int FreeCamHudLines(FreeCamHudLine *out, int max);
 // first - otherwise the request sits in the queue and nothing happens.
 bool FreeCamEnsureThread();
 
+// True while the debug menu is open and is the one reading the keyboard. The camera
+// thread and the spawner poll GetAsyncKeyState directly, which the menu's own messages do
+// not stop, so they ask this before acting on a key: typing a name into the menu must not
+// fly the camera or spawn something behind the menu.
+void FreeCamSetMenuOpen(bool open);
+bool FreeCamMenuOpen();
+
 // Per-frame housekeeping. The camera also runs its own thread because the game
 // rewrites its matrices every frame and we have to win that race; this is here
 // so the render loop can nudge it (and is safe to call when free cam is off).

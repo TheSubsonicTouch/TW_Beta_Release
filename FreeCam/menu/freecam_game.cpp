@@ -1160,6 +1160,9 @@ bool CameraStillThere() {
 
 bool KeyDown(int vk) { return (GetAsyncKeyState(vk) & 0x8000) != 0; }
 
+// Set from the menu (game thread), read by the camera thread.
+volatile long g_menuOpen = 0;
+
 // A key that fires once per press, not once per frame it is held down.
 //
 // Pressed() latches its answer for the rest of the frame: asking twice returns the same
@@ -1276,6 +1279,13 @@ void PollInput(float *mouseX, float *mouseY) {
 
     *mouseX = *mouseY = 0.0f;
 
+    // With the menu open the camera holds still: the player is typing, not flying.
+    if (FreeCamMenuOpen()) {
+        for (int i = 0; i < FC_KEY_COUNT; ++i) g_state.keys[i] = 0;
+        g_looking = false;
+        return;
+    }
+
     // Frozen (O) or following (P): the player is driving, not the camera. The keys belong
     // to the character and the mouse belongs to the game's own look - capturing the
     // pointer here would fight it, and flying by hand would add to the follow.
@@ -1329,6 +1339,12 @@ void HandlePlaybackSpeed() {
 // P - follow the player, L - keyframe, J - play the path back, M - forget the path,
 // O - freeze, left/right - how fast the path plays.
 void HandleHotkeys(const float player[3], bool havePlayer) {
+    // The menu has the keyboard while it is open. These keys are read straight from
+    // GetAsyncKeyState, so the menu's window messages do not stop them: without this,
+    // typing "before" into a name field would also spawn the hotkey ped (B), walk the
+    // models (N), flip the side (H) and switch noclip (U).
+    if (FreeCamMenuOpen()) return;
+
     // NPC spawn: B puts the selected model three metres in front of the player, N walks
     // through the models, H flips hostile/friendly. The spawn itself runs in SpawnPump at
     // the top of the loop, not here, so this stays a cheap key check.
@@ -1627,7 +1643,7 @@ DWORD WINAPI Loop(LPVOID) {
 
     // The 1 ms timer is raised in StartFlying and lowered in StopFlying: a thread that is
     // only alive so the menu can spawn something must not hold the system timer down.
-    TW_Log("FreeCam: camera thread up (build 18: B spawns an NPC 3 m ahead, N picks the model, H the side, U noclip, R clears a spawn fault)");
+    TW_Log("FreeCam: camera thread up (build 19: B spawns an NPC 3 m ahead, N picks the model, H the side, U noclip, R clears a spawn fault)");
 
     for (;;) {
         if (g_quit) break;
@@ -1887,6 +1903,9 @@ void EnsureThread() {
 // Public, so the NPC spawner can start the thread it needs without switching the camera
 // on: the spawn has to run on a thread that has the game's per-thread allocator, and that
 // thread is this one.
+void FreeCamSetMenuOpen(bool open) { g_menuOpen = open ? 1 : 0; }
+bool FreeCamMenuOpen() { return g_menuOpen != 0; }
+
 bool FreeCamEnsureThread() {
     EnsureThread();
     return g_thread != nullptr;
