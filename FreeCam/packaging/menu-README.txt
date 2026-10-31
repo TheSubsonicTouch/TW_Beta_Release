@@ -259,6 +259,8 @@ Spawning NPCs:
   - H decides whether it belongs to your faction (it will not fight you) or to a
     different one (the game's AI reads that field when it works out who is on whose side).
     The menu's "NPC attitude" selector does the same thing.
+  - "Spawn NPC on me" is the same spawn with no offset at all, for when three metres
+    ahead is inside a wall or when you want it exactly where you stand.
   - If that spot is refused - a doorway, a wall, the middle of the road - the same call
     is made once more at the player's own position, and the corner display says "on you"
     instead of "3 m ahead". So one key press either makes one NPC or says why it could

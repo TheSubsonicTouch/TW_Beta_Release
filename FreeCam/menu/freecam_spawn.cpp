@@ -266,6 +266,7 @@ const std::vector<std::string> &Models() {
 struct Request {
     std::string model;
     bool hostile = false;
+    float metres = 3.0f;       // how far in front; 0 puts the NPC where the player stands
     ULONGLONG firstTry = 0;    // when it was asked for, for the retry deadline
     ULONGLONG lastTry = 0;     // when it was last attempted, for the gap between attempts
     int tries = 0;
@@ -360,7 +361,7 @@ static bool CallSpawnChain(const char *name, const fc_mat &spot, Outcome *out) {
 bool g_blocked = false;
 uint32_t g_blockedCode = 0;
 
-std::string DoSpawn(const std::string &model, bool hostile, bool *retry) {
+std::string DoSpawn(const std::string &model, bool hostile, float metres, bool *retry) {
     if (retry) *retry = false;
     if (model.empty()) return "Spawn failed: no model selected";
     if (g_blocked) {
@@ -376,10 +377,11 @@ std::string DoSpawn(const std::string &model, bool hostile, bool *retry) {
         if (retry) *retry = true;
         return "Spawn: waiting for you to be in the world";
     }
-    if (!fc_spawn_matrix(&spot, &player, 3.0f)) {
+    if (metres > 0.05f && !fc_spawn_matrix(&spot, &player, metres)) {
         if (retry) *retry = true;
         return "Spawn: waiting for a usable transform";
     }
+    if (metres <= 0.05f) spot = player;  // on the player: no offset at all
 
     if (!EnsureThreadAllocator()) {
         if (retry) *retry = true;
@@ -405,14 +407,16 @@ std::string DoSpawn(const std::string &model, bool hostile, bool *retry) {
         return "Spawn failed: this build does not know '" + SpawnShortName(model) + "'";
     }
 
-    // Nothing appeared three metres ahead. That spot can be refused - a doorway, a wall,
+    // Nothing appeared where it was asked for. That spot can be refused - a doorway, a wall,
     // the middle of the road - so the same call is tried once more at the player's own
     // position, which is always somewhere the game already agreed a character can be. It
     // is one extra attempt and only when the first made nothing, so a working spawn is
     // still exactly one NPC.
-    const char *where = "3 m ahead";
-    if (!out.created) {
-        TW_Log("Spawn: nothing placed 3 m ahead, trying the player's own position");
+    char whereBuf[32];
+    std::snprintf(whereBuf, sizeof whereBuf, "%.0f m ahead", static_cast<double>(metres));
+    const char *where = metres > 0.05f ? whereBuf : "on you";
+    if (!out.created && metres > 0.05f) {
+        TW_Log("Spawn: nothing placed %s, trying the player's own position", where);
         Outcome again;
         CallSpawnChain(model.c_str(), player, &again);
         TW_Log("Spawn: '%s' at the player -> %p faulted=%d code=%08X at %.2f %.2f %.2f",
@@ -434,7 +438,7 @@ std::string DoSpawn(const std::string &model, bool hostile, bool *retry) {
     }
     if (!out.created) {
         return "Spawn failed: the game made no object for '" + SpawnShortName(model) +
-               "' (3 m ahead or on you)";
+               "' (" + where + ")";
     }
 
     void *npc = out.npc;
@@ -684,7 +688,9 @@ int SpawnModelIndex() { return g_model; }
 void SpawnSetHostile(bool hostile) { g_hostile = hostile; }
 bool SpawnHostile() { return g_hostile; }
 
-void SpawnRequest(const std::string &model, bool hostile) {
+void SpawnRequest(const std::string &model, bool hostile) { SpawnRequestAt(model, hostile, 3.0f); }
+
+void SpawnRequestAt(const std::string &model, bool hostile, float metres) {
     // The spawn is carried out by the camera thread, and that thread is created when the
     // free camera is switched on. Anyone spawning from the menu without ever flying would
     // otherwise queue a request that nothing ever runs - start it here instead.
@@ -694,13 +700,15 @@ void SpawnRequest(const std::string &model, bool hostile) {
     Lock();
     g_request.model = model;
     g_request.hostile = hostile;
+    g_request.metres = metres;
     g_request.firstTry = GetTickCount64();
     g_request.lastTry = 0;
     g_request.tries = 0;
     g_pending = true;
     Unlock();
-    TW_Log("Spawn: asked for '%s' (%s), the worker thread %s", model.c_str(),
-           hostile ? "hostile" : "friendly", thread ? "is up" : "is NOT up");
+    TW_Log("Spawn: asked for '%s' (%s, %.0f m), the worker thread %s", model.c_str(),
+           hostile ? "hostile" : "friendly", static_cast<double>(metres),
+           thread ? "is up" : "is NOT up");
 }
 
 bool SpawnPump() {
@@ -723,7 +731,7 @@ bool SpawnPump() {
     Unlock();
 
     bool retry = false;
-    const std::string status = DoSpawn(request.model, request.hostile, &retry);
+    const std::string status = DoSpawn(request.model, request.hostile, request.metres, &retry);
 
     const bool waiting = retry && (now - request.firstTry) < kRetryForMs;
     Lock();

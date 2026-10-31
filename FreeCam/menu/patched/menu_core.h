@@ -87,6 +87,7 @@ struct DebugHooks {
     // is carried out by the camera thread (it needs the game's per-thread allocator), so
     // the hook returns a queued line rather than the result.
     std::function<std::string(const std::string&, bool)> spawnNpcInFront;  // model, hostile
+    std::function<std::string(const std::string&, bool)> spawnNpcOnPlayer;  // model, hostile
     std::function<std::string()> scanNpcModels;  // look for NPC models in the game files
     std::string resetSpawnerLabel;                 // empty: do not show the item
     std::function<std::string()> resetSpawner;     // clear a spawn fault

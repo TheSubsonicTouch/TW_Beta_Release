@@ -64,6 +64,11 @@ bool SpawnBlocked();
 // per-thread allocator. `model` empty means "the selected model".
 void SpawnRequest(const std::string& model, bool hostile);
 
+// The same, with the distance chosen: 3 is the normal "in front of you", 0 puts the NPC
+// where the player is standing (the fallback the spawner uses by itself when the spot in
+// front is refused, and useful on its own where there is no room).
+void SpawnRequestAt(const std::string& model, bool hostile, float metres);
+
 // Carry out at most one queued request. Call every tick from the camera thread.
 // Returns true when a request was carried out.
 bool SpawnPump();

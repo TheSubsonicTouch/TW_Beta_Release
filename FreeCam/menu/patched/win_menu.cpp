@@ -638,6 +638,15 @@ void buildMenu() {
         return std::string("Spawn: queued (") + (hostile ? "hostile" : "friendly") +
                ") - see the corner display";
     };
+    // The same spawn with no offset, for the places where three metres ahead is inside a
+    // wall. The spawner falls back to this by itself; the item is for when you want it.
+    hooks.spawnNpcOnPlayer = [](const std::string& model, bool hostile) {
+        tw::game::SpawnSelectByName(model);
+        tw::game::SpawnSetHostile(hostile);
+        tw::game::SpawnRequestAt(model, hostile, 0.0f);
+        return std::string("Spawn: queued on you (") + (hostile ? "hostile" : "friendly") +
+               ") - see the corner display";
+    };
     hooks.setInvincible = [](bool on) { pushJob(Job{JobInvincible, std::string(), 0.0f, on}); };
     hooks.setHudHidden = [](bool on) { pushJob(Job{JobHudHidden, std::string(), 0.0f, on}); };
     hooks.setTimeOfDay = [](float v) { pushJob(Job{JobTimeOfDay, std::string(), v, false}); };

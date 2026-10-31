@@ -217,6 +217,22 @@ void buildDebugMenu(Menu& menu, const DebugHooks& hooks) {
         };
         menu.addItem(spawn);
 
+        // The same spawn with no offset at all, for a spot where there is no room in
+        // front of the player - and the way out if three metres keeps being refused.
+        if (hooks.spawnNpcOnPlayer) {
+            MenuItem onMe;
+            onMe.label = "Spawn NPC on me";
+            onMe.onAction = [&menu, spawnBase, fn = hooks.spawnNpcOnPlayer]() {
+                if (!fn) { menu.setStatus("Spawn: not wired yet"); return; }
+                const MenuItem& m = menu.items()[spawnBase];
+                const MenuItem& a = menu.items()[spawnBase + 1];
+                const std::string choice =
+                    m.options.empty() ? std::string() : m.options[m.optionIndex];
+                menu.setStatus(fn(choice, a.optionIndex == 1));
+            };
+            menu.addItem(onMe);
+        }
+
         if (hooks.scanNpcModels) {
             MenuItem scan;
             scan.label = "Scan game files for NPCs";
