@@ -304,9 +304,8 @@ IF IT DOES NOT WORK
 TW_MenuLog.txt, next to TriadWars.exe, records everything. The second line of a flight
 says which build is running - "build 15" for this one. If it says a lower number, the game
 is loading an older dinput8.dll: run Install-FreeCam.bat again from this zip.
- Load into the world
-first - the camera cannot be told apart on a loading screen - then toggle it and
-look for these lines, in this order:
+Load into the world first - the camera cannot be told apart on a loading screen -
+then toggle it and look for these lines, in this order:
 
     FreeCam: camera thread up (build 15: B spawns an NPC 3 m ahead - N picks the model, H the side)
     FreeCam: switched on, asking the renderer which camera it draws
@@ -358,10 +357,13 @@ raw mouse and the polling functions are still blocked, and P or O still work.
 IS THIS SAFE FOR MY GAME
 ------------------------
 
-It is the same menu, built from the same sources, with one extra file
-(freecam_game.cpp) added and three small edits. Nothing in the old features was
-changed, the crash guard is still installed at startup, and the camera only touches
-memory it has checked first.
+It is the game's own debug menu, built from its sources, with three modules added
+rather than patched into it: the free camera (freecam_game.cpp), the input hold-back
+that keeps your character still while the camera flies (input_block.cpp), and the NPC
+spawner (freecam_spawn.cpp). The menu's own features are untouched, the crash guard is
+still installed at startup, and every memory address is checked before it is read or
+written - the spawner in particular never writes unless the object it found reads back
+what the game just reported for it.
 
 Keep a copy of the file you replace: rename your current dinput8.dll to
 dinput8.original.dll before copying this one in. To go back, rename it back.
