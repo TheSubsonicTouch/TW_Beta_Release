@@ -256,8 +256,16 @@ std::vector<std::string> LoadModels() {
 std::vector<std::string> g_models;
 int g_modelsRev = 0;
 
+// The list is replaced by a scan (on the game thread) while the camera thread and the
+// menu both read it, so the same lock covers it. A CRITICAL_SECTION is recursive, so a
+// reader that already holds it cannot deadlock itself.
+void Lock();
+void Unlock();
+
 const std::vector<std::string> &Models() {
+    Lock();
     if (g_models.empty()) g_models = LoadModels();
+    Unlock();
     return g_models;
 }
 
