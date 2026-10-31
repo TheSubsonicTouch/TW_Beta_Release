@@ -1,0 +1,42 @@
+// inject.rc - version information and a manifest for FreeCam-Inject.exe.
+//
+// The injector is not in the download zip any more (loading the DLL as dinput8.dll is
+// what the installer does, and that needs no injector). It is still built, for anyone
+// who wants the standalone route, and if it is going to exist at all it should say
+// what it is instead of being an anonymous executable.
+//
+// Numbers instead of <winver.h> constants, so the resource compiler needs no headers:
+//   FILEOS 0x40004 = VOS_NT_WINDOWS32    FILETYPE 0x1 = VFT_APP
+//   FILEFLAGSMASK 0x3f, FILEFLAGS 0      FILESUBTYPE 0
+
+1 VERSIONINFO
+ FILEVERSION 1,0,0,15
+ PRODUCTVERSION 1,0,0,15
+ FILEFLAGSMASK 0x3fL
+ FILEFLAGS 0x0L
+ FILEOS 0x40004L
+ FILETYPE 0x1L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"
+        BEGIN
+            VALUE "CompanyName",      "TheSubsonicTouch"
+            VALUE "FileDescription",  "Triad Wars Free Camera - standalone loader"
+            VALUE "FileVersion",      "1.0.0.15"
+            VALUE "InternalName",     "FreeCam-Inject"
+            VALUE "LegalCopyright",   "Free camera by TheSubsonicTouch. Triad Wars is (c) United Front Games / Square Enix."
+            VALUE "OriginalFilename", "FreeCam-Inject.exe"
+            VALUE "ProductName",      "Triad Wars Free Camera"
+            VALUE "ProductVersion",   "1.0.0.15"
+            VALUE "Comments",         "Starts the game and loads FreeCam.dll into it. Local only: it reads no network, installs nothing, and writes nothing outside the game folder."
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END
+
+1 24 "inject.manifest"
