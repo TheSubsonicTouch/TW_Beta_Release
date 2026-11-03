@@ -67,6 +67,10 @@ tw::DebugHooks fullHooks(int* toggles, int* picks, int* levels,
     hooks.setWeather = [picks](const std::string& w) { ++*picks; return "Weather: " + w; };
     hooks.setShader = [picks](const std::string& n) { ++*picks; return "Preset: " + n; };
     hooks.setFreeCam = [toggles](bool on) { ++*toggles; return std::string(on ? "on" : "off"); };
+    hooks.setPlayerFree = [toggles](bool on) {
+        ++*toggles;
+        return std::string(on ? "player free" : "player frozen");
+    };
     hooks.setNoclip = [toggles](bool on) { ++*toggles; return std::string(on ? "flying" : "landed"); };
     hooks.setLevel = [levels](const std::string& t, int v) {
         ++*levels;
@@ -101,6 +105,7 @@ void testStructure() {
 
     // What the menu offers, and in which order.
     check(hasLabel(menu, "Free Camera"), "Free Camera is there");
+    check(hasLabel(menu, "Player free (U)"), "the player's control toggle is there");
     check(hasLabel(menu, "Noclip (fly the player)"), "noclip is there");
     check(hasLabel(menu, "Noclip speed"), "the noclip speed picker is there");
     check(hasLabel(menu, "Weather"), "weather is there");
@@ -186,10 +191,18 @@ void testActions() {
     check(toggles == 1, "Enter on a toggle calls the hook");
     check(menu.status() == "on", "the toggle's answer becomes the status line");
 
-    // Noclip is second.
+    // Under it, the player's own controls: the second toggle, with its own hook.
     menu.handleKey(tw::Key::Down);
+    check(menu.items()[menu.selectedIndex()].label == "Player free (U)",
+          "Player free follows Free Camera");
     menu.handleKey(tw::Key::Select);
     check(toggles == 2, "Enter on the second toggle calls its own hook");
+    check(menu.status() == "player free", "and its answer is the status line");
+
+    // Noclip is third.
+    menu.handleKey(tw::Key::Down);
+    menu.handleKey(tw::Key::Select);
+    check(toggles == 3, "Enter on the third toggle calls the noclip hook");
 
     // Weather is a live selector: Left/Right moves through the options and applies the one
     // it lands on, because a setting that only takes effect on Enter is a setting people
@@ -287,6 +300,55 @@ void testSpawnPed() {
     tw::buildDebugMenu(bare, none);
     check(!hasLabel(bare, "Spawn Ped"), "no spawner, no Spawn Ped entry");
     check(!hasHeader(bare, "SPAWN"), "no spawner, no SPAWN section");
+}
+
+void testPlayerFree() {
+    // U and the "Player free (U)" entry: the player takes the controls while the camera
+    // stays on, and gives them back to the camera on the next press. The row has to follow
+    // the hotkey, because the hotkey is how it is normally used.
+    int toggles = 0, picks = 0, levels = 0;
+    std::vector<std::string> spawned;
+    tw::Menu menu;
+    menu.setVisible(true);
+    tw::DebugHooks hooks = fullHooks(&toggles, &picks, &levels, &spawned);
+    bool cameraOn = true, playerFree = false;
+    hooks.setPlayerFree = [&playerFree, &cameraOn](bool on) {
+        if (!cameraOn) return std::string("Player free: switch the free camera on first");
+        playerFree = on;
+        return std::string(on ? "Player free: move, fight, interact"
+                              : "Player frozen: the keys fly the camera again");
+    };
+    hooks.setFreeCam = [&cameraOn, &playerFree](bool on) {
+        cameraOn = on;
+        if (!on) playerFree = false;      // switching the camera off gives them back
+        return std::string(on ? "Free camera: on" : "Free camera: off");
+    };
+    hooks.syncState = [&menu, &playerFree, &cameraOn] {
+        menu.setToggled("Free Camera", cameraOn);
+        menu.setToggled("Player free (U)", cameraOn && playerFree);
+    };
+    tw::buildDebugMenu(menu, hooks);
+
+    check(hasLabel(menu, "Player free (U)"), "the entry is listed");
+    selectLabel(menu, "Player free (U)");
+    menu.handleKey(tw::Key::Select);
+    check(playerFree, "Enter on Player free hands the controls over");
+    check(menu.items()[menu.selectedIndex()].toggled, "and the row says ON");
+
+    // U in game: the state changed behind the menu's back, and the next sync pass shows it.
+    playerFree = false;
+    hooks.syncState();
+    check(!menu.items()[menu.selectedIndex()].toggled, "a hotkey switch off shows up in the menu");
+
+    // With the free camera off there is nothing to hand over, and the entry says so.
+    cameraOn = false;
+    menu.handleKey(tw::Key::Select);
+    check(!playerFree, "the player is not freed while the camera is off");
+    check(menu.status().find("switch the free camera on") != std::string::npos,
+          "and the status line explains why");
+    hooks.syncState();      // the frame loop does this once per frame
+    check(!menu.items()[menu.selectedIndex()].toggled,
+          "the row is off while the camera is off");
 }
 
 void testNoclip() {
@@ -603,6 +665,7 @@ int main() {
     testCursorSkipsHeaders();
     testActions();
     testSpawnPed();
+    testPlayerFree();
     testNoclip();
     testSparseHooks();
     testUnlockCatalog();

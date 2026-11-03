@@ -104,6 +104,31 @@ game carries on from its own camera and not from where you flew to.
 WHAT CHANGED IN THIS BUILD
 --------------------------
 
+  - Build 21. U hands the player their controls while the free camera stays on, and
+    takes them back when pressed again. Noclip moved to V.
+
+    - With the camera flying, the game's controls are held back: that is what stops
+      the character walking out from under the view or swinging a punch while WASD is
+      flying the camera. U gives the game those controls anyway - walk, fight,
+      interact, drive, look around - and the camera stays exactly where it is, at the
+      angle it has, and stops reading its own keys so the two do not fight over WASD.
+    - U again takes them back: the player freezes where they stand and the keys are
+      the camera's. The corner display says which of the two is active, and the line
+      reads "player free - move, fight, interact" or "player frozen - free cam
+      controls", so it is never ambiguous who has the keys.
+    - The menu has the same switch: CAMERA, "Player free (U)", second entry, ON/OFF.
+      A hotkey press shows up there on the next frame, the same way the noclip row
+      does. With the free camera off the player has the controls already, so the
+      entry says so rather than pretending to do something.
+    - Noclip is on V now, and still in the menu ("Noclip (fly the player)"). U was
+      noclip from build 16 to 20; it could not also be the player's controls, because
+      both move the character and one of them has to own WASD. Turning noclip on
+      switches the freed player back off, and U does the same to noclip - whichever
+      was pressed last has the character.
+    - O (freeze), P (follow), F10 and switching the free camera off all give the
+      player the controls as they always did, and each of them clears the U flag, so
+      there is no state where the keys belong to nobody.
+
   - Build 20. "Unlock all content" now switches the game's events and activities on
     as well. It used to stop at the content - levels, vehicles, clothing, upgrades - and
     left a fresh profile with three tutorial jobs and no event running.
@@ -153,15 +178,17 @@ WHAT CHANGED IN THIS BUILD
       default side. The B hotkey and its H switch still work as before.
     - While the menu is open the game's hotkeys are not read. Typing "before" into the
       field used to also spawn the hotkey ped (B), walk the models (N) and switch
-      noclip (U), because those keys are read straight from the keyboard rather than
-      through the menu. They are ignored while the menu is open, and the free camera
-      and noclip hold still for the same reason.
+      noclip (V, U in that build) and the player's own controls, because those keys are
+      read straight from the keyboard rather than through the menu. They are ignored
+      while the menu is open, and the free camera and noclip hold still for the same
+      reason.
 
   - Build 18. Noclip is a proper mode now, in the menu and on the keyboard.
 
-    - It is the second entry in TriadMenu (CAMERA section), "Noclip (fly the player)",
-      and it can be switched on with U without opening the menu at all. It works with
-      the free camera switched off: it moves the character, not a camera.
+    - It is in TriadMenu (CAMERA section), "Noclip (fly the player)", and it can be
+      switched on with a hotkey without opening the menu at all (U then; V since build
+      21, which gave U to the player's own controls). It works with the free camera
+      switched off: it moves the character, not a camera.
     - The character stays where you put it. Before, the position was only written while
       a key was held, so letting go meant the game's gravity pulled you down between
       presses - a very fast lift rather than noclip. Now the position the mode owns is
@@ -194,12 +221,12 @@ WHAT CHANGED IN THIS BUILD
     bad spawn.
 
   - Noclip: the character is flown instead of a camera. Menu item "Noclip (fly the
-    player)", or U on the keyboard. WASD moves, Space goes up, C goes down, Shift is
-    fast and Ctrl is slow; the left and right arrows set the speed from 1x to 8x. Only
-    the character's position is written - never the rotation - so the game keeps its
-    bearing and its animations, and switching noclip off drops you wherever you are and
-    lets the game's own physics take over. That is how you get onto a roof: fly there,
-    switch off, land.
+    player)", or a hotkey (U then; V since build 21). WASD moves, Space goes up, C goes
+    down, Shift is fast and Ctrl is slow; the left and right arrows set the speed from
+    1x to 8x. Only the character's position is written - never the rotation - so the
+    game keeps its bearing and its animations, and switching noclip off drops you
+    wherever you are and lets the game's own physics take over. That is how you get
+    onto a roof: fly there, switch off, land.
 
   - The model list can be filled from the game's own data files. The scan walks the
     folder, reads the character property sets it finds in the data files, adds them to
@@ -230,7 +257,7 @@ WHAT CHANGED IN THIS BUILD
     game's spawn code comes back as a line in the corner display instead of a crash.
 
   - B spawns an NPC three metres in front of the player, facing the way you face. N walks
-    through the models, H switches between hostile and friendly. U turns noclip on and
+    through the models, H switches between hostile and friendly. V turns noclip on and
     off, R allows one more spawn after a fault. The spawner is hotkey-only since build
     17; the menu does not carry it any more.
     The result of each spawn, with the faction ids it read, goes to TW_MenuLog.txt.
@@ -331,7 +358,11 @@ CONTROLS
                         same with a name you type)
     N                   next NPC model
     H                   NPCs spawn hostile or friendly (the menu has the same choice)
-    U                   noclip on/off: fly the character themselves (menu item
+    U                   player free on/off: hand the game's controls to the
+                        character while the camera stays put (menu item
+                        "Player free (U)"); U again freezes them and the camera
+                        flies again
+    V                   noclip on/off: fly the character themselves (menu item
                         "Noclip (fly the player)")
     [ / ]               noclip speed down / up, 1x to 8x (only while noclip is on)
     R                   allow one more spawn after the spawner stopped itself
@@ -405,6 +436,10 @@ The player's controls:
     held back. The character cannot walk, drive, attack or interact, and the mouse does
     not turn the character either. That is what makes the flight a camera and not a
     puppet show.
+  - U hands the controls to the character without moving the camera: walk, fight,
+    interact, drive and look around from where the camera is. The camera stops taking
+    WASD while it is doing that, so the two are not both flying. U again freezes the
+    player where they stand and the keys are the camera's again.
   - O (freeze) or P (follow) hand the controls straight back: move, fight, interact and
     look around as usual, while the camera keeps watching.
   - Switching free cam off, or F10, gives them back too - there is no state you can get

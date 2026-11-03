@@ -1196,7 +1196,8 @@ Hotkey g_spawnKey{ 'B' };          // B - spawn the selected NPC three metres ah
 Hotkey g_modelKey{ 'N' };          // N - next NPC model
 Hotkey g_sideKey{ 'H' };           // H - hostile / friendly
 Hotkey g_fasterKey{ VK_RIGHT };     // playback speed up
-Hotkey g_noclipKey{ 'U' };        // U - fly the player themselves
+Hotkey g_playerKey{ 'U' };        // U - give the player the controls, or take them back
+Hotkey g_noclipKey{ 'V' };        // V - fly the player themselves
 Hotkey g_faultKey{ 'R' };         // R - allow one more spawn after a fault
 Hotkey g_noclipSlower{ VK_OEM_4 };  // [ - noclip speed down
 Hotkey g_noclipFaster{ VK_OEM_6 };  // ] - noclip speed up
@@ -1213,17 +1214,29 @@ void BeginHotkeyFrame() {
     g_spawnKey.NewFrame();
     g_modelKey.NewFrame();
     g_sideKey.NewFrame();
+    g_playerKey.NewFrame();
     g_noclipKey.NewFrame();
     g_faultKey.NewFrame();
     g_noclipSlower.NewFrame();
     g_noclipFaster.NewFrame();
 }
 
-// While the camera is flying, the player is not in control: the game's own input is
-// held back so the character stands still and does not swing or interact. O and P hand
-// control back to the player, which is the whole point of those two.
+// The player's controls while the free camera is on.
+//
+// By default the character stands still: the game's own input is held back so it cannot
+// walk out from under the view, swing at something or open a menu with the keys the camera
+// is using. O and P hand the controls back by changing what the camera is doing; U hands
+// them back on its own, leaving the camera where it is and flying again when U is pressed
+// a second time (see g_playerFree).
+volatile long g_playerFree = 0;
+
 bool PlayerHasControl() {
-    return fc_frozen(&g_state) || fc_following(&g_state) || fc_looking_at(&g_state);
+    // Noclip is deliberately not in here: it has always flown the character alongside the
+    // camera's own keys, and changing that would change how noclip steers. The two are
+    // kept apart instead - U switches noclip off, and turning noclip on clears U (see
+    // g_playerKey and NoclipSet), so the character never has two movers at once.
+    return g_playerFree != 0 || fc_frozen(&g_state) || fc_following(&g_state) ||
+           fc_looking_at(&g_state);
 }
 
 // --- the corner display ------------------------------------------------------
@@ -1387,7 +1400,40 @@ void HandleHotkeys(const float player[3], bool havePlayer) {
         TW_Log("FreeCam: spawner fault cleared by R");
     }
 
-    // U flies the character rather than the camera, so it works with the camera off as
+    // U - the player. With the camera flying, the game's controls are held back, so the
+    // keys only fly the view. U gives them to the character instead: walk, fight, interact,
+    // look around, while the camera keeps the angle it has. U again takes them back, so the
+    // camera is flown without the character walking off with the same WASD.
+    if (g_playerKey.Pressed()) {
+        if (!g_live) {
+            Hud("U", "free cam off - the player has control");
+        } else if (fc_frozen(&g_state) || fc_following(&g_state)) {
+            // Frozen or following already hand the controls over; there is nothing for U
+            // to add and two answers for one key would be confusing.
+            Hud("U", "the camera is frozen/following");
+        } else {
+            const bool free = g_playerFree == 0;
+            if (free && tw::game::NoclipActive()) {
+                // Noclip flies the character itself, so the two cannot share the keys.
+                tw::game::NoclipSet(false);
+                TW_Log("FreeCam: noclip switched off by U - the player takes the controls");
+            }
+            g_playerFree = free ? 1 : 0;
+            if (free) {
+                Hud("U", "player free - move, fight, interact");
+                TW_Log("FreeCam: player free - the game has its controls back and the camera "
+                       "holds at %.1f %.1f %.1f; U again to fly",
+                       g_state.pos[0], g_state.pos[1], g_state.pos[2]);
+            } else {
+                Hud("U", "player frozen - free cam controls");
+                TW_Log("FreeCam: player frozen - the keys are the camera's again, flying from "
+                       "%.1f %.1f %.1f; U again to free the player",
+                       g_state.pos[0], g_state.pos[1], g_state.pos[2]);
+            }
+        }
+    }
+
+    // V flies the character rather than the camera, so it works with the camera off as
     // well: it is the one thing here that does not need a camera to move.
     if (g_noclipKey.Pressed()) {
         const bool on = !tw::game::NoclipActive();
@@ -1396,9 +1442,9 @@ void HandleHotkeys(const float player[3], bool havePlayer) {
             char line[44];
             std::snprintf(line, sizeof line, "noclip %s - WASD, Space/C",
                           tw::game::NoclipSpeedLabels()[tw::game::NoclipSpeedIndex()]);
-            Hud("U", line);
+            Hud("V", line);
         } else {
-            Hud("U", "noclip off - dropping to the ground");
+            Hud("V", "noclip off - dropping to the ground");
         }
         TW_Log("FreeCam: noclip %s", on ? "on" : "off");
     }
@@ -1442,7 +1488,9 @@ void HandleHotkeys(const float player[3], bool havePlayer) {
             TW_Log("FreeCam: following cannot be changed while the path is playing (J to stop)");
         } else if (fc_following(&g_state)) {
             fc_follow(&g_state, player, 0);
-            TW_Log("FreeCam: no longer following the player; the camera stays here");
+            g_playerFree = 0;    // the camera is the one being flown again
+            TW_Log("FreeCam: no longer following the player; the camera stays here and the "
+                   "player's controls are held again");
             Hud("P", "follow off");
         } else if (!havePlayer) {
             TW_Log("FreeCam: cannot follow the player - its transform is not readable yet");
@@ -1457,6 +1505,7 @@ void HandleHotkeys(const float player[3], bool havePlayer) {
     if (g_freezeKey.Pressed()) {
         if (fc_frozen(&g_state)) {
             fc_freeze(&g_state, 0);      // also stops the aiming
+            g_playerFree = 0;            // U's free player ends with the freeze
             TW_Log("FreeCam: camera unfrozen; the player's controls are held again and the camera "
                    "flies from %.1f %.1f %.1f", g_state.pos[0], g_state.pos[1], g_state.pos[2]);
             Hud("O", "camera flying");
@@ -1622,6 +1671,7 @@ bool StartFlying() {
 
 void StopFlying() {
     InputBlockSetActive(false);      // the controls are the player's again
+    g_playerFree = 0;                // and the next flight starts with the player held
     fc_play_stop(&g_state);
     fc_follow(&g_state, nullptr, 0);
     fc_set_active(&g_state, 0, nullptr);
@@ -1643,7 +1693,7 @@ DWORD WINAPI Loop(LPVOID) {
 
     // The 1 ms timer is raised in StartFlying and lowered in StopFlying: a thread that is
     // only alive so the menu can spawn something must not hold the system timer down.
-    TW_Log("FreeCam: camera thread up (build 20: Unlock all content also opens every job and the event; B spawns an NPC 3 m ahead, N picks the model, H the side, U noclip)");
+    TW_Log("FreeCam: camera thread up (build 21: U hands the player the controls and takes them back, V noclip; B spawns an NPC 3 m ahead, N picks the model, H the side)");
 
     for (;;) {
         if (g_quit) break;
@@ -1689,6 +1739,7 @@ DWORD WINAPI Loop(LPVOID) {
             Hud("F10", "free cam off");
             tw::game::NoclipSet(false);   // panic means everything off, not just the camera
             fc_freeze(&g_state, 0);
+            g_playerFree = 0;             // the player keeps the controls; nothing is left set
             InputBlockSetActive(false);
             g_want = 0;
             if (g_live) StopFlying();
@@ -1778,7 +1829,8 @@ DWORD WINAPI Loop(LPVOID) {
         if (blockNow != (tw::game::InputBlockActive() ? true : false)) {
             tw::game::InputBlockSetActive(blockNow);
             TW_Log("FreeCam: player controls %s (%s)", blockNow ? "held back" : "given back",
-                   PlayerHasControl() ? (fc_frozen(&g_state) ? "the camera is frozen" :
+                   PlayerHasControl() ? (g_playerFree ? "U freed the player" :
+                                         fc_frozen(&g_state) ? "the camera is frozen" :
                                                                "following the player")
                                       : "the camera is flying");
         }
@@ -1914,6 +1966,15 @@ bool FreeCamEnsureThread() {
 int FreeCamHudLines(FreeCamHudLine *out, int max) { return HudCollect(out, max); }
 
 bool FreeCamBlockingInput() { return tw::game::InputBlockActive(); }
+
+bool FreeCamPlayerFree() { return g_playerFree != 0; }
+
+void FreeCamSetPlayerFree(bool free) {
+    // The menu calls this from the game thread; the camera thread reads it every tick and
+    // takes the game's input block off (or puts it back) on the next one. Switching the
+    // camera off clears it, so a new flight always starts with the player held.
+    g_playerFree = free ? 1 : 0;
+}
 
 bool FreeCamAvailable() {
     return Base() != 0 && Readable(reinterpret_cast<void *>(Base() + 0x1000), 16);

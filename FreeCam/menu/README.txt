@@ -140,9 +140,9 @@ WHAT BUILD 7 ADDED
 ------------------
 
     input_block.h / input_block.cpp       holds the game's own controls back while the
+                                          camera flies (details below)
     freecam_spawn.h / freecam_spawn.cpp   spawns an NPC three metres in front of the
                                           player, and picks its side
-                                          camera flies (details below)
     fc_follow_update_angles(st, y, p)     P turns the camera with the player's own camera
     fc_play_set_speed / _shift / _speed   the arrow keys' playback speed, 0.1x to 4x
                                           (fc_play_step multiplies dt by it)
@@ -170,8 +170,13 @@ So input_block.cpp stands in front of all three:
     GetAsyncKeyState and GetKeyboardState are redirected; this DLL's own calls still reach
     the real ones, which is what lets the camera read W A S D and the hotkeys.
 
-All three are off unless a camera is flying, and O or P switch them off while it is.
-The three keys a player needs while flying (P, O, L, K, M, F10, Insert, arrows, Enter,
+All three are off unless a camera is flying, and O or P switch them off while it is - and
+so does U, which hands the controls to the player without changing the camera
+(FreeCamPlayerFree / FreeCamSetPlayerFree, g_playerFree in freecam_game.cpp). While it
+is set, PlayerHasControl() is true, so the block comes off entirely and the camera stops
+reading its own WASD: the character moves, fights and interacts and the camera holds the
+angle it had. U again clears it, and so do O, P, F10 and switching the camera off.
+The keys a player needs while flying (P, O, L, J, M, F10, Insert, arrows, Enter,
 Backspace, Escape, Tab) are passed through.
 
 FOLLOW THAT PANS

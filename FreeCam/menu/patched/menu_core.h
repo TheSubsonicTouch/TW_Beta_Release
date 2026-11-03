@@ -105,6 +105,7 @@ struct DebugHooks {
 
     // Camera.
     std::function<std::string(bool)> setFreeCam;   // on/off, returns the status line
+    std::function<std::string(bool)> setPlayerFree; // give the player the controls
     std::function<std::string(bool)> setNoclip;    // fly the player themselves
     std::vector<std::string> noclipSpeeds;         // "1x" .. "8x"; empty: no speed entry
     std::function<std::string(const std::string&)> setNoclipSpeed;

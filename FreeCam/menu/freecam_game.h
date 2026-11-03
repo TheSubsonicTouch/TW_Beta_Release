@@ -23,9 +23,18 @@ bool FreeCamActive();
 
 // True while the free camera is flying and the player must not act: the game's input
 // is held back so the character cannot move, attack or interact. It is false while the
-// camera is frozen (O) or following the player (P), because then the player is meant to
-// be in control.
+// camera is frozen (O), following the player (P), or after U has freed the player
+// (FreeCamPlayerFree), because then the player is meant to be in control.
 bool FreeCamBlockingInput();
+
+// U, and the menu entry of the same name: hand the game's controls to the character
+// while the free camera stays on. The camera keeps the angle it has and stops reading
+// its own keys, so the character can walk, fight and interact without WASD also flying
+// the view; setting it back freezes the player again and the camera flies from there.
+// Ignored while noclip is flying the character (the two would share the keys) and
+// cleared whenever the camera is switched off, frozen or unfrozen, or followed.
+bool FreeCamPlayerFree();
+void FreeCamSetPlayerFree(bool free);
 
 // One line of the little corner display: the key that was pressed and what it did.
 // alpha goes from 1 to 0 as the line gets old, so the display fades out by itself.

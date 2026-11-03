@@ -933,6 +933,19 @@ void buildMenu() {
         return "Spawn Ped: " + model + " - queued, see the corner display";
     };
 
+    // The player's own controls: U, or the menu entry. The camera has to be on for it
+    // to mean anything - with it off the player has the controls already - and the
+    // row is kept honest by syncState below, which reads what the hotkey did.
+    hooks.setPlayerFree = [](bool on) {
+        if (!tw::game::FreeCamActive()) {
+            tw::game::FreeCamSetPlayerFree(false);
+            return std::string("Player free: switch the free camera on first");
+        }
+        tw::game::FreeCamSetPlayerFree(on);
+        return std::string(on ? "Player free: move, fight, interact (U puts them back)"
+                              : "Player frozen: the keys fly the camera again (U frees them)");
+    };
+
     // Noclip: the toggle, the speed picker and two way of keeping them honest.
     static const char* const kNoclipSpeeds[] = { "1x", "2x", "3x", "4x", "6x", "8x" };
     for (int i = 0; i < tw::game::NoclipSpeedCount(); ++i)
@@ -952,11 +965,14 @@ void buildMenu() {
         return std::string("Noclip speed: ") + label;
     };
 
-    // U turns noclip on and the menu has to agree with it, and the speed keys move the
-    // picker; the camera can also be switched off from the free camera's own hotkeys. One
-    // pass per frame keeps what is drawn equal to what is true.
+    // Keys pressed in game and the menu have to agree: U frees and freezes the player,
+    // V turns noclip on, [ and ] move the speed picker, and the camera can be switched
+    // off from its own hotkeys (or by F10). One pass per frame keeps what is drawn
+    // equal to what is true.
     hooks.syncState = []() {
         g_menu.setToggled("Free Camera", tw::game::FreeCamActive());
+        g_menu.setToggled("Player free (U)", tw::game::FreeCamActive() &&
+                                              tw::game::FreeCamPlayerFree());
         g_menu.setToggled("Noclip (fly the player)", tw::game::NoclipActive());
         g_menu.setOptionIndex("Noclip speed", static_cast<std::size_t>(tw::game::NoclipSpeedIndex()));
     };

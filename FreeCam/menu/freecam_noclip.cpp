@@ -201,6 +201,9 @@ bool NoclipStep() {
 void NoclipSet(bool on) {
     if (on == g_active) return;
     if (on) {
+        // Noclip and the freed player would both answer to WASD; the character has one
+        // mover at a time, so turning this on takes the controls off the player again.
+        tw::game::FreeCamSetPlayerFree(false);
         // Noclip runs on the camera thread, and that thread is created when the free
         // camera is switched on. Someone who turns noclip on from the menu without ever
         // flying would otherwise get nothing at all.

@@ -222,6 +222,20 @@ void buildDebugMenu(Menu& menu, const DebugHooks& hooks) {
     };
     menu.addItem(freecam);
 
+    // The player's own controls. With the camera flying they are held back, so the
+    // keys are the camera's; this hands them to the character without moving the
+    // camera, and the hotkey U does the same. It is listed only when the build can do
+    // it, like the noclip pair below.
+    if (hooks.setPlayerFree) {
+        MenuItem playerFree;
+        playerFree.label = "Player free (U)";
+        playerFree.kind = ItemKind::Toggle;
+        playerFree.onToggle = [&menu, fn = hooks.setPlayerFree](bool on) {
+            menu.setStatus(fn(on));
+        };
+        menu.addItem(playerFree);
+    }
+
     if (hooks.setNoclip) {
         MenuItem noclip;
         noclip.label = "Noclip (fly the player)";
