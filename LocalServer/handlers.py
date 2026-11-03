@@ -546,30 +546,38 @@ def _award_raid_favours(player):
 
 
 def _award_favours(player, count):
-    """Add `count` upgrade favours the player does not have yet; returns their definition UIDs."""
+    """Add `count` upgrade favours the player does not have yet; returns their definition UIDs.
+
+    What is owned is matched by the upgrade a card grants, not by its display name: the
+    137 cards share 44 names across rarities ("Body Armor I" is a Common, a Rare and a
+    VeryRare card), so a name test would hide cards the player does not own - and it
+    hides the two FTPE-only cards, which share their names with ordinary ones. An
+    unlocked profile (state.unlocked) is offered those two as well.
+    """
+    everything = state.unlocked(player)
     owned = {f["FavourDefinitionUID"] for f in player.setdefault("FavoursBag", [])}
-    unlocked = {u["Item1"] for u in player.get("EnforcerUpgradesBag", [])}
-    by_upgrade = {info["upgrade"]: info["name"] for info in state.FAVOUR_UPGRADES.values()}
-    have = {state.FAVOUR_UPGRADES[uid]["name"] for uid in owned if uid in state.FAVOUR_UPGRADES}
-    have |= {by_upgrade[u] for u in unlocked if u in by_upgrade}
+    equipped = {u["Item1"] for u in player.get("EnforcerUpgradesBag", [])}
+    have = {state.FAVOUR_UPGRADES[uid]["upgrade"] for uid in owned
+            if uid in state.FAVOUR_UPGRADES}
+    have |= equipped
 
     def fresh(uid, info):
-        return not info["ftpe"] and info["name"] not in have
+        return (everything or not info["ftpe"]) and info["upgrade"] not in have
 
     def distinct(keep):
-        # Several favour definitions grant the same upgrade; offer each upgrade once.
-        by_name = {}
+        # Every card grants its own upgrade, so that is the unit to offer once.
+        by_upgrade = {}
         for uid, info in state.FAVOUR_UPGRADES.items():
             if keep(uid, info):
-                by_name.setdefault(info["name"], uid)
-        return list(by_name.values())
+                by_upgrade.setdefault(info["upgrade"], uid)
+        return list(by_upgrade.values())
 
     pool = distinct(lambda uid, info: fresh(uid, info) and info["name"].endswith(" I"))
     if len(pool) < count:
         pool = distinct(fresh)
     if len(pool) < count:
         # Nothing new left to hand out: repeats are better than an empty reward list.
-        pool = distinct(lambda uid, info: not info["ftpe"])
+        pool = distinct(lambda uid, info: everything or not info["ftpe"])
     picks = random.sample(pool, min(count, len(pool)))
     for uid in picks:
         player["FavoursBag"].append(state.favour_instance(_next_favour_id(player), uid))
@@ -593,8 +601,10 @@ def raid_end(req, method, parts, body, query):
         opp = opps[idx]["data"]["PlayerDataBag"] if 0 <= idx < len(opps) else {}
         if success and 0 <= idx < len(opps):
             # That site's turf needs time to recover; the world map counts it down from
-            # mRemainingSeconds (state.RIVAL_RAID_COOLDOWN). A lost raid leaves it open.
-            state.start_rival_cooldown(opps[idx])
+            # mRemainingSeconds (state.RIVAL_RAID_COOLDOWN). A lost raid leaves it open,
+            # and so does every raid on an unlocked profile (state.unlocked): its whole
+            # roster stays on the map, which is what the menu's unlock promises.
+            state.start_rival_cooldown(opps[idx], everything=state.unlocked(_player()))
         STATE.data.pop("raid", None)
         face = pdb["Face"]
         favours = _award_raid_favours(_player()) if success else []

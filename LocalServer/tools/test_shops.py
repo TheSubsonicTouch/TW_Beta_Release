@@ -49,7 +49,14 @@ def main():
             print("FAIL  %-34s %s" % (name, e))
 
     def every_store_filled():
-        assert len(state.STORE_ITEMS) == 14, len(state.STORE_ITEMS)
+        # Every store the game has must have a catalogue, except the Gold Store: that one
+        # sells clean money for real money, which this server cannot honour, so it is
+        # deliberately left out (see README).
+        stores = {s["$uid"]: s for s in db["UFG::Store"]}
+        paid = {uid for uid, s in stores.items()
+                if s.get("mAllowedStoreItemType") == "UFG::StoreCleanMoneyBundle"}
+        missing = set(stores) - paid - set(state.STORE_ITEMS)
+        assert not missing, "no catalogue for %s" % sorted(missing)
         for uid, catalogue in state.STORE_ITEMS.items():
             assert catalogue["items"], "store %s (%s) is empty" % (uid, catalogue["name"])
             assert catalogue["type"] in handlers.STORE_PRICES or \

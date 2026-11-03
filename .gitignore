@@ -11,3 +11,7 @@ FreeCam/menu/build/
 
 # python leaves these behind when the server's modules are imported by a test
 __pycache__/
+
+# the player's own profile and the server's log - never shipped, never committed
+LocalServer/state.json
+LocalServer/logs/

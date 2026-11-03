@@ -117,9 +117,14 @@ WHAT CHANGED IN THIS BUILD
       instead of at midnight.
     - Events: the challenge is started with a full rotation ahead of it and opted into,
       so the events screen has a live challenge with its reward tiers instead of
-      "nothing running".
+      "nothing running" - and it is still running and still joined when the rotation
+      rolls over, instead of asking you to take part again a week later.
     - Rivals: every turf's post-raid cooldown is cleared, so all seven are on the world
-      map again (the "Unlock raids and events" entry does this on its own).
+      map again (the "Unlock raids and events" entry does this on its own), and a raid
+      from then on no longer takes that turf off the map while the flag is set.
+    - Favours: job rewards and favour packs can pay all 137 upgrade cards whatever
+      your level, the two free-to-play-only ones ("Health Regen Cap I", "Tough
+      Guy I") included - a level 1 profile otherwise reaches six of them.
     - Content: every favour, enforcer upgrade and shop item is put in the bags and the
       enforcer, rackets and triad are put at the top level, from this server's own
       catalogues - the older unlock needs the game's extracted gamedb.json and does

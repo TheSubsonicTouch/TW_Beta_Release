@@ -336,9 +336,14 @@ def utc_day(now=None):
 # ---- "unlock everything" ------------------------------------------------------
 # UnlockBag.All is written by the menu's Unlock all content entry (freecam_unlock.cpp).
 # It is not one of the client's data bags, so it never reaches the game; it only decides
-# what this server offers: the whole job catalogue instead of the tutorial's first rung,
-# and the export-gated jobs, which this build cannot otherwise open (see
-# ERRAND_UNSUPPORTED). A profile without the flag behaves exactly as before.
+# what this server offers. A profile without the flag behaves exactly as before:
+#
+#   * the whole job catalogue instead of the tutorial's first rung, the export-gated
+#     jobs included (see ERRAND_UNSUPPORTED);
+#   * every favour card at any level, the two FTPE-only ones included (favour_pool);
+#   * the challenge stays live and joined across its rotations (current_challenge);
+#   * rival turfs never go on the post-raid cooldown (opponent_remaining,
+#     start_rival_cooldown) - see handlers.raid_end and State.opponents.
 def unlocked(player):
     bag = player.get("UnlockBag")
     return isinstance(bag, dict) and bool(bag.get("All"))
@@ -390,11 +395,15 @@ def errand_definition(slot):
     return ERRANDS_BY_UID.get(uid) if uid else None
 
 
-def favour_pool(errand, level=1):
+def favour_pool(errand, level=1, everything=False):
     """Upgrade favours that satisfy an errand's rarity/tag reward rule.
 
     Only the 137 upgrade favours are used: they are the ones the client can equip, so
     a job reward always turns into something the player can spend.
+
+    `everything` is the unlocked profile (see unlocked). The XP level and the two
+    FTPE-only cards stop filtering there, so a job can pay any of the 137 whatever the
+    player's level is - the level gate is what hides 129 of them from a fresh profile.
     """
     rule = errand.get("favour") or {}
     try:
@@ -405,18 +414,19 @@ def favour_pool(errand, level=1):
     tags = set(rule.get("tags") or [])
     pool = []
     for uid, info in FAVOUR_UPGRADES.items():
-        if info.get("ftpe"):
+        if info.get("ftpe") and not everything:
             continue
         rarity = info.get("rarity")
         if rarity not in RARITY_ORDER or not low <= RARITY_ORDER.index(rarity) <= high:
             continue
-        if int(info.get("xpLevel", 0)) > level:
+        if not everything and int(info.get("xpLevel", 0)) > level:
             continue
         if tags and not tags.intersection(info.get("tags") or []):
             continue
         pool.append(uid)
     if not pool:
-        pool = [uid for uid, info in FAVOUR_UPGRADES.items() if not info.get("ftpe")]
+        pool = [uid for uid, info in FAVOUR_UPGRADES.items()
+                if everything or not info.get("ftpe")]
     return pool
 
 
@@ -521,7 +531,7 @@ def new_errand_slot(player, errand, now=None, index=0):
     level = xp_level(player)
     favours = []
     if (errand.get("reward") or "").startswith("REWARD_FAVOUR"):
-        pool = favour_pool(errand, level)
+        pool = favour_pool(errand, level, unlocked(player))
         if pool:
             favours = [random.choice(pool)]
     return {"SlotIndex": int(index), "ErrandUID": errand["uid"], "State": ERRAND_ACTIVE,
@@ -868,7 +878,12 @@ def current_challenge(player, now=None):
         bag["End"] = int(now + CHALLENGE_ROTATION_SECONDS)
         bag["Progress"] = 0
         bag["Rewarded"] = []
-        bag["OptedIn"] = TRIAL_OPT_OUT
+        # A new rotation asks a fresh profile to take part again. An unlocked one
+        # (see unlocked) keeps whatever it last chose, so the event the unlock
+        # started does not go dark a week later - and an opt-out in the events
+        # screen still sticks.
+        if not unlocked(player):
+            bag["OptedIn"] = TRIAL_OPT_OUT
     elif bag.get("Name"):
         # The client opted into a named container: follow it rather than the rotation.
         names = {c.get("name"): i for i, c in enumerate(CHALLENGES)}
@@ -970,14 +985,27 @@ def trial_container(bag, challenge, start, end, index):
             "mImage": challenge.get("image", "")}
 
 
-def opponent_remaining(opponent, now=None):
-    """Seconds until that rival's turf can be raided again (0 = right now)."""
+def opponent_remaining(opponent, now=None, everything=False):
+    """Seconds until that rival's turf can be raided again (0 = right now).
+
+    An unlocked profile (see unlocked) never waits: the world map keeps every turf
+    on offer, whatever the profile was carrying when it was unlocked.
+    """
+    if everything:
+        return 0
     now = time.time() if now is None else now
     return max(0, int(round(int(opponent.get("cooldown_until") or 0) - now)))
 
 
-def start_rival_cooldown(opponent, seconds=None, now=None):
-    """Put one rival's turf on the post-raid cooldown."""
+def start_rival_cooldown(opponent, seconds=None, now=None, everything=False):
+    """Put one rival's turf on the post-raid cooldown.
+
+    While the profile is unlocked this is a no-op: a raid clears the turf instead of
+    taking it off the map for RIVAL_RAID_COOLDOWN.
+    """
+    if everything:
+        opponent["cooldown_until"] = 0
+        return 0
     now = time.time() if now is None else now
     opponent["cooldown_until"] = int(now + (RIVAL_RAID_COOLDOWN if seconds is None else seconds))
     return opponent["cooldown_until"]
@@ -1100,6 +1128,7 @@ class State:
         describes the rival and mOpponentDataBags[i] holds that rival's bags.
         """
         with self.lock:
+            everything = unlocked(self.data["player"])
             infos, bags = [], []
             for o in self.data["opponents"]:
                 p = o["data"]
@@ -1107,7 +1136,7 @@ class State:
                     "mPlayerDataID": p["PlayerDataBag"]["PlayerDataID"],
                     "mOpponentType": o.get("type", 0),
                     "mTriad": {},
-                    "mRemainingSeconds": opponent_remaining(o),
+                    "mRemainingSeconds": opponent_remaining(o, everything=everything),
                 })
                 bags.append(self.bags(p, mask))
             return infos, bags

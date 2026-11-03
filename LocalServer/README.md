@@ -64,7 +64,7 @@ on the next launch).
 | `useroptions.py` | Reads/edits the obfuscated `UserOptions.dat`. |
 | `cert.pem`, `key.pem` | Self-signed certificate for `localhost` (the client does not verify it). |
 | `logs/` | One request log per server run. Lines marked `UNHANDLED` are endpoints with no handler yet. |
-| `tools/` | The scripts used to unpack the game data and decode its schema, crash-analysis helpers, `smoke_test.py`, `test_jobs.py`, `test_shops.py`, `test_looks.py`, `playermodel.py`, `looks.py` (the lookbook), `schema_dump.py`, `patch_exe.py` (see above), `make_bundle.py` and the data builders (`errands.py`, `challenges.py`, `favour_rewards.py`, `store_items.py`). |
+| `tools/` | The scripts used to unpack the game data and decode its schema, crash-analysis helpers, `smoke_test.py`, `test_jobs.py`, `test_shops.py`, `test_looks.py`, `test_unlock.py`, `playermodel.py`, `looks.py` (the lookbook), `schema_dump.py`, `patch_exe.py` (see above), `make_bundle.py` and the data builders (`errands.py`, `challenges.py`, `favour_rewards.py`, `store_items.py`). |
 | `devdata/` | Reference data for extending the server: the full object-database export and the client's endpoint and key lists. Not needed to play. |
 
 ## How it works
@@ -324,6 +324,38 @@ server can export: the challenge rotation, tier targets and reward choice above
 are this server's own event design, built to fit the client's screen. They are
 plain JSON - edit them freely.
 
+### Unlocking everything (`UnlockBag.All`)
+
+The menu's **Unlock all content** entry writes `UnlockBag.All` into the profile in
+`state.json`. It is not one of the client's data bags, so it never reaches the game;
+`state.unlocked(player)` reads it, and everything below is a consequence of that one
+function:
+
+* **Jobs** - the board is drawn from all 116, the 29 the game data switches off and the
+  two export-gated ones included, with no level, safehouse, prerequisite or repeatable
+  cooldown in the way. `errand_pool` goes straight to that catalogue.
+* **Favours** - `favour_pool` stops applying `xpLevel`, so a job reward can pay any of
+  the 137 upgrade cards at level 1 instead of the six a fresh profile reaches. The shop
+  packs and raid rewards (`handlers._award_favours`) match cards by the upgrade they
+  grant rather than by display name, so the two FTPE-only cards ("Health Regen Cap I",
+  "Tough Guy I") are reachable as well - their names are shared with ordinary cards,
+  which used to hide them behind an already-owned one.
+* **The event** - `current_challenge` keeps the opt-in when a rotation ends, so the
+  challenge the unlock started is still running, and still joined, seven days later. A
+  locked profile is opted out by the rotation, as before.
+* **Rivals** - `opponent_remaining` reports 0 and `start_rival_cooldown` does nothing, so
+  a won raid no longer takes that turf off the world map for ten minutes
+  (`handlers.raid_end`, `State.opponents`). Clearing the timers once was not enough: the
+  next raid put one straight back.
+* **Content** - the menu fills the bags (every favour, every enforcer upgrade, everything
+  the shops sell), maxes the levels and clears the timers the profile was already
+  carrying, by writing `state.json` itself; that half is `FreeCam/menu/freecam_unlock.cpp`
+  and its data-driven rules in `freecam_unlock_rules.cpp`.
+
+Deleting `UnlockBag` (or its `All`) from `state.json` puts all of it back; nothing else
+in the profile is undone. `tools/test_unlock.py` checks both halves: what a profile
+without the flag gets and what the flag adds.
+
 ### Trying it without the game
 
     python tools/test_jobs.py      # handlers directly: board, claim, history, change,
@@ -332,6 +364,7 @@ plain JSON - edit them freely.
     python tools/test_looks.py     # the lookbook: real UIDs, slots, every look applies
     python tools/test_activities.py  # operations, crime scenes, street events, restart
     python tools/test_raids.py     # rival availability, raid cooldown, profile migration
+    python tools/test_unlock.py    # UnlockBag.All: jobs, favours, the event, the rivals
 
 The test scripts build a throw-away profile in a temp folder, so they never touch
 `state.json`. `tools/smoke_test.py` runs the same screens over HTTPS against a running
