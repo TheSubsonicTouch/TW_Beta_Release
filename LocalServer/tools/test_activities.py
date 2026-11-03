@@ -38,6 +38,9 @@ def main():
         parts = ["operation", "endoperation", name, "1", str(successful)]
         return handlers.end_operation(None, "POST", parts, b"", {})
 
+    def operations():
+        return handlers.operations(None, "GET", ["operation", "list"], b"", {})
+
     def activity_kinds():
         # Every UFG::OperationType pays something, and face kinds stay face.
         seen = []
@@ -154,6 +157,46 @@ def main():
         assert reply["amount"] > 0, reply
         return "yesterday's payouts do not count"
 
+    def street_encounter_unlocked():
+        # UnlockBag.All is the whole point: the street is worth stopping for every time.
+        bag = state.world_encounter_bag(player)
+        bag["Paid"] = [int(time.time())] * (state.WORLD_ENCOUNTER_LIMIT * 4)
+        capped = state.pay_world_encounter_reward(player, 1)
+        assert capped["amount"] == 0, capped                    # locked profile is capped
+        player["UnlockBag"] = {"All": True}
+        try:
+            face = int(player["PlayerDataBag"]["Face"])
+            paid = 0
+            for _ in range(state.WORLD_ENCOUNTER_LIMIT * 3):
+                reply = state.pay_world_encounter_reward(player, 1)
+                assert reply["amount"] > 0, reply
+                paid += reply["amount"]
+            assert int(player["PlayerDataBag"]["Face"]) - face == paid > 0, paid
+            bag["Paid"] = []
+        finally:
+            del player["UnlockBag"]
+        return "+%d face, no cap" % paid
+
+    def crime_scene_limit_unlocked():
+        player["UnlockBag"] = {"All": True}
+        try:
+            assert state.crime_scene_limit(player) == state.CRIME_SCENE_LIMIT_UNLOCKED
+            for i in range(state.CRIME_SCENE_LIMIT_UNLOCKED + 6):
+                state.add_crime_scene(player, 5000 + i * 10, 5000, 0)
+            kept = len(state.crime_scenes(player))
+            assert kept == state.CRIME_SCENE_LIMIT_UNLOCKED, kept
+            state.crime_scene_bag(player)["Scenes"] = []
+        finally:
+            del player["UnlockBag"]
+        assert state.crime_scene_limit(player) == state.CRIME_SCENE_LIMIT
+        return "%d markers with the unlock" % kept
+
+    def operation_list():
+        reply = operations()
+        assert reply["mOperationInstances"] == [], reply  # the client runs them itself
+        assert reply["mSecondsElapsed"] == 0 and reply["mTotalSeconds"] == 0, reply
+        return "empty, timer pair answered"
+
     def world_encounter_list():
         reply = handlers.world_encounters(None, "GET", ["worldencounter", "list"], b"", {})
         assert reply["WorldEncounters"] == [], reply      # the client spawns its own
@@ -176,6 +219,9 @@ def main():
     check("street encounter", street_encounter)
     check("street encounter failed", street_encounter_failure)
     check("street encounter window", street_encounter_resets)
+    check("street encounter unlocked", street_encounter_unlocked)
+    check("crime scene limit unlocked", crime_scene_limit_unlocked)
+    check("activity list", operation_list)
     check("encounter list", world_encounter_list)
     check("restart", restart_keeps_scenes)
     print("%d check(s) failed" % len(failures) if failures else "all checks passed")

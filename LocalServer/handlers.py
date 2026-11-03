@@ -229,7 +229,12 @@ def racket_countdowns(req, method, parts, body, query):
 
 @route("game", "operation/list")
 def operations(req, method, parts, body, query):
-    return {"mSecondsElapsed": 0, "mOperationInstances": []}
+    # The client's own UFG::OperationInstances array (devdata/endpoints.txt,
+    # "operation/list": mSecondsElapsed, mTotalSeconds, mOperationInstances). The
+    # instances are the client's - it starts and ends them itself and reports the end
+    # through operation/endoperation - so the list stays empty. The timer pair is part of
+    # the same record, so it is answered too rather than left out.
+    return {"mSecondsElapsed": 0, "mTotalSeconds": 0, "mOperationInstances": []}
 
 
 # ---- commerce / accounts / social --------------------------------------------

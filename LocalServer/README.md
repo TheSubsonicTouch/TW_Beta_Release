@@ -324,6 +324,90 @@ server can export: the challenge rotation, tier targets and reward choice above
 are this server's own event design, built to fit the client's screen. They are
 plain JSON - edit them freely.
 
+## What this build does not have
+
+Three things asked for often enough to be worth writing down: a fight club, street
+races, and the rest of the map. None of them is a setting this server is leaving
+switched off - none of them is in the build. The evidence for each is below, so it
+can be re-checked rather than taken on trust.
+
+### Fight Club and street races
+
+What is in the binary is three **names**, from the shared UFG/Sleeping Dogs codebase
+the engine came from:
+
+| Where | What |
+| --- | --- |
+| `devdata/strings_ascii.txt` 76015-76016 | `StreetRacesCompletedWon`, `StreetRacesLost` - stat symbol names |
+| ... 64425 | `FIGHTCLUB_INTRO_COMPLETE`, inside a block of menu/intro stat names |
+| ... 70667 | `eConversationTopic_FightClub`, one value of the conversation-topic enum |
+
+What is not there is any *content*: no `UFG::` object type, no table in the object
+database, no world placement, no path. `devdata/endpoint_names.txt` is the complete
+list of the 112 request paths the client can make, and the only activity paths are
+`operation/endoperation`, `worldencounter/list`, `worldencounter/endencounter` and
+the raid pair - there is no `race`, `fight`, `club` or `arena` path.
+
+`UFG::RacketType` does have a `Gambling_CockFighting` entry, but a racket is a lot on
+the turf grid that earns money, not a fight you can play.
+
+The repeatable activities the build *does* have, and what this server does with them:
+
+| Activity | Who runs it | Server's part |
+| --- | --- | --- |
+| Catch, Defeat, Photo, Deliver, Collect, Destroy, Hijack | the client | pays from the game's own ladder (`operation/endoperation`) |
+| random street encounters (mugging, shakedown, ...) | the client's `TWWorldEncounterManager` | pays 20 face (`worldencounter/endencounter`) |
+| crime scenes left after a fight | the client | keeps the marker, pays 10 face when collected |
+| turf raids | the server | the whole loop: start, event, mutator, end, cooldowns |
+
+### Districts beyond North Point
+
+The server API is those same 112 paths. Not one of them is about travel, districts,
+regions or streaming layers; the only path that names a place is `turf/location/%u64`,
+which takes a site index 1..7. What confines the player to North Point is on the
+client side:
+
+* the world has seven turf sites, `Turf-Turf00001` to `Turf-Turf00007` (see above);
+* `UFG::TurfTemplate` (4 objects) carries `mTurfBoundaryIndex` 0/1/0/1 - two boundaries
+  for four templates, so a boundary belongs to a turf template, not to a district, and
+  nothing in the table keys a site to one;
+* streaming layers decide their own availability from data in the game's packages -
+  `LayerUnlocksAfter`, `LayerUnlocksAfterCondition`, `UnlocksAfter` and
+  `OffDuringMissions` are `UFG` member names inside `TriadWars.exe`. The server never
+  reads or sets them.
+
+The four district names in the executable (`$COMMON_ABERDEEN`, `$COMMON_CENTRAL`,
+`$COMMON_KENNEDY_TOWN`, `$COMMON_NORTH_POINT`) are localisation keys sitting next to
+`$HUD_COLLECTIBLES_...`: UI text for the whole Hong Kong map, not a list of what is
+installed. And nothing in this checkout can say which district packages the download
+contains - the repository holds a 45-byte `TriadWars Beta` file pointing at
+archive.org, not the game.
+
+**To test it in the game** (no build needed, two minutes, reversible): copy
+`state.json` somewhere safe, change `player` -> `TurfBag` -> `Turf` -> `LocationName`
+from `"Turf-Turf00001"` to a district name such as `"KennedyTown"`, start the game and
+open the turf manager. The client hashes that name itself, so it either finds a world
+site and places the turf there, or finds nothing and leaves it unplaced. Either answer
+settles it; restoring the copy puts it back.
+
+### Story missions and quests
+
+Two mission paths exist - `export/startmission/%u64` and `export/endmission/%u64/%u` -
+and both are the **export business**: `UFG::ExportMissionMetadata` is a tuning table
+with two 10-level ladders, and `UFG::ExportMissionInvoker` has four entries with
+`mNumberOfNewMissions` 2/1/0/3. Those are the only two `Mission` tables in the 78 the
+object database exports.
+
+There is no story object, no chapter or act, no dialogue-driven chain, and no call that
+starts or advances one. The 163 `Mission` and 333 `Quest` strings in the executable are
+UI and schema names from the engine, not authored content.
+
+The export chain is the nearest thing, and this server deliberately does not run it:
+`tools/storyline.py` lists `Complete an Export` and `Complete 3 Exports` as skipped,
+because their condition can never be met, and `state.ERRAND_UNSUPPORTED` is what
+unblocks the 49 jobs that hung off them. Making those two playable would mean inventing
+the chain - there is nothing in the data to emulate.
+
 ### Unlocking everything (`UnlockBag.All`)
 
 The menu's **Unlock all content** entry writes `UnlockBag.All` into the profile in
@@ -349,6 +433,12 @@ function:
   a won raid no longer takes that turf off the world map for ten minutes
   (`handlers.raid_end`, `State.opponents`). Clearing the timers once was not enough: the
   next raid put one straight back.
+* **The street** - street encounters pay every time instead of six an hour
+  (`state.pay_world_encounter_reward`), and `crime_scene_limit` keeps 96 markers instead
+  of 24, so a long fight leaves a lootable trail rather than the last hour's dozen. This
+  is as far as "more activities" goes: the build's activities are the four in
+  [What this build does not have](#what-this-build-does-not-have), and three of them are
+  run by the client - the server can only make sure it keeps paying for them.
 * **Content** - the menu fills the bags (every favour, every enforcer upgrade, everything
   the shops sell), maxes the levels and clears the timers the profile was already
   carrying, by writing `state.json` itself; that half is `FreeCam/menu/freecam_unlock.cpp`

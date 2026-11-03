@@ -343,7 +343,10 @@ def utc_day(now=None):
 #   * every favour card at any level, the two FTPE-only ones included (favour_pool);
 #   * the challenge stays live and joined across its rotations (current_challenge);
 #   * rival turfs never go on the post-raid cooldown (opponent_remaining,
-#     start_rival_cooldown) - see handlers.raid_end and State.opponents.
+#     start_rival_cooldown) - see handlers.raid_end and State.opponents;
+#   * the street keeps paying: the six-an-hour cap on street encounters is gone
+#     (pay_world_encounter_reward), and four times as many crime scene markers are kept
+#     (crime_scene_limit).
 def unlocked(player):
     bag = player.get("UnlockBag")
     return isinstance(bag, dict) and bool(bag.get("All"))
@@ -753,8 +756,14 @@ def pay_operation_reward(player, name, successful=True):
 # (openworldcrimescenecollection/<scene id> -> FaceCollected).
 CRIME_SCENE_FACE = 10
 CRIME_SCENE_LIMIT = 24          # markers kept at once; the oldest drops off
+CRIME_SCENE_LIMIT_UNLOCKED = 96  # ... with UnlockBag.All, four times as many
 CRIME_SCENE_TTL = 60 * 60       # an hour, then the scene is gone
 CRIME_SCENE_UID_BASE = 7000000000000000000
+
+
+def crime_scene_limit(player):
+    """Markers kept at once. The unlocked profile keeps more (see unlocked)."""
+    return CRIME_SCENE_LIMIT_UNLOCKED if unlocked(player) else CRIME_SCENE_LIMIT
 
 
 def crime_scene_bag(player):
@@ -791,7 +800,7 @@ def add_crime_scene(player, x, y, z, victim="", now=None):
              "VictimPlayerDataIDString": str(victim or "0"),
              "Collected": False, "Created": int(now)}
     bag["Scenes"].append(scene)
-    del bag["Scenes"][:-CRIME_SCENE_LIMIT]
+    del bag["Scenes"][:-crime_scene_limit(player)]
     return scene
 
 
@@ -831,7 +840,7 @@ def collect_crime_scene(player, scene_id, now=None):
 # so the street cannot out-earn the Jobs screen.
 WORLD_ENCOUNTER_REWARD = "REWARD_FACE_LOW"
 WORLD_ENCOUNTER_LIMIT = 6                   # payouts ...
-WORLD_ENCOUNTER_WINDOW = 60 * 60            # ... per hour of play
+WORLD_ENCOUNTER_WINDOW = 60 * 60            # ... per hour of play (UnlockBag.All lifts it)
 
 
 def world_encounter_bag(player):
@@ -848,7 +857,7 @@ def pay_world_encounter_reward(player, result=1, now=None):
     bag = world_encounter_bag(player)
     recent = [t for t in bag["Paid"] if now - int(t) < WORLD_ENCOUNTER_WINDOW]
     bag["Paid"] = recent
-    if amount and len(recent) >= WORLD_ENCOUNTER_LIMIT:
+    if amount and len(recent) >= WORLD_ENCOUNTER_LIMIT and not unlocked(player):
         amount = 0                  # enough for now; the street keeps its own pace
     if amount:
         bag["Paid"].append(int(now))
