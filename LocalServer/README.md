@@ -333,7 +333,9 @@ function:
 
 * **Jobs** - the board is drawn from all 116, the 29 the game data switches off and the
   two export-gated ones included, with no level, safehouse, prerequisite or repeatable
-  cooldown in the way. `errand_pool` goes straight to that catalogue.
+  cooldown in the way. `errand_pool` goes straight to that catalogue. The three cards
+  keep one job per name (`fill_errands`): a handful of jobs exist twice in the data, one
+  record per racket, and on the wide catalogue both would land on the board at once.
 * **Favours** - `favour_pool` stops applying `xpLevel`, so a job reward can pay any of
   the 137 upgrade cards at level 1 instead of the six a fresh profile reaches. The shop
   packs and raid rewards (`handlers._award_favours`) match cards by the upgrade they

@@ -109,6 +109,22 @@ def main():
         return "%d jobs on offer (%d switched off, %d export-gated)" % (
             len(pool), disabled, export)
 
+    def unlocked_board_cards_differ():
+        # A few jobs exist twice in the game's data (one record per racket), so the wide
+        # catalogue can put the same card up twice. The board keeps one per name.
+        unlock(True)
+        player["ErrandsBag"] = state.new_errand_bag()
+        state.refresh_errands(player)
+        boards = 0
+        for _ in range(30):
+            bag = state.errands(player)
+            names = [state.errand_definition(s)["name"] for s in bag["Slots"] if s]
+            assert len(names) == len(set(names)), names
+            for index in range(state.ERRAND_SLOT_COUNT):
+                state.change_errand(player, index)
+            boards += 1
+        return "%d boards, no repeated card" % boards
+
     def unlocked_favours_are_the_whole_catalogue():
         errand = {"favour": {"min": "Common", "max": "Epic", "tags": []}}
         pool = state.favour_pool(errand, 1, state.unlocked(player))
@@ -192,6 +208,7 @@ def main():
     check("locked event opts out", locked_event_opts_out_on_rotation)
     check("locked raid cools down", locked_raid_starts_a_cooldown)
     check("unlocked board is everything", unlocked_board_is_the_whole_catalogue)
+    check("unlocked cards all differ", unlocked_board_cards_differ)
     check("unlocked favours are all 137", unlocked_favours_are_the_whole_catalogue)
     check("unlocked job reward", unlocked_job_reward_ignores_the_level_gate)
     check("unlocked event stays live", unlocked_event_stays_live)

@@ -539,6 +539,24 @@ def new_errand_slot(player, errand, now=None, index=0):
             "Favours": favours, "Pack": "0"}
 
 
+def _board_names(bag, skip_index=None):
+    """The job names already on the board.
+
+    A few jobs exist twice in the game's data - one record per racket, with the same
+    display name and the same objective ("Take Down 3 Enforcers"). Excluding by UID lets
+    both land on the board at once, which reads as three cards with two of them
+    identical; the unlocked catalogue makes that likely, so the board keeps one of each.
+    """
+    names = set()
+    for slot in bag["Slots"]:
+        if not slot or (skip_index is not None and int(slot.get("SlotIndex", -1)) == skip_index):
+            continue
+        errand = errand_definition(slot)
+        if errand:
+            names.add(errand["name"])
+    return names
+
+
 def fill_errands(player, bag, now=None):
     """Put the highest-priority available errands into empty slots."""
     slotted = {errand_uid(s) for s in bag["Slots"] if s}
@@ -546,6 +564,8 @@ def fill_errands(player, bag, now=None):
         if slot:
             continue
         pool = errand_pool(player, bag, exclude=slotted, now=now)
+        taken = _board_names(bag)
+        pool = [e for e in pool if e["name"] not in taken] or pool
         if not pool:
             return
         bag["Slots"][index] = new_errand_slot(player, pool[0], now, index)
@@ -585,6 +605,8 @@ def change_errand(player, index, now=None):
         return None, "There is no job in that slot."
     slotted = {errand_uid(s) for s in bag["Slots"] if s}
     pool = errand_pool(player, bag, exclude=slotted, now=now)
+    taken = _board_names(bag, skip_index=index)
+    pool = [e for e in pool if e["name"] not in taken] or pool
     if not pool:
         return None, "No jobs available to change."
     fresh = new_errand_slot(player, pool[0], now, index)
