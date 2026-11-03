@@ -904,12 +904,16 @@ void buildMenu() {
         return std::string("ReShade preset: queued");
     };
     // Unlock all is two halves: the content (vehicles, weapons, upgrades, levels) and the
-    // opportunities (rivals off cooldown, job ladder open). Neither is much use alone, so
-    // the one entry does both and reports both.
+    // opportunities (rivals off cooldown, every job on the board, the event running).
+    // Neither is much use alone, so the one entry does both and reports both. The
+    // content half is the older unlock, which needs the game's extracted gamedb.json;
+    // the event half grants the same content from this server's own catalogues, so a
+    // failure there is not worth showing - the bags are filled either way.
     hooks.unlockAllContent = []() {
         std::string content = tw::game::UnlockAllContent();
-        std::string raids = tw::game::UnlockRaidsAndEvents();
-        return content + "   |   " + raids;
+        std::string all = tw::game::UnlockEventsAndActivities(true);
+        if (content.rfind("UnlockAll failed: gamedb.json", 0) == 0) content.clear();
+        return content.empty() ? all : all + "   |   " + content;
     };
     hooks.unlockRaids = []() { return tw::game::UnlockRaidsAndEvents(); };
     // Spawn Ped: a character named in the menu, put three metres in front of the player.

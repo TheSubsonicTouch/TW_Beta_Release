@@ -55,6 +55,13 @@ PACK_STORES = {
     "1333401478411759499": [RAID_TUTORIAL_PACK],            # Raid Pack Tutorial - Pack Store
     "6121745478303023351": [LEVEL_UP_TUTORIAL_PACK],        # Level Up Pack Tutorial - Pack Store
     "6802491388125254368": [PRODUCTION_TUTORIAL_PACK],      # Production Pack Tutorial - Pack Store
+    # The racket-boss tutorials for the other two favour shops (extortion and gambling).
+    # Which pack each one is supposed to highlight is not recorded anywhere in the client,
+    # so both list every buyable pack - a superset, so the tutorial finds the one it is
+    # looking for, and neither shop is empty (an empty one crashes, see store_items.py's
+    # header). They were missing entirely until build 20, which left both screens blank.
+    "1339297555269163353": None,                            # Extortion Favor Pack Tutorial
+    "4375719404868812979": None,                            # Gambling Favor Pack Tutorial
 }
 # bundle store UID -> the packs whose bundles it sells. None means "every pack".
 BUNDLE_STORES = {

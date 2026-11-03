@@ -8,3 +8,6 @@ FreeCam/dropin/
 FreeCam/src/*.res.o
 FreeCam/menu/*.res.o
 FreeCam/menu/build/
+
+# python leaves these behind when the server's modules are imported by a test
+__pycache__/

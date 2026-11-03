@@ -7,8 +7,8 @@ no Windows calls, so they are tested here rather than in game. Any C99 compiler 
 this looks for cc, gcc or clang, and says so if none is installed.
 
 The menu's contents are checked the same way (tests/test_menu.cpp): what the entries are,
-what the keys do to them. That needs a C++17 compiler, which is skipped with a note if
-there is none.
+what the keys do to them, and what the unlock writes into a profile. That needs a C++17
+compiler, which is skipped with a note if there is none.
 """
 import os
 import shutil
@@ -46,7 +46,8 @@ def run_menu_tests(workdir):
     exe = os.path.join(workdir, "test_menu.exe" if os.name == "nt" else "test_menu")
     cmd = [cxx, "-std=c++17", "-O2", "-Wall", "-Wextra", "-o", exe,
            os.path.join(HERE, "test_menu.cpp"),
-           os.path.join(ROOT, "menu", "patched", "menu_core.cpp")]
+           os.path.join(ROOT, "menu", "patched", "menu_core.cpp"),
+           os.path.join(ROOT, "menu", "freecam_unlock_rules.cpp")]
     print(" ".join(cmd))
     build = subprocess.run(cmd, capture_output=True, text=True)
     if build.returncode != 0:

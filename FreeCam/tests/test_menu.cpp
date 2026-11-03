@@ -7,8 +7,10 @@
 // the camera maths is.
 //
 // Built and run by run_tests.py; any C++17 compiler will do.
+#include "../menu/freecam_unlock_rules.h"
 #include "../menu/patched/menu_core.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -339,6 +341,239 @@ void testNoclip() {
     check(menu.items()[menu.selectedIndex()].optionIndex == 0, "Enter keeps the choice");
 }
 
+// ---------------------------------------------------------------------------
+// The unlock: what "Unlock all content" writes into a profile.
+//
+// freecam_unlock_rules.cpp is plain C++ over the JSON tree, so the whole of it can be
+// checked here - the bag shapes the client reads, the job board reset, the challenge
+// window - without Windows, the game or the server.
+// ---------------------------------------------------------------------------
+
+const char* kFreshProfile = R"({
+ "version": 8,
+ "player": {
+  "PlayerDataBag": {"PlayerDataID": "1001", "AccountID": "1", "EnforcerXP": 0},
+  "CurrencyBag": {"CleanMoney": "25000", "DirtyMoney": "5000", "Gold": "0"},
+  "TurfBag": {"Turf": {"Safehouse": {"RacketLevel": 1},
+                       "Warehouse": {"RacketLevel": 1}},
+              "Rackets": [{"RacketLevel": 2}]},
+  "FavoursBag": [],
+  "EnforcerUpgradesBag": [],
+  "InventoryBag": [{"SecondsElapsed": 0, "TotalSeconds": 0, "StoreItemID": "5001",
+                    "InventoryItemID": "7005", "AccountID": "1"}],
+  "CustomizationBag": {"ScalingPresetCortexUID": "0", "ClothingOutfitCortexUID": "0",
+                       "ClothingStoreItemUIDs": []},
+  "ErrandsBag": {"Day": "2026-01-01", "Slots": [null, null, null], "Completed": {},
+                 "Changes": 0},
+  "TrialsBag": {"Index": 0, "Start": 0, "End": 0, "Progress": 0, "Rewarded": [],
+                "OptedIn": 0, "Name": ""}
+ },
+ "opponents": [{"type": 0, "cooldown_until": 1234567, "data": {}},
+               {"type": 0, "cooldown_until": 0, "data": {}}]
+})";
+
+tw::unlock::Settings testSettings() {
+    tw::unlock::Settings s;
+    s.maxXp = 17177050;
+    s.maxRacketLevel = 10;
+    s.triadLevel = 50;
+    s.now = 1767225600;                 // 2026-01-01T00:00:00Z
+    s.rotationSeconds = 7 * 86400;
+    return s;
+}
+
+tw::unlock::Catalog testCatalog() {
+    tw::unlock::Catalog c;
+    c.favours = {"1001", "1002"};
+    c.upgrades = {"9001", "9002"};
+    c.items = {"5001", "5002", "6001", "5003", "7001"};
+    return c;
+}
+
+const tw::json::Value* at(const tw::json::Value& object, const char* key) {
+    return object.find(key);
+}
+
+long long numberAt(const tw::json::Value& object, const char* key, long long fallback = -1) {
+    const tw::json::Value* v = at(object, key);
+    if (!v || v->type != tw::json::Value::Type::Int) return fallback;
+    return v->integer;
+}
+
+std::string textAt(const tw::json::Value& object, const char* key) {
+    const tw::json::Value* v = at(object, key);
+    if (!v || !v->isString()) return std::string();
+    return v->str;
+}
+
+void testUnlockCatalog() {
+    tw::json::Value favourites;
+    check(tw::json::parse(R"({
+        "1001": {"upgrade": "9001", "name": "Iron Fist", "ftpe": false},
+        "1002": {"upgrade": "9002", "name": "Second Wind", "ftpe": true}
+    })", favourites), "the favour catalogue parses");
+
+    tw::json::Value stores;
+    check(tw::json::parse(R"({
+        "3503": {"name": "Wardrobe Store", "type": "UFG::StoreClothing",
+                 "items": ["5001", "5002"]},
+        "1316": {"name": "Outfit Store", "type": "UFG::StoreOutfit", "items": ["6001"],
+                 "pieces": {"6001": ["5001", "5003"]}},
+        "1767": {"name": "Pack Store", "type": "UFG::StoreContactBundle", "items": ["7001"]}
+    })", stores), "the store catalogue parses");
+
+    const tw::unlock::Catalog catalog = tw::unlock::ReadCatalog(favourites, stores);
+    check(catalog.favours.size() == 2, "both favour definitions are read");
+    check(catalog.upgrades.size() == 2, "both enforcer upgrades are read");
+    // 5001, 5002, 6001, 7001 from the three catalogues, plus 5003 only reachable as one of
+    // the outfit's pieces; 5001 is listed twice and must appear once.
+    check(catalog.items.size() == 5, "shop items, including outfit pieces, are read once each");
+
+    tw::json::Value missing;
+    const tw::unlock::Catalog empty = tw::unlock::ReadCatalog(missing, missing);
+    check(empty.favours.empty() && empty.items.empty(),
+          "a server without the data files gives an empty catalogue, not a crash");
+}
+
+void testUnlockProfile() {
+    const tw::unlock::Settings settings = testSettings();
+    const tw::unlock::Catalog catalog = testCatalog();
+
+    // ---- the smaller entry: opportunities only -------------------------------
+    {
+        tw::json::Value state;
+        check(tw::json::parse(kFreshProfile, state), "the fresh profile parses");
+        const tw::unlock::Report report =
+            tw::unlock::ApplyStateRules(state, catalog, settings, false);
+
+        check(report.favours == 0 && report.items == 0 && report.upgrades == 0,
+              "without the content half nothing is put in the bags");
+        check(report.rivals == 1, "only the rival on cooldown is freed");
+        check(report.board, "the job board is due for a rebuild");
+        check(report.event, "the challenge is started");
+        check(!report.wasUnlocked, "a fresh profile was not unlocked already");
+
+        const tw::json::Value* player = at(state, "player");
+        check(player && at(*player, "UnlockBag") &&
+                  at(*at(*player, "UnlockBag"), "All")->boolean,
+              "the profile carries the switch state.py reads");
+        check(textAt(at(*player, "ErrandsBag") ? *at(*player, "ErrandsBag") : state, "Day").empty(),
+              "the job board's day is cleared so it refills");
+    }
+
+    // ---- the full entry: content as well -------------------------------------
+    tw::json::Value state;
+    check(tw::json::parse(kFreshProfile, state), "the fresh profile parses again");
+    const tw::unlock::Report report =
+        tw::unlock::ApplyStateRules(state, catalog, settings, true);
+
+    check(report.favours == 2, "one favour instance per upgrade favour definition");
+    check(report.upgrades == 2, "both enforcer upgrades are owned");
+    check(report.items == 4, "the four shop items not already owned are added");
+    check(report.rivals == 1, "the rival on cooldown is freed");
+
+    const tw::json::Value* player = at(state, "player");
+    check(player != nullptr, "the profile is still there");
+    if (player) {
+        const tw::json::Value* data = at(*player, "PlayerDataBag");
+        check(numberAt(*data, "EnforcerXP") == settings.maxXp, "the enforcer is at the top level");
+        check(numberAt(*data, "TriadLevel") == settings.triadLevel,
+              "the triad is at the top level");
+
+        const tw::json::Value* turf = at(*player, "TurfBag");
+        const long long safehouse =
+            numberAt(*at(*at(*turf, "Turf"), "Safehouse"), "RacketLevel");
+        check(safehouse == settings.maxRacketLevel, "the safehouse is at its top level");
+        const long long racket = numberAt(at(*turf, "Rackets")->array.front(), "RacketLevel");
+        check(racket == settings.maxRacketLevel, "every built racket is at its top level");
+
+        // {Item1: upgrade, Item2: slot} - owned but not equipped.
+        const tw::json::Value* upgrades = at(*player, "EnforcerUpgradesBag");
+        check(upgrades->array.size() == 2, "both upgrades are in the bag");
+        check(textAt(upgrades->array.front(), "Item1") == "9001",
+              "the upgrade UID is the first field");
+        check(at(upgrades->array.front(), "Item2")->type == tw::json::Value::Type::Null,
+              "an owned upgrade starts unequipped, not in slot 0");
+
+        const tw::json::Value* favours = at(*player, "FavoursBag");
+        check(textAt(favours->array.front(), "FavourDefinitionUID") == "1001",
+              "the favour names its definition");
+        check(textAt(favours->array.front(), "FavourID") == "5001",
+              "favour instance ids continue after the first-time-flow ones");
+
+        const tw::json::Value* inventory = at(*player, "InventoryBag");
+        check(inventory->array.size() == 5, "the four new items join the one already owned");
+        // 7005 is taken, so the new records must not reuse it.
+        bool seen7006 = false, unique = true;
+        std::vector<std::string> ids;
+        for (const tw::json::Value& item : inventory->array) {
+            const std::string id = textAt(item, "InventoryItemID");
+            if (id == "7006") seen7006 = true;
+            if (std::find(ids.begin(), ids.end(), id) != ids.end()) unique = false;
+            ids.push_back(id);
+        }
+        check(seen7006, "inventory ids continue after the highest one already owned");
+        check(unique, "no two inventory items share an id");
+
+        const tw::json::Value* trials = at(*player, "TrialsBag");
+        check(numberAt(*trials, "Start") == settings.now, "the challenge window starts now");
+        check(numberAt(*trials, "End") == settings.now + settings.rotationSeconds,
+              "the challenge runs for a whole rotation");
+        check(numberAt(*trials, "OptedIn") == 1, "the player is opted into the challenge");
+    }
+
+    const tw::json::Value* opponents = at(state, "opponents");
+    check(opponents->array.front().find("cooldown_until")->integer == 0,
+          "the rival that was counting down can be raided now");
+
+    // ---- pressing it twice ---------------------------------------------------
+    {
+        const std::string first = tw::json::dump(state, 1);
+        const tw::unlock::Report again =
+            tw::unlock::ApplyStateRules(state, catalog, settings, true);
+        check(again.favours == 0 && again.items == 0 && again.upgrades == 0,
+              "a second press adds no duplicate favours, upgrades or items");
+        check(again.wasUnlocked, "the second press sees the profile already unlocked");
+        check(!again.board, "a second press does not reroll a job board being worked on");
+        check(first == tw::json::dump(state, 1), "a second press leaves the profile as it was");
+    }
+}
+
+void testUnlockKeepsProgress() {
+    // A profile in the middle of a challenge, and one saved by an older server that has
+    // never heard of the job board or the trial bag.
+    tw::json::Value state;
+    check(tw::json::parse(R"({
+     "player": {
+      "PlayerDataBag": {"AccountID": "1", "EnforcerXP": 500},
+      "FavoursBag": [], "EnforcerUpgradesBag": [], "InventoryBag": [],
+      "TrialsBag": {"Index": 1, "Start": 1767225500, "End": 1767825600, "Progress": 7,
+                    "Rewarded": [0], "OptedIn": 0, "Name": ""}
+     },
+     "opponents": []
+    })", state), "a mid-challenge profile parses");
+
+    const tw::unlock::Report report =
+        tw::unlock::ApplyStateRules(state, testCatalog(), testSettings(), false);
+    const tw::json::Value* trials = at(*at(state, "player"), "TrialsBag");
+    check(numberAt(*trials, "Start") == 1767225500, "a running challenge keeps its window");
+    check(numberAt(*trials, "Progress") == 7, "a running challenge keeps its progress");
+    check(numberAt(*trials, "Index") == 1, "a running challenge keeps its rotation slot");
+    check(numberAt(*trials, "OptedIn") == 1, "the player is opted in");
+    check(report.event, "opting in counts as the event being switched on");
+
+    // The bags an older save does not have are created rather than assumed.
+    check(at(*at(state, "player"), "ErrandsBag") != nullptr, "a missing job board is created");
+    check(textAt(*at(*at(state, "player"), "ErrandsBag"), "Day").empty(),
+          "the new job board is due for a refill");
+
+    tw::json::Value empty;
+    check(tw::json::parse(R"({"player": null})", empty), "a profile without a player parses");
+    const tw::unlock::Report none =
+        tw::unlock::ApplyStateRules(empty, testCatalog(), testSettings(), true);
+    check(none.favours == 0 && none.items == 0, "a profile without a player is left alone");
+}
+
 void testSparseHooks() {
     // A build (or a test) that can only unlock: no selectors and no camera hook at all.
     tw::Menu menu;
@@ -370,6 +605,9 @@ int main() {
     testSpawnPed();
     testNoclip();
     testSparseHooks();
+    testUnlockCatalog();
+    testUnlockProfile();
+    testUnlockKeepsProgress();
     std::printf("menu: %d check(s), %d failure(s)\n", g_checks, g_failures);
     return g_failures == 0 ? 0 : 1;
 }

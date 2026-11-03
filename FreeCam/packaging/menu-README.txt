@@ -104,6 +104,33 @@ game carries on from its own camera and not from where you flew to.
 WHAT CHANGED IN THIS BUILD
 --------------------------
 
+  - Build 20. "Unlock all content" now switches the game's events and activities on
+    as well. It used to stop at the content - levels, vehicles, clothing, upgrades - and
+    left a fresh profile with three tutorial jobs and no event running.
+
+    - Jobs: all 116 of the game's errands can be offered, not the tutorial's first rung.
+      The board and the "Next Job" button now draw from the whole catalogue, including
+      the 29 jobs the game data switches off (the combat-tutorial variants, the
+      commodity collectors) and the two behind the export chain, which used to hide 49
+      more jobs that list them as prerequisites.
+    - The job board is refilled on the press, so the three cards change straight away
+      instead of at midnight.
+    - Events: the challenge is started with a full rotation ahead of it and opted into,
+      so the events screen has a live challenge with its reward tiers instead of
+      "nothing running".
+    - Rivals: every turf's post-raid cooldown is cleared, so all seven are on the world
+      map again (the "Unlock raids and events" entry does this on its own).
+    - Content: every favour, enforcer upgrade and shop item is put in the bags and the
+      enforcer, rackets and triad are put at the top level, from this server's own
+      catalogues - the older unlock needs the game's extracted gamedb.json and does
+      nothing without it.
+    - The favour shops for the extortion and gambling racket tutorials had no catalogue
+      at all, which leaves their screen blank; they list the favour packs now.
+    - The flag it sets is UnlockBag.All in state.json, and the server reads it on its
+      next request (handlers.py is touched, which is how the server reloads). Deleting
+      that line - or its "All" - puts the board back to the story ladder; nothing else
+      in the profile is undone.
+
   - Build 19. "Spawn Ped" is back in the menu, as one entry.
 
     - It is in the menu under SPAWN: "Spawn Ped". Click the field, type a character's

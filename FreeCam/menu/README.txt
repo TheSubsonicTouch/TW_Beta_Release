@@ -10,6 +10,13 @@ WHAT WAS ADDED
     freecam_game.h / freecam_game.cpp     the camera: find it, hook it, fly it
     ../src/freecam.c, freecam.h           the portable half (poses, matrices, the movement
                                           state machine, world/view pairing and detection)
+    freecam_unlock.h / freecam_unlock.cpp the "unlock all content" work on the profile:
+                                          rivals off cooldown, the whole job catalogue,
+                                          the challenge opted into, the shops' contents
+    freecam_unlock_rules.h / .cpp         what that writes into state.json, as plain C++
+                                          over the JSON tree - unit tested in tests/
+    json_util.h                           the menu's JSON reader/writer (from the menu's
+                                          own repository), vendored so the rules build
     patched/menu_core.h                   DebugHooks gains setFreeCam and spawnNpcInFront
     patched/menu_core.cpp                 the "Free Camera" toggle, and the NPC model /
                                           attitude / spawn items

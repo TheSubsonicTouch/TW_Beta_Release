@@ -333,6 +333,17 @@ def utc_day(now=None):
     return time.strftime("%Y-%m-%d", time.gmtime(time.time() if now is None else now))
 
 
+# ---- "unlock everything" ------------------------------------------------------
+# UnlockBag.All is written by the menu's Unlock all content entry (freecam_unlock.cpp).
+# It is not one of the client's data bags, so it never reaches the game; it only decides
+# what this server offers: the whole job catalogue instead of the tutorial's first rung,
+# and the export-gated jobs, which this build cannot otherwise open (see
+# ERRAND_UNSUPPORTED). A profile without the flag behaves exactly as before.
+def unlocked(player):
+    bag = player.get("UnlockBag") or {}
+    return bool(bag.get("All"))
+
+
 def seconds_to_refresh(now=None):
     """Seconds until the job board rolls over (next UTC midnight)."""
     t = time.gmtime(time.time() if now is None else now)
@@ -427,29 +438,32 @@ def errand_requirement(errand, field):
     return value
 
 
-def errand_available(bag, errand, level, safehouse, now=None, bonus=False, ignore_gates=False):
+def errand_available(bag, errand, level, safehouse, now=None, bonus=False, ignore_gates=False,
+                     everything=False):
     """Can this errand be put on the board?
 
     `bonus` allows the errands the game data switches off (see ERRAND_BONUS_JOBS); those
     also ignore their mErrandLinks, which point at other switched-off jobs. `ignore_gates`
     drops the level/safehouse requirement - the client checks the objective itself, so a
     job whose gate is out of reach is still playable; the board only falls back to that
-    when nothing else is left (see errand_pool).
+    when nothing else is left (see errand_pool). `everything` is the unlocked profile
+    (see unlocked): every job, no gate, no chain and no cooldown.
     """
     enabled = bool(errand.get("enabled"))
-    if errand["uid"] in ERRAND_UNSUPPORTED:
+    if errand["uid"] in ERRAND_UNSUPPORTED and not everything:
         return False
-    if not enabled and not (bonus and ERRAND_BONUS_JOBS):
+    if not enabled and not (bonus and ERRAND_BONUS_JOBS) and not everything:
         return False
-    if not ignore_gates:
+    if not ignore_gates and not everything:
         if errand_requirement(errand, "xpLevel") > level:
             return False
         if errand_requirement(errand, "safehouseLevel") > safehouse:
             return False
     # mErrandLinks are the errands that must have been completed first ("Raid 2 Rivals"
     # links to "Raid A Rival"). With one link only the tutorial's first job is on offer.
-    if enabled and any(link not in bag["Completed"] and link not in ERRAND_UNSUPPORTED
-                       for link in errand.get("links") or []):
+    if enabled and not everything and any(link not in bag["Completed"]
+                                          and link not in ERRAND_UNSUPPORTED
+                                          for link in errand.get("links") or []):
         return False
     times, last = _errand_record(bag, errand["uid"])
     if not times:
@@ -457,7 +471,7 @@ def errand_available(bag, errand, level, safehouse, now=None, bonus=False, ignor
     if not errand.get("repeatable"):
         return False
     now = time.time() if now is None else now
-    if ERRAND_REPEATABLE_COOLDOWN and now - last < ERRAND_REPEATABLE_COOLDOWN:
+    if ERRAND_REPEATABLE_COOLDOWN and now - last < ERRAND_REPEATABLE_COOLDOWN and not everything:
         return False
     return True
 
@@ -468,8 +482,20 @@ def errand_pool(player, bag, exclude=(), now=None, bonus=True):
     The game's own (enabled) jobs come first. If none of them is available - the story
     ladder is finished, or every open job is on cooldown - the switched-off bonus jobs
     fill in, so the Jobs screen never runs dry.
+
+    An unlocked profile (see unlocked) skips all of that: the whole catalogue, the
+    switched-off jobs and the export-gated ones included, with no level, chain or cooldown
+    requirement, so the board rotates through every job the game has.
     """
     level, safehouse = xp_level(player), safehouse_level(player)
+    if unlocked(player):
+        pool = [e for e in ERRANDS if e["uid"] not in exclude
+                and errand_available(bag, e, level, safehouse, now, everything=True)]
+        # The export jobs (ERRAND_UNSUPPORTED) go last: they are on the board like any
+        # other job, but the client cannot finish them here, so they only turn up once
+        # nothing else is left rather than taking a slot on the first day.
+        pool.sort(key=lambda e: (e["uid"] in ERRAND_UNSUPPORTED, -e["priority"], e["name"]))
+        return pool
     pool = [e for e in ERRANDS
             if e["uid"] not in exclude and e["enabled"]
             and errand_available(bag, e, level, safehouse, now)]
