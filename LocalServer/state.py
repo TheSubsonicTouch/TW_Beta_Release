@@ -8,6 +8,7 @@ Field names and encodings follow what the client deserialises (see NOTES.md):
 """
 import copy
 import json
+import math
 import os
 import random
 import threading
@@ -97,6 +98,11 @@ AI_NAMES = ["Big Smile Lee", "Uncle Po", "Sonny Wo", "Broken Nose Jiang",
 # this cooldown. Ten minutes keeps the seven-site roster in play in one sitting.
 RIVAL_RAID_COOLDOWN = 10 * 60
 
+# What one racket standing on a rival's turf is worth to whoever walks out with it. The
+# base raid payout is fixed, so this is what makes a built-up site worth more than a bare
+# one - and it is why the unlock's built-out rivals are worth raiding.
+RAID_SAFE_DIRTY = 250
+
 
 def racket_instance(type_uid, level=1, block=0, slot=0, state=0, staff=0):
     r = {
@@ -145,6 +151,74 @@ def new_turf(location, template_index=0, level=1):
         "Rackets": [],
         "Commodities": [],
     }
+
+
+# ---- Rival turfs -------------------------------------------------------------------
+# Every turf template has the same five buildable lots - three SMALL, one MEDIUM, one
+# LARGE (`UFG::TurfTemplate.mTurfBlocks`) - so five rackets is a full turf. The rivals
+# start with none, which left all seven sites on the world map looking abandoned while
+# the player's own turf filled up. UnlockBag.All builds them out of the game's own racket
+# types, one per lot, matched by size: empty-lot types are skipped, and so is any type
+# asking for a higher safehouse than that rival is given.
+#
+# The picks are seeded per rival, so a given site always comes back built the same way -
+# filling is idempotent and needs no bookkeeping in the profile.
+RIVAL_TURF_LOTS = ("SMALL", "SMALL", "SMALL", "MEDIUM", "LARGE")
+
+
+def _racket_types_by_size():
+    by_size = {}
+    for uid in sorted(RACKET_TYPES):
+        rtype = RACKET_TYPES[uid]
+        if rtype.get("mIsEmptyType"):
+            continue
+        if rtype.get("mSize") in RIVAL_TURF_LOTS:
+            by_size.setdefault(rtype["mSize"], []).append(uid)
+    return by_size
+
+
+RACKET_TYPES_BY_SIZE = _racket_types_by_size()
+
+
+def rival_safehouse_level(index):
+    """The safehouse level a rival's turf is built out to: 6..9, cycling by site."""
+    return 6 + index % 4
+
+
+def fill_rival_turf(player, index=0):
+    """Build out one rival's turf from the game's racket types.
+
+    Idempotent: returns the number of rackets added, 0 once the turf is full. The rival's
+    safehouse is raised first, because the client counts a turf's spare build points as
+    safehouse level minus the rackets already standing on it - a five-racket site under a
+    level-1 safehouse reads as massively over budget.
+    """
+    turf = player.get("TurfBag") or {}
+    building = turf.get("Turf") or {}
+    if not building or len(turf.get("Rackets") or []) >= len(RIVAL_TURF_LOTS):
+        return 0
+    level = rival_safehouse_level(index)
+    rng = random.Random(0x7AD0 + index)          # stable: a site always looks the same
+    built = []
+    for block, size in enumerate(RIVAL_TURF_LOTS):
+        choices = [uid for uid in RACKET_TYPES_BY_SIZE.get(size, [])
+                   if int(RACKET_TYPES[uid].get("mSafehouseMinLevel") or 0) <= level]
+        if not choices:
+            continue
+        uid = choices[rng.randrange(len(choices))]
+        built.append(racket_instance(uid, 1 + (index + block) % 3, block))
+    if not built:
+        return 0
+    turf["Rackets"] = built
+    building["RacketsBuilt"] = str(len(built))
+    for key in ("Safehouse", "Warehouse", "Temple"):
+        if key in building:
+            building[key]["RacketLevel"] = level
+    return len(built)
+
+
+def rival_racket_count(player):
+    return len((player.get("TurfBag") or {}).get("Rackets") or [])
 
 
 def new_customization_bag():
@@ -760,6 +834,12 @@ CRIME_SCENE_LIMIT_UNLOCKED = 96  # ... with UnlockBag.All, four times as many
 CRIME_SCENE_TTL = 60 * 60       # an hour, then the scene is gone
 CRIME_SCENE_UID_BASE = 7000000000000000000
 
+# The unlock keeps the map littered: this many markers lying about at any time, and the
+# ring of places to scatter them around.
+CRIME_SCENE_SCATTER = 8
+CRIME_SCENE_HOTSPOTS = 64       # remembered positions, oldest drops off
+CRIME_SCENE_SCATTER_SPREAD = 24 # how far from a known spot a new one can appear
+
 
 def crime_scene_limit(player):
     """Markers kept at once. The unlocked profile keeps more (see unlocked)."""
@@ -784,11 +864,66 @@ def prune_crime_scenes(player, now=None):
     return True
 
 
-def add_crime_scene(player, x, y, z, victim="", now=None):
-    """Record a scene the client reported. Returns the record, or None if it already had it."""
+def remember_hotspot(player, x, y, z):
+    """Remember a place the client fought at, for scatter_crime_scenes to work from.
+
+    Only coordinates the client reported ever end up here, so anything scattered later is
+    a spot the game has already shown to be real ground the player can stand on.
+    """
+    spots = crime_scene_bag(player).setdefault("Hotspots", [])
+    for spot in spots:
+        if abs(int(spot[0]) - int(x)) <= 4 and abs(int(spot[1]) - int(y)) <= 4:
+            return
+    spots.append([int(x), int(y), int(z)])
+    del spots[:-CRIME_SCENE_HOTSPOTS]
+
+
+def scatter_crime_scenes(player, now=None):
+    """Litter the map with markers around places the client has already fought.
+
+    Only an unlocked profile does this. The server still never invents a position: every
+    marker is a remembered hotspot moved a few metres, so it lands on the same street
+    corner the game itself put a body on. Returns how many markers were added.
+    """
+    if not unlocked(player):
+        return 0
+    now = time.time() if now is None else now
+    bag = crime_scene_bag(player)
+    spots = bag.get("Hotspots") or []
+    if not spots:
+        return 0                       # nothing fought yet: nothing to scatter around
+    live = sum(1 for s in bag["Scenes"] if not s.get("Collected"))
+    added = 0
+    for attempt in range((CRIME_SCENE_SCATTER - live) * 4):
+        if live + added >= CRIME_SCENE_SCATTER:
+            break
+        # Seeded on the scene counter as well as the attempt, so every marker that does
+        # land gives the next one fresh ground to try instead of re-rolling the same
+        # offsets it has already deduplicated against.
+        rng = random.Random(bag["NextUID"] * 7919 + attempt)
+        spot = spots[rng.randrange(len(spots))]
+        offset = rng.randrange(8, CRIME_SCENE_SCATTER_SPREAD + 1)
+        angle = rng.uniform(0, 6.283185)
+        if add_crime_scene(player,
+                           int(spot[0]) + int(offset * math.cos(angle)),
+                           int(spot[1]) + int(offset * math.sin(angle)),
+                           int(spot[2]), now=now, remember=False):
+            added += 1
+    return added
+
+
+def add_crime_scene(player, x, y, z, victim="", now=None, remember=True):
+    """Record a scene the client reported. Returns the record, or None if it already had it.
+
+    `remember=False` keeps the position out of the hotspot ring: that is what the scatter
+    itself uses, so the ring only ever holds ground the client reported and the litter
+    cannot creep away from real streets a few metres per read.
+    """
     now = time.time() if now is None else now
     bag = crime_scene_bag(player)
     prune_crime_scenes(player, now)
+    if remember:
+        remember_hotspot(player, x, y, z)
     for scene in bag["Scenes"]:
         # The client reports the same corpse again as it stays in the world; one marker is
         # enough. 4 units is about a body's width on the map.
@@ -1161,8 +1296,12 @@ class State:
         with self.lock:
             everything = unlocked(self.data["player"])
             infos, bags = [], []
-            for o in self.data["opponents"]:
+            for index, o in enumerate(self.data["opponents"]):
                 p = o["data"]
+                # The unlock builds the rivals' turfs out once (see fill_rival_turf);
+                # a profile without the flag sees them exactly as before.
+                if everything:
+                    fill_rival_turf(p, index)
                 infos.append({
                     "mPlayerDataID": p["PlayerDataBag"]["PlayerDataID"],
                     "mOpponentType": o.get("type", 0),

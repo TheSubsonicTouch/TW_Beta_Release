@@ -191,6 +191,43 @@ def main():
         assert state.crime_scene_limit(player) == state.CRIME_SCENE_LIMIT
         return "%d markers with the unlock" % kept
 
+    def no_hotspot_no_scatter():
+        # A profile that has never fought has no ground to scatter around, so the map
+        # stays empty even with the unlock on.
+        state.crime_scene_bag(player)["Scenes"] = []
+        state.crime_scene_bag(player)["Hotspots"] = []
+        player["UnlockBag"] = {"All": True}
+        try:
+            assert state.scatter_crime_scenes(player) == 0
+            assert state.crime_scenes(player) == []
+        finally:
+            del player["UnlockBag"]
+        return "nothing invented out of nowhere"
+
+    def scatter_only_on_known_ground():
+        player["UnlockBag"] = {"All": True}
+        try:
+            state.add_crime_scene(player, 1000, 2000, 5, now=time.time())
+            spots = [tuple(s) for s in state.crime_scene_bag(player)["Hotspots"]]
+            assert spots, "the fight should have been remembered"
+            added = state.scatter_crime_scenes(player)
+            assert added == state.CRIME_SCENE_SCATTER - 1, added
+            live = state.crime_scenes(player)
+            assert len(live) == state.CRIME_SCENE_SCATTER, len(live)
+            spot = spots[0]
+            for scene in live:
+                far = max(abs(scene["DeathX"] - spot[0]), abs(scene["DeathY"] - spot[1]))
+                assert far <= state.CRIME_SCENE_SCATTER_SPREAD, (scene, spot)
+            return "%d markers around one known spot" % len(live)
+        finally:
+            del player["UnlockBag"]
+
+    def scatter_is_off_when_locked():
+        before = len(state.crime_scenes(player))
+        assert state.scatter_crime_scenes(player) == 0
+        assert len(state.crime_scenes(player)) == before
+        return "locked profile unchanged"
+
     def operation_list():
         reply = operations()
         assert reply["mOperationInstances"] == [], reply  # the client runs them itself
@@ -221,6 +258,9 @@ def main():
     check("street encounter window", street_encounter_resets)
     check("street encounter unlocked", street_encounter_unlocked)
     check("crime scene limit unlocked", crime_scene_limit_unlocked)
+    check("scatter needs a hotspot", no_hotspot_no_scatter)
+    check("scatter on known ground", scatter_only_on_known_ground)
+    check("scatter off when locked", scatter_is_off_when_locked)
     check("activity list", operation_list)
     check("encounter list", world_encounter_list)
     check("restart", restart_keeps_scenes)

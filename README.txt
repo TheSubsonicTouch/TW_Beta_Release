@@ -99,6 +99,13 @@ leave behind, and the random street events (muggings, shakedowns) - so walking
 around and getting into trouble is worth something. All seven rivals can be
 raided from the start, and a site you beat is back after ten minutes.
 
+Turn on "Unlock all content" in the debug menu and the street fills up: all
+seven rivals get their turfs built out - five rackets each, under a levelled
+safehouse - so their blocks have a crowd on them and a raid has more to carry
+home (250 dirty money per racket still standing). Your own fights keep the map
+littered with crime scenes instead of leaving only the last few, and the random
+street events pay every time instead of six an hour.
+
 The hub's Jobs screen and the Challenges (community trial) screen are emulated
 too. Jobs come from the game's own errand data - three daily slots, each with
 the original prerequisites, level and safehouse gates and its own reward

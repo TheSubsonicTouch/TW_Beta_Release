@@ -153,9 +153,12 @@ def open_world_crime_scenes(req, method, parts, body, query):
         return _ok_bags(mCrimeSceneAdded=bool(scene),
                         mCrimeSceneID=scene["OpenWorldCrimeSceneID"] if scene else "0")
     with STATE.lock:
+        pruned = state.prune_crime_scenes(_player())
+        # An unlocked profile keeps the map littered, around the places the client itself
+        # has already fought (state.scatter_crime_scenes). Locked profiles get nothing.
+        scattered = state.scatter_crime_scenes(_player())
         scenes = state.crime_scenes(_player())
-        changed = state.prune_crime_scenes(_player())
-    if changed:
+    if pruned or scattered:
         STATE.save()
     return {"mReturnCode": 0, "mMessage": "", "CrimeScenes": scenes}
 
@@ -601,9 +604,13 @@ def raid_end(req, method, parts, body, query):
     with STATE.lock:
         pdb = _player()["PlayerDataBag"]
         pdb["Face"] = str(_int(pdb.get("Face"), 0) + face_gain)
-        _money("DirtyMoney", dirty_gain)
         opps = STATE.data["opponents"]
-        opp = opps[idx]["data"]["PlayerDataBag"] if 0 <= idx < len(opps) else {}
+        opp_data = opps[idx]["data"] if 0 <= idx < len(opps) else {}
+        opp = opp_data.get("PlayerDataBag", {})
+        # Every racket still standing on the target's turf is loot: a built-out site pays
+        # more than a bare one (state.RAID_SAFE_DIRTY, reported as mDirtyMoneyGainedFromSafes).
+        safe_gain = state.rival_racket_count(opp_data) * state.RAID_SAFE_DIRTY if success else 0
+        _money("DirtyMoney", dirty_gain + safe_gain)
         if success and 0 <= idx < len(opps):
             # That site's turf needs time to recover; the world map counts it down from
             # mRemainingSeconds (state.RIVAL_RAID_COOLDOWN). A lost raid leaves it open,
@@ -625,7 +632,7 @@ def raid_end(req, method, parts, body, query):
         mPlayerFace=face,
         mOpponentIndex=idx,
         mDirtyMoneyGained=dirty_gain,
-        mDirtyMoneyGainedFromSafes=0,
+        mDirtyMoneyGainedFromSafes=safe_gain,
         mSlotCooldownMinutes=0,
         mCommodityRewards=[],
         mSafeCommodityRewards=[],

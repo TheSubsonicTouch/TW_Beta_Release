@@ -108,6 +108,66 @@ def main():
         assert all("PlayerDataBag" in b for b in bags)
         return "7 rivals, 7 bags"
 
+    def rivals_bare_when_locked():
+        # Nothing about a locked profile changes: every rival turf is still empty.
+        handlers.STATE.data["player"].pop("UnlockBag", None)
+        handlers.STATE.opponents()
+        bare = [len(o["data"]["TurfBag"]["Rackets"]) for o in handlers.STATE.data["opponents"]]
+        assert bare == [0] * 7, bare
+        return "all seven empty"
+
+    def rivals_built_when_unlocked():
+        handlers.STATE.data["player"]["UnlockBag"] = {"All": True}
+        handlers.STATE.opponents()
+        counts = [len(o["data"]["TurfBag"]["Rackets"]) for o in handlers.STATE.data["opponents"]]
+        assert counts == [len(state.RIVAL_TURF_LOTS)] * 7, counts
+        return "5 rackets on every site"
+
+    def rival_rackets_match_their_lots():
+        # A SMALL lot takes a SMALL racket, and no site is left carrying an empty-lot type.
+        for index, opponent in enumerate(handlers.STATE.data["opponents"]):
+            rackets = opponent["data"]["TurfBag"]["Rackets"]
+            for block, racket in enumerate(rackets):
+                rtype = state.RACKET_TYPES[racket["RacketTypeUID"]]
+                assert rtype["mSize"] == state.RIVAL_TURF_LOTS[block], (index, block, rtype["mSize"])
+                assert not rtype["mIsEmptyType"], (index, block)
+                assert racket["BlockIndex"] == block, (index, block)
+                assert racket["RacketTypeUID"] not in state.EMPTY_UID.values()
+        return "sizes, blocks and types line up"
+
+    def rival_turf_is_within_budget():
+        # The client reads a turf's spare build points as safehouse level minus rackets.
+        for opponent in handlers.STATE.data["opponents"]:
+            turf = opponent["data"]["TurfBag"]
+            level = int(turf["Turf"]["Safehouse"]["RacketLevel"])
+            assert level >= len(turf["Rackets"]), (level, len(turf["Rackets"]))
+            assert turf["Turf"]["RacketsBuilt"] == str(len(turf["Rackets"]))
+        return "level 6..9, five rackets, RacketsBuilt set"
+
+    def filling_is_idempotent():
+        before = json.dumps(handlers.STATE.data["opponents"], sort_keys=True)
+        handlers.STATE.opponents()
+        handlers.STATE.opponents()
+        after = json.dumps(handlers.STATE.data["opponents"], sort_keys=True)
+        assert before == after, "a second read changed the rivals"
+        return "same turf every read"
+
+    def built_turf_pays_safes():
+        # Every racket on the target is loot, so a built-out site pays more than the base.
+        opponent = handlers.STATE.data["opponents"][3]
+        expected = len(opponent["data"]["TurfBag"]["Rackets"]) * state.RAID_SAFE_DIRTY
+        dirty = int(handlers._player()["CurrencyBag"]["DirtyMoney"])
+        reply = raid(3)
+        assert reply["mDirtyMoneyGainedFromSafes"] == expected, reply["mDirtyMoneyGainedFromSafes"]
+        assert reply["mDirtyMoneyGained"] == 5000, reply["mDirtyMoneyGained"]
+        assert int(handlers._player()["CurrencyBag"]["DirtyMoney"]) - dirty == 5000 + expected
+        return "+%d from the safes" % expected
+
+    def lost_raid_pays_no_safes():
+        reply = raid(1, success=0)
+        assert reply["mDirtyMoneyGainedFromSafes"] == 0, reply
+        return "nothing from a failed raid"
+
     check("rivals available", open_at_start)
     check("raid cooldown", raid_puts_one_on_cooldown)
     check("failed raid", lost_raid_stays_open)
@@ -115,6 +175,13 @@ def main():
     check("restart", cooldown_survives_restart)
     check("old profile", old_profile_migrates)
     check("rival bags", opponent_bag_still_there)
+    check("locked rivals bare", rivals_bare_when_locked)
+    check("unlocked rivals built", rivals_built_when_unlocked)
+    check("rackets match lots", rival_rackets_match_their_lots)
+    check("rival turf budget", rival_turf_is_within_budget)
+    check("filling idempotent", filling_is_idempotent)
+    check("safes on a built turf", built_turf_pays_safes)
+    check("no safes on a loss", lost_raid_pays_no_safes)
     print("%d check(s) failed" % len(failures) if failures else "all checks passed")
     return 1 if failures else 0
 

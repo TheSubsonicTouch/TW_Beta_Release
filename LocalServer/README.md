@@ -150,6 +150,19 @@ client looks up the owner of site *n* as `mOpponents[n-1]`, so the server
 always supplies seven rivals, with their bags in the parallel root-level array
 `mOpponentDataBags`.
 
+A rival's turf starts empty, as the original server left it. With
+**Unlock all content** on, all seven are built out instead: one racket in every
+buildable lot, matched to the lot's size, under a safehouse of level 6 to 9
+(`state.fill_rival_turf`). The picks are seeded per site, so a given rival always
+comes back built the same way, and the fill is idempotent - it needs nothing in
+the profile to remember that it ran.
+
+This is also where the street outside a rival's turf gets busier. Every
+`UFG::RacketType` has a `mLevels` list, and each level carries an `mAmbientPrefab`;
+level 0's is null and every level above it has a real prefab. An empty lot spawns
+nothing, a level-1 lot spawns its ambient crowd, a level-3 lot a bigger one. The
+rackets are placed at levels 1 to 3, so a built-out turf has people on it.
+
 ## Jobs and challenges
 
 The two hub screens the original server never answered are driven by data that
@@ -360,6 +373,32 @@ The repeatable activities the build *does* have, and what this server does with 
 | crime scenes left after a fight | the client | keeps the marker, pays 10 face when collected |
 | turf raids | the server | the whole loop: start, event, mutator, end, cooldowns |
 
+### Street events, police and how busy the street looks
+
+Drug deals, gang wars, police chases and shootouts, beatdowns: these are the client's own
+**world encounters**, run by `TWWorldEncounterManager` (Skookum) and the `EncounterBase`
+classes in `TriadWars.exe`. Three separate things show the server is not in that loop.
+
+* **Spawn frequency is client data.** `UFG::WorldEncounterFrequency` and
+  `UFG::WorldEncounterFrequencyTuner` are `qReflectInventory` objects - tuner tables loaded
+  out of the game's packages. Neither is in the 78 tables the object database exports, and
+  no request path carries them. There is no "spawn more" field to set.
+* **Heat level never crosses the wire.** `CopResponse` is a real table and it *is*
+  exported: eleven rows of how many officers answer per room type, `mTransitionTime` 11,
+  `mEncounterTime` 19, `mEnforcerTime` 70, racket size modifiers. But it is the client's
+  own copy, and the heat level that selects a row (`HEATLEVEL_NONE`..`HEATLEVEL_FIVE`,
+  `PlayerHeatLevelCondition`, `EncounterBase::HandleHeatLevelChange`) appears **nowhere** in
+  the protocol - not in `devdata/keys_all.txt`, not in any player bag. The server cannot
+  raise it.
+* **Population density is one-way.** `filterpopulation` is a request with **no callback at
+  all** - the client tells the server, never the reverse. The density knobs that do exist
+  are Skookum variables inside the client (`num_nearby_peds`, `num_nearby_thugs`,
+  `num_indoor_peds`, `set_hi_def_spawning`), outside the server's reach.
+
+So: no police response, no ambushes, no patrol density. What the unlock does instead is
+raise the population it *can* reach - the ambient prefabs on the rival turfs' rackets
+([Turf sites](#turf-sites)) and the litter of crime scenes the server does own.
+
 ### Districts beyond North Point
 
 The server API is those same 112 paths. Not one of them is about travel, districts,
@@ -439,6 +478,19 @@ function:
   is as far as "more activities" goes: the build's activities are the four in
   [What this build does not have](#what-this-build-does-not-have), and three of them are
   run by the client - the server can only make sure it keeps paying for them.
+* **Crime scenes stay on the map** - the unlock keeps eight markers lying about at any
+  time, around the places the client itself has already fought
+  (`state.scatter_crime_scenes`). Every position still comes from a coordinate the client
+  reported: a remembered hotspot moved up to 24 metres. Nothing is invented, and a
+  profile that has never been in a fight has nowhere to scatter, so it stays empty.
+  Scattered markers are deliberately *not* remembered as hotspots, or the litter would
+  creep away from real streets a few metres per read.
+* **The rivals' turfs** - all seven are built out, five rackets and a level 6-9 safehouse
+  each (`state.fill_rival_turf`, [Turf sites](#turf-sites)).
+* **Raid loot** - a raid pays a bonus for every racket still standing on the target's
+  turf: `state.RAID_SAFE_DIRTY` (250 dirty money) each, reported as
+  `mDirtyMoneyGainedFromSafes`, on top of the flat 5000. A built-out rival is worth
+  raiding, a bare one is not.
 * **Content** - the menu fills the bags (every favour, every enforcer upgrade, everything
   the shops sell), maxes the levels and clears the timers the profile was already
   carrying, by writing `state.json` itself; that half is `FreeCam/menu/freecam_unlock.cpp`
