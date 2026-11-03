@@ -999,6 +999,12 @@ extern "C" void TW_MenuStart() {
     buildMenu();
     g_menu.setStatus("Ready.");
 
+    // The camera thread is also the only place the hotkeys are read, and two of
+    // them need no camera at all: V turns noclip on (the character flies) and F10
+    // is the panic key. Starting it with the menu is what makes V work from the
+    // first minute of play instead of only after the free camera has been on.
+    tw::game::FreeCamEnsureThread();
+
     CreateThread(nullptr, 0, installThread, nullptr, 0, nullptr);
 }
 

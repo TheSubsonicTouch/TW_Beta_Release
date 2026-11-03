@@ -650,6 +650,14 @@ void testSparseHooks() {
     check(!hasLabel(menu, "Weather"), "no empty weather selector");
     check(!hasLabel(menu, "Level target"), "no empty level selector");
     check(hasLabel(menu, "Free Camera"), "Free Camera is still listed");
+    // Noclip flies the character, not a camera: it must be offered even when the build
+    // has no free camera hook at all, because the two are independent modes.
+    check(hasLabel(menu, "Noclip (fly the player)"),
+          "noclip is offered without a free camera hook");
+    selectLabel(menu, "Noclip (fly the player)");
+    menu.handleKey(tw::Key::Select);
+    check(menu.items()[menu.selectedIndex()].toggled, "and it toggles on its own");
+    check(menu.status() == "noclip", "its hook answered");
 
     // Free Camera is listed without a hook: using it must say so rather than do nothing.
     menu.select(0);

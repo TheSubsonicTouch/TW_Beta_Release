@@ -1349,13 +1349,55 @@ void HandlePlaybackSpeed() {
     TW_Log("FreeCam: playback speed %s (%s arrow)", shown, faster ? "right" : "left");
 }
 
+// V and [ / ] - noclip, which flies the character rather than a camera.
+//
+// This is read in both of the camera thread's states: while the camera is flying, and
+// while it is off. Noclip is a movement mode for the player and has nothing to do with a
+// camera, so turning it on must not need one - it used to be read only on the flying
+// path, which made V dead until the camera had been switched on. It is off while the
+// menu is open, for the same reason the other keys are: the menu has the keyboard, and a
+// name being typed must not fly the character around.
+void HandleNoclipKeys() {
+    if (FreeCamMenuOpen()) return;
+
+    if (g_noclipKey.Pressed()) {
+        const bool on = !tw::game::NoclipActive();
+        tw::game::NoclipSet(on);
+        if (on) {
+            char line[44];
+            std::snprintf(line, sizeof line, "noclip %s - WASD, Space/C",
+                          tw::game::NoclipSpeedLabels()[tw::game::NoclipSpeedIndex()]);
+            Hud("V", line);
+        } else {
+            Hud("V", "noclip off - dropping to the ground");
+        }
+        TW_Log("FreeCam: noclip %s", on ? "on" : "off");
+    }
+
+    // [ and ] change the flying speed while noclip is on. They are the two keys next to
+    // each other on every layout, and they are not used by anything else here.
+    if (tw::game::NoclipActive()) {
+        if (g_noclipSlower.Pressed()) {
+            tw::game::NoclipSpeedStep(-1);
+            Hud("[", (std::string("noclip speed ") +
+                      tw::game::NoclipSpeedLabels()[tw::game::NoclipSpeedIndex()]).c_str());
+        }
+        if (g_noclipFaster.Pressed()) {
+            tw::game::NoclipSpeedStep(1);
+            Hud("]", (std::string("noclip speed ") +
+                      tw::game::NoclipSpeedLabels()[tw::game::NoclipSpeedIndex()]).c_str());
+        }
+    }
+}
+
 // P - follow the player, L - keyframe, J - play the path back, M - forget the path,
-// O - freeze, left/right - how fast the path plays.
+// O - freeze, left/right - how fast the path plays, V - noclip.
 void HandleHotkeys(const float player[3], bool havePlayer) {
     // The menu has the keyboard while it is open. These keys are read straight from
     // GetAsyncKeyState, so the menu's window messages do not stop them: without this,
     // typing "before" into a name field would also spawn the hotkey ped (B), walk the
-    // models (N), flip the side (H) and switch noclip (U).
+    // models (N), flip the side (H) and switch noclip (V), which has its own guard in
+    // HandleNoclipKeys.
     if (FreeCamMenuOpen()) return;
 
     // NPC spawn: B puts the selected model three metres in front of the player, N walks
@@ -1400,6 +1442,10 @@ void HandleHotkeys(const float player[3], bool havePlayer) {
         TW_Log("FreeCam: spawner fault cleared by R");
     }
 
+    // The noclip keys are the same ones the idle half of the loop reads, so the two modes
+    // cannot disagree about what V means.
+    HandleNoclipKeys();
+
     // U - the player. With the camera flying, the game's controls are held back, so the
     // keys only fly the view. U gives them to the character instead: walk, fight, interact,
     // look around, while the camera keeps the angle it has. U again takes them back, so the
@@ -1430,37 +1476,6 @@ void HandleHotkeys(const float player[3], bool havePlayer) {
                        "%.1f %.1f %.1f; U again to free the player",
                        g_state.pos[0], g_state.pos[1], g_state.pos[2]);
             }
-        }
-    }
-
-    // V flies the character rather than the camera, so it works with the camera off as
-    // well: it is the one thing here that does not need a camera to move.
-    if (g_noclipKey.Pressed()) {
-        const bool on = !tw::game::NoclipActive();
-        tw::game::NoclipSet(on);
-        if (on) {
-            char line[44];
-            std::snprintf(line, sizeof line, "noclip %s - WASD, Space/C",
-                          tw::game::NoclipSpeedLabels()[tw::game::NoclipSpeedIndex()]);
-            Hud("V", line);
-        } else {
-            Hud("V", "noclip off - dropping to the ground");
-        }
-        TW_Log("FreeCam: noclip %s", on ? "on" : "off");
-    }
-
-    // [ and ] change the flying speed while noclip is on. They are the two keys next to
-    // each other on every layout, and they are not used by anything else here.
-    if (tw::game::NoclipActive()) {
-        if (g_noclipSlower.Pressed()) {
-            tw::game::NoclipSpeedStep(-1);
-            Hud("[", (std::string("noclip speed ") +
-                      tw::game::NoclipSpeedLabels()[tw::game::NoclipSpeedIndex()]).c_str());
-        }
-        if (g_noclipFaster.Pressed()) {
-            tw::game::NoclipSpeedStep(1);
-            Hud("]", (std::string("noclip speed ") +
-                      tw::game::NoclipSpeedLabels()[tw::game::NoclipSpeedIndex()]).c_str());
         }
     }
 
@@ -1693,7 +1708,7 @@ DWORD WINAPI Loop(LPVOID) {
 
     // The 1 ms timer is raised in StartFlying and lowered in StopFlying: a thread that is
     // only alive so the menu can spawn something must not hold the system timer down.
-    TW_Log("FreeCam: camera thread up (build 21: U hands the player the controls and takes them back, V noclip; B spawns an NPC 3 m ahead, N picks the model, H the side)");
+    TW_Log("FreeCam: camera thread up (build 22: U hands the player the controls and takes them back, V noclip with or without the camera; B spawns an NPC 3 m ahead, N picks the model, H the side)");
 
     for (;;) {
         if (g_quit) break;
@@ -1716,6 +1731,11 @@ DWORD WINAPI Loop(LPVOID) {
                 Hud("F10", "noclip off");
                 TW_Log("FreeCam: F10 while the camera was off, noclip switched off too");
             }
+            // V, [ and ] are read here as well as on the flying path: noclip moves the
+            // player, not a camera, so it must be switchable with the camera off - and
+            // that is the state the game is in unless someone has flown.
+            BeginHotkeyFrame();
+            HandleNoclipKeys();
             if (g_live) StopFlying();
             if (g_cam.obj) {
                 g_cam.obj = nullptr;

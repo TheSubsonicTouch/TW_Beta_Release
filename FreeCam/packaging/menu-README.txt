@@ -104,6 +104,18 @@ game carries on from its own camera and not from where you flew to.
 WHAT CHANGED IN THIS BUILD
 --------------------------
 
+  - Build 22. V turns noclip on and off with the free camera switched off, and the
+    menu entry does the same.
+
+    - Noclip flies the character, not a camera, so it never needed the free camera.
+      The key was only read while the camera was flying, though, and the thread that
+      reads keys was only started by switching something on - so in practice V did
+      nothing until the free camera had been on at least once. The key is now read
+      whether the camera is on or off, and the thread starts with the menu.
+    - [ and ] (the flying speed) come with it. Both work with the camera off too.
+    - The menu entry is unchanged: CAMERA, "Noclip (fly the player)", ON/OFF. The row
+      follows V when it is pressed in game, the same way it follows the entry.
+
   - Build 21. U hands the player their controls while the free camera stays on, and
     takes them back when pressed again. Noclip moved to V.
 
