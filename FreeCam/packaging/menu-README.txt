@@ -130,6 +130,9 @@ WHAT CHANGED IN THIS BUILD
       next request (handlers.py is touched, which is how the server reloads). Deleting
       that line - or its "All" - puts the board back to the story ladder; nothing else
       in the profile is undone.
+    - It needs this build's LocalServer/state.py. If you run your own copy of the
+      server, update that file too: an older one does not know the flag, and the menu
+      says so in its status line instead of pretending the jobs opened.
 
   - Build 19. "Spawn Ped" is back in the menu, as one entry.
 
