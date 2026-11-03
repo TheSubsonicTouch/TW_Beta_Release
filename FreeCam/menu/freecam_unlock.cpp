@@ -192,7 +192,17 @@ std::string UnlockEventsAndActivities(bool content) {
         }
     }
 
-    if (!any) return "Unlock: state.json not found next to the game";
+    if (!any)
+        return "Unlock: no profile yet - start the game once, then press this again";
+
+    // The jobs need this build's state.py: an older copy has no idea what UnlockBag is,
+    // and the menu would report success while the board stayed on the tutorial's jobs.
+    bool serverKnows = false;
+    {
+        std::string source;
+        if (ReadFileText(dir + "LocalServer/state.py", source))
+            serverKnows = source.find("UnlockBag") != std::string::npos;
+    }
 
     // The reload: server.py stats these two on every request and re-imports them when the
     // timestamp moves, which also re-reads state.json from disk.
@@ -213,6 +223,9 @@ std::string UnlockEventsAndActivities(bool content) {
     }
     if (!haveFavourites) status += " (no favour data)";
     if (!haveStores) status += " (no store data)";
+    if (!serverKnows)
+        status += " - LocalServer/state.py is older than this menu, so the jobs stay"
+                  " closed until it is updated";
 
     TW_Log("UnlockEvents: %s (%d file(s) edited, board reset %d)", status.c_str(), edited,
            total.board ? 1 : 0);

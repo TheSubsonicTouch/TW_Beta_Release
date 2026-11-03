@@ -340,8 +340,8 @@ def utc_day(now=None):
 # and the export-gated jobs, which this build cannot otherwise open (see
 # ERRAND_UNSUPPORTED). A profile without the flag behaves exactly as before.
 def unlocked(player):
-    bag = player.get("UnlockBag") or {}
-    return bool(bag.get("All"))
+    bag = player.get("UnlockBag")
+    return isinstance(bag, dict) and bool(bag.get("All"))
 
 
 def seconds_to_refresh(now=None):
