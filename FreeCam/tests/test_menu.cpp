@@ -34,6 +34,14 @@ bool hasLabel(const tw::Menu& menu, const std::string& label) {
     return false;
 }
 
+// An Info row carries what it is saying in `text`, not `label`, so the two are checked
+// together: a row whose label is right and whose text is stale reads as correct otherwise.
+bool hasLabelText(const tw::Menu& menu, const std::string& label, const std::string& text) {
+    for (const auto& item : menu.items())
+        if (item.label == label && item.text == text) return true;
+    return false;
+}
+
 bool hasHeader(const tw::Menu& menu, const std::string& label) {
     for (const auto& item : menu.items())
         if (item.header && item.label == label) return true;
@@ -190,6 +198,11 @@ tw::DebugHooks fullHooks(int* toggles, int* picks, int* levels,
         ++*picks;
         return std::string("Spawner: reset");
     };
+    hooks.rescanPedModels = [picks] {
+        ++*picks;
+        return std::string("NPC models: scanning the game folder");
+    };
+    hooks.pedModelSummary = [] { return std::string("57 known, 53 from the game files"); };
     return hooks;
 }
 
@@ -238,6 +251,12 @@ void testStructure() {
     check(hasLabel(menu, "Preview distance"), "and the distance that places it");
     check(hasLabel(menu, "Spawner"), "the spawner's own state is shown");
     check(hasLabel(menu, "Reset spawner (R)"), "and R has an entry");
+    // The model list is filled from the game's own files, which has to be read: the two
+    // rows say how far that got and give a way to start it again.
+    check(hasLabel(menu, "Rescan models"), "the model list can be rescanned");
+    check(hasLabel(menu, "Models found"), "and says how many models it holds");
+    check(hasLabelText(menu, "Models found", "57 known, 53 from the game files"),
+          "with the count from the scanner");
 
     // Every camera mode the keys reach has an entry, and every entry names its key: a
     // feature that only exists on the keyboard is a feature the menu does not have.
@@ -319,7 +338,7 @@ void testCursorSkipsHeaders() {
     }
     check(total == static_cast<std::size_t>(usable + titles + infos),
           "the list is the usable entries, the section titles and the info rows");
-    check(infos == 3, "Keyframes, Spawner and Sky are the read-only lines");
+    check(infos == 4, "Keyframes, Spawner, Models found and Sky are the read-only lines");
     // APPEARANCE is not in this one: the style object is attached by its own test, and a
     // build with no style has nothing to put in a section about it.
     check(titles == 6, "CAMERA, SPAWN, PATH, WORLD, SKY, PROGRESSION");
@@ -385,6 +404,9 @@ void testActions() {
     menu.handleKey(tw::Key::Down);   // Ped model (list)
     check(menu.items()[menu.selectedIndex()].label == "Ped model (list)",
           "then the model list");
+    menu.handleKey(tw::Key::Down);   // Rescan models
+    check(menu.items()[menu.selectedIndex()].label == "Rescan models",
+          "the rescan sits under the list it fills");
     menu.handleKey(tw::Key::Down);   // Hostile NPC
     menu.handleKey(tw::Key::Down);   // Spawn preview
     menu.handleKey(tw::Key::Down);   // Preview distance
