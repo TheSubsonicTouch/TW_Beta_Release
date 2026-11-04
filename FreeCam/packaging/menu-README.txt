@@ -124,6 +124,8 @@ WHAT CHANGED IN THIS BUILD
       simply means the shipped look - it never fails to open.
     - SPAWN, "Spawn now (B)": the same spawn as the B key, as a row that can be clicked.
       The row above it is still the name field, for a model that is not on any list.
+    - A still of the four looks is in packaging/menu-build27-preview.png, rendered from
+      the same row list and colour table this build uses.
     - Nothing here changes the free camera: the corner display, the flight and its hotkeys
       are exactly what they were. This is the debug menu's own appearance.
 

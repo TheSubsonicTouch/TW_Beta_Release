@@ -821,6 +821,18 @@ void renderMenu() {
                     }
                 }
             }
+
+            // The veil goes on top of the artwork, deliberately. At any useful contrast the
+            // dragon is loud enough to swallow the labels, and which part of it lands behind
+            // a row is not something the player can control - it depends on the window size.
+            // Knocking the whole picture back by the same amount gives the text one surface
+            // to sit on, whichever part of the dragon is underneath. It rises with the
+            // contrast, so the picture is allowed to be loudest exactly when it is asked to
+            // be; the row colours above it never change.
+            const float veil = 0.24f + 0.40f * g_style.backgroundAlpha();
+            dl->AddRectFilled(origin, ImVec2(origin.x + ws.x, origin.y + ws.y),
+                              ImGui::GetColorU32(ImVec4(theme.panel[0], theme.panel[1],
+                                                        theme.panel[2], veil)), 4.0f);
         }
     }
 
@@ -848,7 +860,12 @@ void renderMenu() {
 
         if (it.header) {
             ImGui::Dummy(ImVec2(1.0f, 4.0f));
-            ImGui::PushStyleColor(ImGuiCol_Text, red);
+            // Mixed toward the accent: a theme whose heading colour is close to the artwork
+            // (Triad's crimson over a crimson dragon) would otherwise disappear into it.
+            ImGui::PushStyleColor(ImGuiCol_Text,
+                                  ImVec4(theme.header[0] * 0.55f + theme.accent[0] * 0.45f,
+                                         theme.header[1] * 0.55f + theme.accent[1] * 0.45f,
+                                         theme.header[2] * 0.55f + theme.accent[2] * 0.45f, 1.0f));
             ImGui::TextUnformatted(it.label.c_str());
             ImGui::PopStyleColor();
             const ImVec2 p = ImGui::GetCursorScreenPos();
@@ -980,8 +997,8 @@ void renderMenu() {
     }
 
     ImGui::Dummy(ImVec2(1.0f, 2.0f));
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(theme.text[0] * 0.55f, theme.text[1] * 0.55f,
-                                                theme.text[2] * 0.55f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(theme.text[0] * 0.70f, theme.text[1] * 0.70f,
+                                                theme.text[2] * 0.70f, 1.0f));
     ImGui::TextUnformatted("Up/Down move   Left/Right change   Enter apply");
     ImGui::TextUnformatted("PageUp/PageDown jump between sections   mouse wheel scrolls");
     ImGui::TextUnformatted("Right click = right arrow   Insert / Backspace close");
