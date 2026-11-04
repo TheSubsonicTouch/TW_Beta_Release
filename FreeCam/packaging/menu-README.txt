@@ -104,6 +104,33 @@ game carries on from its own camera and not from where you flew to.
 WHAT CHANGED IN THIS BUILD
 --------------------------
 
+  - Build 24. The spawner has a hologram: where the NPC will stand, and which one, before
+    anything is spawned.
+
+    - SPAWN, "Spawn preview": a wireframe figure standing on the spot the next spawn
+      would use, with a ring on the ground at its feet. The spot is the spawner's own
+      transform - the same call the spawn itself makes - so the ring is where the NPC
+      will stand, not an estimate that could drift from it.
+    - The model name is written over the figure's head, and the distance and the side
+      under its feet. Both are read from the same field and toggle "Spawn Ped" uses, so
+      the label cannot disagree with what the button would spawn.
+    - Nothing is created to draw it. A preview that put a real NPC in the world would be
+      a spawn - the same allocator, the same fault path, something to clean up - so the
+      figure is geometry drawn over the game, and switching it on spawns nothing.
+    - It is built from the game's own view and projection matrices and drawn through
+      them, so it stands in the world rather than sitting on the screen: it turns with
+      the NPC, gets smaller with distance, and stays put when you fly around it. A point
+      behind the camera is dropped rather than drawn, which is the difference between a
+      figure in front of you and one smeared across the view.
+    - Those matrices come from the camera thread, which the preview starts if it is not
+      already up, and the preview keeps its own read-only camera to read them from - so
+      it works with the free camera switched off. If the build has no view accessor to
+      hook, the overlay says so instead of drawing a guess.
+    - SPAWN, "Preview distance": 0 to 10 metres ahead of the player, 3 by default, the
+      same number the spawner takes. 0 puts the figure where you are standing.
+    - SPAWN, "Hostile NPC": the same flag the H key flips, so the side can be set from
+      the menu and the label on the figure shows which one it is.
+
   - Build 23. The menu owns the weather and the skybox.
 
     - Weather used to be four presets, because the old code only wrote one number.

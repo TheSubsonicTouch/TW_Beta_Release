@@ -139,6 +139,17 @@ int  fc_mat_to_pose(const fc_mat *m, float pos[3], float *yaw, float *pitch, int
 int  fc_pose_from_view(const fc_mat *view, float pos[3], float *yaw, float *pitch, int *sign);
 void fc_basis(float yaw, float pitch, float forward[3], float right[3], float up[3]);
 void fc_mat_mul(const fc_mat *a, const fc_mat *b, fc_mat *out);   /* out = a * b */
+
+/* World -> screen, for anything drawn over the game view. Both matrices are in the
+ * engine's row-vector layout (a row is a basis vector, translation in m[12..14]),
+ * which is the layout fc_mat_from_pose writes and fc_mat_to_pose reads.
+ *
+ * Returns 1 and fills out[0], out[1] with pixels when the point is in front of the
+ * camera; 0 when it is behind (or the matrices are unusable), so a caller can skip
+ * the point rather than draw it mirrored behind them. *depth, when asked for, is the
+ * distance along the view axis in metres - the number to scale by. */
+int  fc_project(const fc_mat *view, const fc_mat *proj, const float world[3],
+                float screen_w, float screen_h, float out[2], float *depth);
 void fc_mat_transpose(const fc_mat *m, fc_mat *out);
 int  fc_mat_near_identity(const fc_mat *m, float tol);
 

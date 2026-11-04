@@ -616,6 +616,38 @@ void fc_mat_mul(const fc_mat *a, const fc_mat *b, fc_mat *out)
     *out = r;
 }
 
+int fc_project(const fc_mat *view, const fc_mat *proj, const float world[3],
+               float screen_w, float screen_h, float out[2], float *depth)
+{
+    fc_mat vp;
+    float p[4], c[4];
+    int j;
+
+    if (!view || !proj || !world || !out) return 0;
+    if (!finitef_(screen_w) || !finitef_(screen_h)) return 0;
+    if (screen_w < 1.0f || screen_h < 1.0f) return 0;
+
+    /* Both matrices are row-vector: the point is a row, the matrix multiplies on the
+     * right, so the two compose left to right into one matrix. */
+    fc_mat_mul(view, proj, &vp);
+
+    p[0] = world[0]; p[1] = world[1]; p[2] = world[2]; p[3] = 1.0f;
+    for (j = 0; j < 4; j++)
+        c[j] = p[0] * vp.m[j] + p[1] * vp.m[4 + j] +
+               p[2] * vp.m[8 + j] + vp.m[12 + j];
+
+    /* w is the distance along the view axis. Anything at or behind the eye has to be
+     * dropped: dividing by it would put the point on the screen, mirrored through the
+     * camera, which reads as a hologram behind the player. */
+    if (!(c[3] > 1e-4f)) return 0;
+    if (!finitef_(c[0]) || !finitef_(c[1])) return 0;
+
+    out[0] = (c[0] / c[3] * 0.5f + 0.5f) * screen_w;
+    out[1] = (0.5f - c[1] / c[3] * 0.5f) * screen_h;
+    if (depth) *depth = c[3];
+    return 1;
+}
+
 int fc_mat_near_identity(const fc_mat *m, float tol)
 {
     int i, j;

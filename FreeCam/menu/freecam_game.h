@@ -10,6 +10,10 @@
 
 #include <string>
 
+extern "C" {
+#include "../src/freecam.h"
+}
+
 namespace tw {
 namespace game {
 
@@ -68,6 +72,13 @@ void FreeCamTick();
 
 void FreeCamSetSpeed(float unitsPerSecond);
 float FreeCamSpeed();
+
+// The camera's own view and projection matrices, for anything drawn over the game view
+// (the spawn hologram). Returns false until the camera thread has found a camera; the
+// caller transposes when *transposed is set, because the engine keeps some builds
+// column-major. Read on the render thread, published by the camera thread, so it is a
+// snapshot rather than a live view.
+bool FreeCamCameraMatrices(fc_mat *view, fc_mat *proj, int *transposed);
 
 }  // namespace game
 }  // namespace tw

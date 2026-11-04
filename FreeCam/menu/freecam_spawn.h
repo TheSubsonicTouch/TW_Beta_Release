@@ -69,6 +69,12 @@ void SpawnRequest(const std::string& model, bool hostile);
 // front is refused, and useful on its own where there is no room).
 void SpawnRequestAt(const std::string& model, bool hostile, float metres);
 
+// Where a spawn at `metres` would put the NPC, as a 4x4 world matrix (row-major, the
+// layout fc_mat uses: rows are right/up/backwards, translation in 12..14). This is the
+// same transform SpawnRequestAt would use, so what the preview draws is where the NPC
+// will stand. Returns false when the player is not in the world yet.
+bool SpawnSpot(float metres, float out[16]);
+
 // Carry out at most one queued request. Call every tick from the camera thread.
 // Returns true when a request was carried out.
 bool SpawnPump();

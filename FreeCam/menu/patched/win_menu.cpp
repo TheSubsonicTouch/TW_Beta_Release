@@ -21,6 +21,7 @@
 #include "../game_hooks.h"
 #include "../menu_core.h"
 #include "freecam_game.h"
+#include "freecam_hologram.h"
 #include "freecam_noclip.h"
 #include "freecam_spawn.h"
 #include "freecam_unlock.h"
@@ -800,15 +801,97 @@ void renderMenu() {
     ImGui::PopStyleVar();
 }
 
+// Text centred on x, with a shadow one pixel down: the label hangs over whatever the game
+// is drawing (a dark alley, a bright sky) and has to read on both.
+void centredText(ImDrawList* dl, float x, float y, ImU32 col, const char* text, float scale) {
+    ImFont* font = ImGui::GetFont();
+    const float size = ImGui::GetFontSize() * scale;
+    const ImVec2 ts = font->CalcTextSizeA(size, 100000.0f, 0.0f, text);
+    const ImVec2 p(x - ts.x * 0.5f, y);
+    dl->AddText(font, size, ImVec2(p.x + 1.0f, p.y + 1.0f), IM_COL32(0, 0, 0, 190), text);
+    dl->AddText(font, size, p, col, text);
+}
+
+// What the next spawn would be: the name in the menu's field, because that is what the
+// Spawn Ped entry acts on; if the field has been emptied, the model the B key would use.
+std::string spawnPreviewModel() {
+    const tw::MenuItem* it = g_menu.item("Spawn Ped");
+    if (it && !it->text.empty()) return it->text;
+    const std::vector<std::string>& models = tw::game::SpawnModels();
+    const int index = tw::game::SpawnModelIndex();
+    if (index >= 0 && index < static_cast<int>(models.size())) return models[index];
+    return std::string();
+}
+
+// The spawn hologram: a wireframe NPC standing where the next spawn would put one, with
+// its model name over its head. It goes into the background draw list, so it sits over the
+// game and under the menu - the menu can be open on top of it and the figure is still
+// where it will be.
+//
+// Built fresh every frame from the camera's own matrices and the spawner's own transform,
+// which is why it tracks the world when you move rather than sliding around with the
+// screen: those are the two things it is meant to show.
+void renderSpawnHologram() {
+    if (!tw::game::HologramPreviewActive()) return;
+    const ImGuiIO& io = ImGui::GetIO();
+    const float w = io.DisplaySize.x;
+    const float h = io.DisplaySize.y;
+    if (w < 8.0f || h < 8.0f) return;
+
+    tw::game::HoloFrame frame;
+    tw::game::HologramBuildFrame(spawnPreviewModel(), w, h, &frame);
+
+    ImDrawList* dl = ImGui::GetBackgroundDrawList();
+    if (!frame.visible) {
+        // No figure yet: say why, in the same words the module would have put in the menu's
+        // status line, rather than showing nothing and leaving it a mystery.
+        const char* why = frame.note[0] ? frame.note : "spawn preview: nothing to draw";
+        centredText(dl, w * 0.5f, h * 0.70f, IM_COL32(255, 208, 120, 215), why, 1.0f);
+        return;
+    }
+
+    // Two passes - a wide soft glow under a thin bright line - so the figure reads against
+    // both a dark alley and a bright sky without being so loud it hides the game.
+    for (int pass = 0; pass < 2; ++pass) {
+        const float thickness = pass == 0 ? 4.0f : 1.5f;
+        const ImU32 colour = pass == 0 ? IM_COL32(60, 220, 255, 55) : IM_COL32(150, 245, 255, 220);
+        for (int i = 0; i < frame.segCount; ++i) {
+            const tw::game::HoloSegment& s = frame.segs[i];
+            dl->AddLine(ImVec2(s.ax, s.ay), ImVec2(s.bx, s.by), colour, thickness);
+        }
+    }
+
+    // The name goes over the head and the distance under the feet: two answers, both stuck
+    // to the figure, neither in a corner where it could belong to another NPC.
+    const float font = ImGui::GetFontSize();
+    float nameY = frame.headY - font * 1.7f;
+    if (nameY < 4.0f) nameY = 4.0f;
+    centredText(dl, frame.headX, nameY, IM_COL32(215, 250, 255, 245), frame.model, 1.12f);
+
+    char below[96];
+    std::snprintf(below, sizeof below, "%.0f m ahead - %s",
+                  static_cast<double>(tw::game::HologramDistance()),
+                  tw::game::SpawnHostile() ? "hostile" : "friendly");
+    centredText(dl, frame.feetX, frame.feetY + font * 0.45f, IM_COL32(190, 235, 245, 220),
+                below, 0.95f);
+
+    // The feet, so the exact spot is visible once the ring is only a few pixels across.
+    dl->AddCircle(ImVec2(frame.feetX, frame.feetY), 3.0f, IM_COL32(160, 245, 255, 200), 12, 1.5f);
+}
+
 void renderFrame() {
     const bool menuOn = g_menu.visible();
     tw::game::FreeCamHudLine probe[1];
     const bool hudOn = tw::game::FreeCamHudLines(probe, 1) > 0;
-    if (!menuOn && !hudOn && !tw::game::NoclipActive()) return;
+    const bool previewOn = tw::game::HologramPreviewActive();
+    if (!menuOn && !hudOn && !tw::game::NoclipActive() && !previewOn) return;
 
     ImGui_ImplDX11_NewFrame();
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
+
+    // First, so everything else draws on top of it.
+    renderSpawnHologram();
 
     if (menuOn) renderMenu();
 
@@ -997,10 +1080,37 @@ void buildMenu() {
     hooks.spawnPed = [](const std::string& model) {
         // Spawning sets the hotkey model as well, so B spawns what the menu just did.
         tw::game::SpawnSelectByName(model);
-        tw::game::SpawnSetHostile(false);
-        tw::game::SpawnRequest(model, false);
-        return "Spawn Ped: " + model + " - queued, see the corner display";
+        tw::game::SpawnRequest(model, tw::game::SpawnHostile());
+        return "Spawn Ped: " + model + (tw::game::SpawnHostile() ? " (hostile)" : " (friendly)") +
+               " - queued, see the corner display";
     };
+    // The side is the same flag the H key flips, so the toggle and the hotkey are one
+    // setting rather than two that can drift.
+    hooks.setSpawnHostile = [](bool on) {
+        tw::game::SpawnSetHostile(on);
+        return std::string(on ? "Spawn side: hostile - the NPC is from another faction"
+                              : "Spawn side: friendly - the NPC is on yours");
+    };
+    hooks.spawnHostile = []() { return tw::game::SpawnHostile(); };
+
+    // The hologram. Turning it on starts the camera thread if it is not up yet: that
+    // thread is what reads the renderer's camera, and the preview is read-only, so it is
+    // the same thread doing the same job with nothing being flown.
+    hooks.setHologramPreview = [](bool on) {
+        tw::game::HologramSetPreview(on);
+        if (on && !tw::game::FreeCamEnsureThread())
+            return std::string("Spawn preview: on, but the camera thread would not start");
+        return std::string(on ? "Spawn preview: on - the figure stands where the NPC will"
+                              : "Spawn preview: off");
+    };
+    hooks.hologramPreviewActive = []() { return tw::game::HologramPreviewActive(); };
+    hooks.setHologramDistance = [](float metres) {
+        tw::game::HologramSetDistance(metres);
+        char buf[80];
+        std::snprintf(buf, sizeof buf, "Spawn preview: %.0f m ahead", static_cast<double>(metres));
+        return std::string(buf);
+    };
+    hooks.hologramDistance = []() { return tw::game::HologramDistance(); };
 
     // The player's own controls: U, or the menu entry. The camera has to be on for it
     // to mean anything - with it off the player has the controls already - and the
@@ -1052,6 +1162,10 @@ void buildMenu() {
         g_menu.setOptions("Skybox (skydome)", tw::game::SkydomeNames());
         g_menu.setOptionIndex("Skybox (skydome)",
                               static_cast<std::size_t>(tw::game::SkydomeCurrentMenuIndex()));
+        // H flips the side in game and the preview toggle can be switched by the same
+        // hand that read it last frame; both entries follow the truth.
+        g_menu.setToggled("Hostile NPC", tw::game::SpawnHostile());
+        g_menu.setToggled("Spawn preview", tw::game::HologramPreviewActive());
     };
 
     tw::buildDebugMenu(g_menu, hooks);

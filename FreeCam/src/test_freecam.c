@@ -1203,6 +1203,70 @@ static void test_projection(void)
     CHECK(!fc_mat_is_projection(&id), "nor is the identity");
 }
 
+/* World -> screen, which is what the spawn hologram is drawn with. The pair used here is
+ * a view matrix from fc_mat_from_pose (sign 2: row 2 is +forward) and the perspective
+ * matrix above, so clip w is the distance along the view axis and the expected pixel is
+ * arithmetic rather than a magic number. */
+static void test_project(void)
+{
+    fc_mat persp = { { 1.3f, 0.0f, 0.0f, 0.0f,
+                       0.0f, 1.7f, 0.0f, 0.0f,
+                       0.0f, 0.0f, 1.0005f, 1.0f,
+                       0.0f, 0.0f, -0.2f, 0.0f } };
+    float pos[3] = { 3.0f, 1.5f, 8.0f };
+    float f[3], r[3], u[3];
+    fc_mat view;
+    float point[3], out[2], depth = 0.0f;
+    int i;
+
+    fc_mat_from_pose(&view, pos, 0.6f, -0.2f, 2);
+    fc_basis(0.6f, -0.2f, f, r, u);
+
+    /* Five metres straight ahead: the middle of the screen, and the distance back. */
+    for (i = 0; i < 3; i++) point[i] = pos[i] + f[i] * 5.0f;
+    CHECK(fc_project(&view, &persp, point, 1920.0f, 1080.0f, out, &depth) == 1,
+          "a point in front of the camera projects");
+    CHECK(NEAR(out[0], 960.0f, 0.5f) && NEAR(out[1], 540.0f, 0.5f),
+          "straight ahead is the centre, got %.2f %.2f", out[0], out[1]);
+    CHECK(NEAR(depth, 5.0f, 0.02f), "depth is the distance along the view axis, got %.3f", depth);
+
+    /* One metre right and one up. Screen y grows downwards, so "up" is a smaller y: the
+     * figure has to stand on its feet, and this is the sign that decides it. */
+    for (i = 0; i < 3; i++) point[i] = pos[i] + f[i] * 5.0f + r[i] + u[i];
+    CHECK(fc_project(&view, &persp, point, 1920.0f, 1080.0f, out, NULL) == 1,
+          "an off-centre point projects");
+    CHECK(NEAR(out[0], 1209.6f, 0.5f), "one metre right is right of centre, got %.2f", out[0]);
+    CHECK(NEAR(out[1], 356.4f, 0.5f), "one metre up is above centre, got %.2f", out[1]);
+
+    /* The same picture at half the size: every pixel halves, so a preview drawn at the
+     * backbuffer's size lines up with the game. */
+    {
+        float half[2];
+        CHECK(fc_project(&view, &persp, point, 960.0f, 540.0f, half, NULL) == 1,
+              "the same point on a half-size view");
+        CHECK(NEAR(half[0], out[0] * 0.5f, 0.5f) && NEAR(half[1], out[1] * 0.5f, 0.5f),
+              "half the pixels, same place: %.2f %.2f", half[0], half[1]);
+    }
+
+    /* Anything at or behind the eye has no screen position. Dividing by a negative w would
+     * mirror it through the camera - the figure would appear behind the player. */
+    for (i = 0; i < 3; i++) point[i] = pos[i] - f[i] * 2.0f;
+    CHECK(fc_project(&view, &persp, point, 1920.0f, 1080.0f, out, NULL) == 0,
+          "a point behind the camera is refused, not mirrored");
+    CHECK(fc_project(&view, &persp, pos, 1920.0f, 1080.0f, out, NULL) == 0,
+          "the eye itself is refused");
+
+    /* Nonsense in, no answer out rather than a divide by zero. */
+    for (i = 0; i < 3; i++) point[i] = pos[i] + f[i] * 5.0f;
+    CHECK(fc_project(NULL, &persp, point, 1920.0f, 1080.0f, out, NULL) == 0,
+          "no view matrix, no projection");
+    CHECK(fc_project(&view, NULL, point, 1920.0f, 1080.0f, out, NULL) == 0,
+          "no projection matrix either");
+    CHECK(fc_project(&view, &persp, NULL, 1920.0f, 1080.0f, out, NULL) == 0, "no point");
+    CHECK(fc_project(&view, &persp, point, 0.0f, 1080.0f, out, NULL) == 0,
+          "a zero-width view has no pixels");
+}
+
 /* The pose a view matrix was built from. Note that a world matrix also round trips
  * as *some* view matrix - a view matrix is the same basis with a different row 3 - so
  * the only real test is that the answer rebuilds the matrix it came from. */
@@ -1306,6 +1370,7 @@ int main(void)
     test_chain_walk();
     test_world_view_pair();
     test_projection();
+    test_project();
     test_pose_from_view();
     test_init_aliasing();
     test_transpose();

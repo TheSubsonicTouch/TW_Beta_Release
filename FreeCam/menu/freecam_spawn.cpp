@@ -719,6 +719,19 @@ void SpawnRequestAt(const std::string &model, bool hostile, float metres) {
            thread ? "is up" : "is NOT up");
 }
 
+bool SpawnSpot(float metres, float out[16]) {
+    if (!out) return false;
+    fc_mat player, spot;
+    if (!PlayerTransform(&player)) return false;
+    if (metres > 0.05f) {
+        if (!fc_spawn_matrix(&spot, &player, metres)) return false;
+    } else {
+        spot = player;
+    }
+    std::memcpy(out, spot.m, sizeof(float) * 16);
+    return true;
+}
+
 bool SpawnPump() {
     Lock();
     if (!g_pending) {

@@ -64,6 +64,7 @@ extern "C" {
 }
 
 #include "freecam_game.h"
+#include "freecam_hologram.h"
 #include "freecam_noclip.h"
 #include "freecam_spawn.h"
 #include "log.h"
@@ -1146,15 +1147,20 @@ bool FollowCameraSwitch() {
     return false;
 }
 
-bool CameraStillThere() {
-    if (!g_cam.obj) return false;
-    if (!Readable(g_cam.obj, 8)) return false;
-    if (!Readable(g_cam.obj + g_cam.viewOff, 64)) return false;
+// Whether this object is still the camera it was when it was adopted. Shared by the free
+// camera, which writes into it, and the spawn preview, which only ever reads - so the same
+// rules apply to both and neither can be fooled by memory that has since been reused.
+bool CameraAlive(const Camera &c) {
+    if (!c.obj) return false;
+    if (!Readable(c.obj, 8)) return false;
+    if (!Readable(c.obj + c.viewOff, 64)) return false;
     // The object starts with its vtable. If that is no longer what it was, the memory
     // has been handed to something else and writing into it would corrupt that.
-    if (g_cam.vtable && *reinterpret_cast<uintptr_t *>(g_cam.obj) != g_cam.vtable) return false;
+    if (c.vtable && *reinterpret_cast<uintptr_t *>(c.obj) != c.vtable) return false;
     return true;
 }
+
+bool CameraStillThere() { return CameraAlive(g_cam); }
 
 // --- flying ------------------------------------------------------------------
 
@@ -1698,6 +1704,89 @@ void StopFlying() {
     TW_Log("FreeCam: off after %.0f units", g_state.moved);
 }
 
+// --- the camera's matrices, for things drawn over the game view ----------------
+// The camera thread publishes an ordinary snapshot of the view and the projection; the
+// render thread reads it to place the spawn hologram. A seqlock rather than a lock: the
+// camera thread must never block on the render thread, and a reader that loses the race
+// just uses the previous frame's matrices.
+struct CameraSnapshot {
+    fc_mat view;
+    fc_mat proj;
+    volatile LONG seq;      // odd while being written
+    volatile LONG valid;
+    volatile LONG transposed;
+};
+CameraSnapshot g_shot;
+
+// --- the spawn hologram's camera ---------------------------------------------
+
+// The preview draws where the next spawn would land, so it needs the matrices the renderer
+// is drawing with: the same pair the free camera adopts, read and never written. The
+// accessor hook is what says which object that is, so switching the preview on installs it
+// (the same byte-verified hook the free camera uses, and a no-op for the game when nothing
+// is being drawn over it) and adopts the busiest camera near the player.
+//
+// Kept in its own Camera rather than reusing g_cam: the free camera's object is written to,
+// restored and thrown away with every flight, and a preview must never be able to disturb
+// that state machine. Read-only here, so the one thing this can get wrong is drawing a
+// figure where there is nothing - and the projection check below refuses even that.
+Camera g_previewCam;
+bool g_previewDetour = false;
+ULONGLONG g_previewNext = 0;
+
+void MaintainPreviewCamera() {
+    if (!tw::game::HologramPreviewActive()) {
+        if (g_previewCam.obj)
+            TW_Log("FreeCam: spawn preview off, letting go of the camera it was reading");
+        g_previewCam.obj = nullptr;
+        return;
+    }
+    if (g_previewCam.obj) {
+        if (CameraAlive(g_previewCam)) return;
+        g_previewCam.obj = nullptr;
+        TW_Log("FreeCam: spawn preview: that camera went away, looking for another");
+    }
+    // Nothing here is time-critical, so it asks only twice a second until it is found.
+    const ULONGLONG now = GetTickCount64();
+    if (now < g_previewNext) return;
+    g_previewNext = now + 500;
+    if (!g_previewDetour) {
+        g_previewDetour = true;
+        if (!EnsureDetours()) {
+            TW_Log("FreeCam: spawn preview: no view accessor on this build, so there is "
+                   "nothing to read the camera with");
+            return;
+        }
+    }
+    Camera found;
+    if (!AdoptFromProbes(&found)) return;
+    g_previewCam = found;
+    TW_Log("FreeCam: spawn preview reads the camera at %p (%s, view at +0x%x)",
+           found.obj, found.how, found.viewOff);
+}
+
+// Published by the camera thread, read on the render thread: the flying camera when there
+// is one, otherwise the preview's read-only one.
+void PublishCameraMatrices() {
+    const Camera &cam = g_cam.obj ? g_cam : g_previewCam;
+    fc_mat view, proj;
+    LONG valid = 0;
+    if (cam.obj && Readable(cam.obj + cam.viewOff, 64) &&
+        Readable(cam.obj + cam.projOff, 64)) {
+        std::memcpy(&view, cam.obj + cam.viewOff, 64);
+        std::memcpy(&proj, cam.obj + cam.projOff, 64);
+        if (fc_mat_is_projection(&proj)) valid = 1;
+    }
+    InterlockedIncrement(&g_shot.seq);          // now odd: a reader must not trust it
+    if (valid) {
+        g_shot.view = view;
+        g_shot.proj = proj;
+    }
+    InterlockedExchange(&g_shot.transposed, cam.transposed);
+    InterlockedExchange(&g_shot.valid, valid);
+    InterlockedIncrement(&g_shot.seq);          // even again
+}
+
 DWORD WINAPI Loop(LPVOID) {
     LARGE_INTEGER freq, prev, now;
     QueryPerformanceFrequency(&freq);
@@ -1708,10 +1797,15 @@ DWORD WINAPI Loop(LPVOID) {
 
     // The 1 ms timer is raised in StartFlying and lowered in StopFlying: a thread that is
     // only alive so the menu can spawn something must not hold the system timer down.
-    TW_Log("FreeCam: camera thread up (build 23: U hands the player the controls and takes them back, V noclip with or without the camera; B spawns an NPC 3 m ahead, N picks the model, H the side; the menu now owns the weather and the skybox)");
+    TW_Log("FreeCam: camera thread up (build 24: U hands the player the controls and takes them back, V noclip with or without the camera; B spawns an NPC 3 m ahead, N picks the model, H the side; the spawn preview draws where it will stand, and the menu owns the weather and the skybox)");
 
     for (;;) {
         if (g_quit) break;
+
+        // Whatever the camera looks like right now, hand a copy to the render thread for
+        // the spawn hologram. Cheap (128 bytes) and done before any continue, so a tick
+        // that skips the rest of the loop still refreshes it.
+        PublishCameraMatrices();
 
         // A spawn asked for from the menu is carried out here and nowhere else: this
         // thread is the one that has run the game's per-thread allocator init, and the
@@ -1736,6 +1830,10 @@ DWORD WINAPI Loop(LPVOID) {
             // that is the state the game is in unless someone has flown.
             BeginHotkeyFrame();
             HandleNoclipKeys();
+            // The spawn hologram does not fly anything: with the camera off it still needs
+            // to know where the renderer's camera is looking, so it keeps a camera of its
+            // own here - adopted, read, never written.
+            MaintainPreviewCamera();
             if (g_live) StopFlying();
             if (g_cam.obj) {
                 g_cam.obj = nullptr;
@@ -1758,6 +1856,7 @@ DWORD WINAPI Loop(LPVOID) {
             TW_Log("FreeCam: panic key, putting the camera back and the accessor back");
             Hud("F10", "free cam off");
             tw::game::NoclipSet(false);   // panic means everything off, not just the camera
+            tw::game::HologramSetPreview(false);   // and the preview's camera with it
             fc_freeze(&g_state, 0);
             g_playerFree = 0;             // the player keeps the controls; nothing is left set
             InputBlockSetActive(false);
@@ -1766,6 +1865,9 @@ DWORD WINAPI Loop(LPVOID) {
             RemoveDetour(g_viewAcc);
             g_detourTried = false;
             g_detourOk = false;
+            g_previewCam.obj = nullptr;   // the hook it was found through is gone
+            g_previewDetour = false;
+            g_previewNext = 0;
             continue;
         }
 
@@ -2010,6 +2112,22 @@ void FreeCamSetSpeed(float unitsPerSecond) {
 }
 
 float FreeCamSpeed() { return g_speed; }
+
+bool FreeCamCameraMatrices(fc_mat *view, fc_mat *proj, int *transposed) {
+    if (!view || !proj) return false;
+    // Two goes at the seqlock: the camera thread writes every millisecond, so a retry
+    // almost always lands on an even count.
+    for (int attempt = 0; attempt < 2; ++attempt) {
+        const LONG before = g_shot.seq;
+        if (before & 1) continue;                       // mid-write
+        if (!g_shot.valid) return false;
+        *view = g_shot.view;
+        *proj = g_shot.proj;
+        if (transposed) *transposed = g_shot.transposed;
+        if (g_shot.seq == before) return true;          // nothing changed under us
+    }
+    return false;
+}
 
 std::string FreeCamSetActive(bool on) {
     if (!on) {

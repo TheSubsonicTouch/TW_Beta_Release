@@ -309,6 +309,44 @@ void buildDebugMenu(Menu& menu, const DebugHooks& hooks) {
             list.applyOnChange = true;
             menu.addItem(list);
         }
+
+        if (hooks.setSpawnHostile) {
+            MenuItem side;
+            side.label = "Hostile NPC";
+            side.kind = ItemKind::Toggle;
+            side.toggled = hooks.spawnHostile ? hooks.spawnHostile() : false;
+            side.onToggle = [&menu, fn = hooks.setSpawnHostile](bool on) {
+                menu.setStatus(fn(on));
+            };
+            menu.addItem(side);
+        }
+
+        // The hologram. It is a drawing, not a spawn: nothing is created to show it, and it
+        // follows the name in the field above, so what the figure says is what the button
+        // would put down. The distance is the same number SpawnRequestAt takes.
+        if (hooks.setHologramPreview) {
+            MenuItem preview;
+            preview.label = "Spawn preview";
+            preview.kind = ItemKind::Toggle;
+            preview.toggled = hooks.hologramPreviewActive ? hooks.hologramPreviewActive() : false;
+            preview.onToggle = [&menu, fn = hooks.setHologramPreview](bool on) {
+                menu.setStatus(fn(on));
+            };
+            menu.addItem(preview);
+        }
+        if (hooks.setHologramDistance) {
+            MenuItem dist;
+            dist.label = "Preview distance";
+            dist.kind = ItemKind::Slider;
+            dist.minValue = 0.0f;
+            dist.maxValue = 10.0f;
+            dist.step = 1.0f;
+            dist.value = hooks.hologramDistance ? hooks.hologramDistance() : 3.0f;
+            dist.onChange = [&menu, fn = hooks.setHologramDistance](float v) {
+                menu.setStatus(fn(v));
+            };
+            menu.addItem(dist);
+        }
     }
 
     // ---- World -----------------------------------------------------------

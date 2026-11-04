@@ -121,6 +121,23 @@ tw::DebugHooks fullHooks(int* toggles, int* picks, int* levels,
         return "Skybox: index " + std::to_string(index);
     };
     hooks.skydomeCurrent = [] { return 2; };
+    // The spawn side and the hologram. The preview is off to start with, which is the
+    // state the menu has to open in: nothing is drawn until it is asked for.
+    hooks.setSpawnHostile = [toggles](bool on) {
+        ++*toggles;
+        return std::string(on ? "Spawn side: hostile" : "Spawn side: friendly");
+    };
+    hooks.spawnHostile = [] { return false; };
+    hooks.setHologramPreview = [toggles](bool on) {
+        ++*toggles;
+        return std::string(on ? "Spawn preview: on" : "Spawn preview: off");
+    };
+    hooks.hologramPreviewActive = [] { return false; };
+    hooks.setHologramDistance = [picks](float m) {
+        ++*picks;
+        return "Spawn preview: " + std::to_string(static_cast<int>(m)) + " m";
+    };
+    hooks.hologramDistance = [] { return 3.0f; };
     return hooks;
 }
 
@@ -155,6 +172,9 @@ void testStructure() {
 
     check(hasLabel(menu, "Spawn Ped"), "Spawn Ped is in the menu");
     check(hasLabel(menu, "Ped model (list)"), "the ped list is under it");
+    check(hasLabel(menu, "Hostile NPC"), "the side toggle is there");
+    check(hasLabel(menu, "Spawn preview"), "the hologram toggle is there");
+    check(hasLabel(menu, "Preview distance"), "and the distance that places it");
 
     check(hasHeader(menu, "CAMERA") && hasHeader(menu, "SPAWN") &&
               hasHeader(menu, "WORLD") && hasHeader(menu, "PROGRESSION"),
@@ -248,7 +268,16 @@ void testActions() {
     check(menu.items()[menu.selectedIndex()].label == "Noclip speed", "the speed picker follows");
     menu.handleKey(tw::Key::Down);   // Spawn Ped
     check(menu.items()[menu.selectedIndex()].label == "Spawn Ped", "then the spawn section");
+    // Down through what the spawn section now holds: the list, the side, the preview and
+    // its distance, and only then the next section.
     menu.handleKey(tw::Key::Down);   // Ped model (list)
+    check(menu.items()[menu.selectedIndex()].label == "Ped model (list)",
+          "then the model list");
+    menu.handleKey(tw::Key::Down);   // Hostile NPC
+    menu.handleKey(tw::Key::Down);   // Spawn preview
+    menu.handleKey(tw::Key::Down);   // Preview distance
+    check(menu.items()[menu.selectedIndex()].label == "Preview distance",
+          "the preview controls sit at the end of the spawn section");
     menu.handleKey(tw::Key::Down);   // Weather
     check(menu.items()[menu.selectedIndex()].label == "Weather", "down again reaches Weather");
     const std::size_t before = menu.items()[menu.selectedIndex()].optionIndex;
@@ -782,6 +811,64 @@ void testSkydome() {
     check(third.item("Skybox (skydome)")->optionIndex == 0, "with the cursor back on Automatic");
 }
 
+// The hologram entries. They are a drawing, not a spawn: the toggle only switches the
+// preview on, and the distance slider is the same number the spawner would use - so what
+// the figure shows is what the Spawn Ped entry above it would do.
+void testHologram() {
+    int toggles = 0, picks = 0, levels = 0;
+    std::vector<std::string> spawned;
+    tw::Menu menu;
+    menu.setVisible(true);
+    tw::buildDebugMenu(menu, fullHooks(&toggles, &picks, &levels, &spawned));
+
+    const tw::MenuItem* preview = menu.item("Spawn preview");
+    check(preview && preview->kind == tw::ItemKind::Toggle, "the preview is a toggle");
+    check(preview && !preview->toggled, "and it starts off - nothing is drawn unasked");
+
+    selectLabel(menu, "Spawn preview");
+    int before = toggles;
+    menu.handleKey(tw::Key::Select);
+    check(menu.item("Spawn preview")->toggled, "it switches on");
+    check(toggles == before + 1, "and calls the preview hook");
+    check(menu.status() == "Spawn preview: on", "the status line says so");
+
+    // Nothing was spawned by switching a drawing on.
+    check(spawned.empty(), "switching the preview on spawns nothing");
+
+    const tw::MenuItem* distance = menu.item("Preview distance");
+    check(distance && distance->kind == tw::ItemKind::Slider, "the distance is a slider");
+    check(distance && distance->value == 3.0f, "it opens on the spawner's own 3 m");
+    check(distance && distance->minValue == 0.0f && distance->maxValue == 10.0f,
+          "0 (on the player) to 10 m");
+    check(distance && distance->step == 1.0f, "in whole metres, which is what the row shows");
+
+    selectLabel(menu, "Preview distance");
+    before = picks;
+    menu.handleKey(tw::Key::Right);
+    check(picks == before + 1, "moving the distance calls its hook");
+    check(menu.status() == "Spawn preview: 4 m", "with the distance it moved to");
+
+    // The side toggle is the same flag the H hotkey flips, and the label on the figure is
+    // drawn from it: hostile and friendly must not be able to disagree.
+    selectLabel(menu, "Hostile NPC");
+    before = toggles;
+    menu.handleKey(tw::Key::Select);
+    check(menu.item("Hostile NPC")->toggled, "the side toggles to hostile");
+    check(toggles == before + 1, "and calls the side hook");
+    check(menu.status() == "Spawn side: hostile", "with its own status line");
+    check(spawned.empty(), "changing the side spawns nothing either");
+
+    // No spawner, no hologram: a build that cannot spawn has nothing to preview, and an
+    // entry that cannot do anything is worse than a missing one.
+    tw::DebugHooks bare;
+    bare.setFreeCam = [](bool on) { return std::string(on ? "on" : "off"); };
+    bare.setHologramPreview = [](bool) { return std::string("on"); };
+    tw::Menu second;
+    tw::buildDebugMenu(second, bare);
+    check(!second.item("Spawn preview") && !second.item("Preview distance"),
+          "without the spawner the preview entries are not built");
+}
+
 }  // namespace
 
 int main() {
@@ -794,6 +881,7 @@ int main() {
     testSparseHooks();
     testWeatherControls();
     testSkydome();
+    testHologram();
     testUnlockCatalog();
     testUnlockProfile();
     testUnlockKeepsProgress();

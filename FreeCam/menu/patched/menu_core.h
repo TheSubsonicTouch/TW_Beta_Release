@@ -144,6 +144,18 @@ struct DebugHooks {
     std::vector<std::string> pedNames;          // "Ped model (list)"; empty: no list
     std::string pedDefault;                     // what the name field starts with
     std::function<std::string(const std::string&)> spawnPed;
+    // Which side the spawned NPC is on. H flips the same flag in game, so the entry is kept
+    // in step by syncState rather than being trusted to remember.
+    std::function<std::string(bool)> setSpawnHostile;
+    std::function<bool()> spawnHostile;
+
+    // The hologram: a wireframe figure standing on the exact spot the next spawn would use,
+    // labelled with the model it would spawn. Drawn over the game view, not in the menu, so
+    // both answers are readable without the menu covering them.
+    std::function<std::string(bool)> setHologramPreview;
+    std::function<bool()> hologramPreviewActive;
+    std::function<std::string(float)> setHologramDistance;   // 0..10 metres ahead
+    std::function<float()> hologramDistance;
 
     // Progression.
     std::vector<std::string> levelTargets;          // Enforcer/Rackets/Triad/Rivals
