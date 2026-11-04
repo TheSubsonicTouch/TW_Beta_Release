@@ -104,16 +104,30 @@ game carries on from its own camera and not from where you flew to.
 WHAT CHANGED IN THIS BUILD
 --------------------------
 
+  - Build 29. The skybox is a part of the menu, and only of the menu.
+
+    - Build 28 gave the sky a pair of keys - K for the switch, Y for the next variant.
+      Those are gone. The SKY section is the whole of it now: no key to remember, nothing
+      that only works while you are not looking at the menu, and one place where the sky
+      can be read back.
+    - Nothing was lost with them. "Sky override" is the switch K used to be,
+      "Sky variant" walks the whole list with Left and Right, and "Next sky" is Y as a
+      row - all three reachable with the arrows, the mouse or the pad.
+    - The override keeps holding while the menu is closed: the section is where the sky
+      is set, not where it lives. Open the menu, set it, close the menu, and it stays.
+    - A still of the section is in packaging/menu-build29-preview.png, rendered from the
+      same row list and colour table this build uses.
+
   - Build 28. The skybox can be held still, and painted.
 
-    - WORLD, "Sky override (K)": switch it on and the sky stops being the weather's
+    - WORLD, "Sky override": switch it on and the sky stops being the weather's
       business. The game changes its sky on its own - when the rain starts, when the
       mission moves you across the island - and a sky picked in a menu was gone the next
       time it did. With the override on, the sky stays where it was put.
     - WORLD, "Sky variant": every skydome this installation actually has, read out of the
       game's own sky list, so the names are the ones the game uses and not a guess. The
       first entry is Automatic - the game chooses again - and the rest are held.
-    - "Next sky (Y)", or Y on the keyboard: the same thing without opening the menu.
+    - "Next sky": step to the next variant from the row, for when the list is long.
       Picking a sky switches the override on, because a sky that is picked and then left
       to the weather is not a sky anybody chose.
     - "Sky colour": eleven presets - the sky unchanged, golden hour, warm amber, rose
@@ -125,16 +139,14 @@ WHAT CHANGED IN THIS BUILD
       switches the picker to Custom, so the row never claims a preset it is not using.
     - The "Sky" line underneath says what the override is doing - which sky it is holding
       and at what strength - and says so plainly when the world has not loaded yet.
-    - K takes the sky and gives it back. Switched off, every colour value this build
-      borrowed is written back exactly as it was found: the game gets the sky it had, not
-      a painted-over version of it.
+    - The switch takes the sky and gives it back. Switched off, every colour value this
+      build borrowed is written back exactly as it was found: the game gets the sky it
+      had, not a painted-over version of it.
     - Nothing here writes through a pointer it has not checked. The sky's colours sit
       behind three pointers inside the game, so each one is verified before it is read,
       the block at the end has to look like a colour block before it is believed, and a
       build whose sky is not shaped the way this one is simply finds nothing, says so in
       the Sky line, and leaves the memory alone. The variant half works either way.
-    - A still of the section is in packaging/menu-build28-preview.png, rendered from the
-      same row list and colour table this build uses.
 
   - Build 27. The menu can be restyled, and it opens on the dragon.
 
@@ -528,10 +540,6 @@ CONTROLS
                         "Noclip (fly the player)")
     [ / ]               noclip speed down / up, 1x to 8x (only while noclip is on)
     R                   allow one more spawn after the spawner stopped itself
-    K                   hold the skybox: keep the variant chosen in the menu, and paint it
-                        with the colour chosen there. K again hands the sky back to the
-                        weather
-    Y                   next skybox variant, and hold it
 
 The mouse is natural: push it forward and you look up, pull it back and you look down.
 Moving it right turns right.

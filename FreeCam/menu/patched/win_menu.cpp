@@ -1500,7 +1500,7 @@ void buildMenu() {
         // value already matches, so this costs nothing on a quiet frame.
         {
             tw::SkySettings& sky = tw::game::Sky();
-            g_menu.setToggled("Sky override (K)", sky.enabled());
+            g_menu.setToggled("Sky override", sky.enabled());
             g_menu.setOptions("Sky variant", tw::game::SkyVariantNames());
             g_menu.setOptionIndex("Sky variant", static_cast<std::size_t>(sky.variant()));
             g_menu.setOptionIndex("Sky colour", static_cast<std::size_t>(sky.colour()));

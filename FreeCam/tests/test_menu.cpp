@@ -215,9 +215,9 @@ void testStructure() {
     check(hasLabel(menu, "Wetness override"), "the wetness slider is there");
     check(hasLabel(menu, "Weather change interval"), "the interval slider is there");
     check(hasLabel(menu, "Lock weather"), "the weather lock is there");
-    check(hasLabel(menu, "Sky override (K)"), "the sky override switch is there");
+    check(hasLabel(menu, "Sky override"), "the sky override switch is there");
     check(hasLabel(menu, "Sky variant"), "and the variants it holds");
-    check(hasLabel(menu, "Next sky (Y)"), "and a way to walk them without the menu");
+    check(hasLabel(menu, "Next sky"), "and a way to walk them from the menu");
     check(hasLabel(menu, "Sky colour"), "the sky colour presets are there");
     check(hasLabel(menu, "Sky colour strength"), "and how far to push them");
     check(hasLabel(menu, "Tint red") && hasLabel(menu, "Tint green") &&
@@ -267,6 +267,10 @@ void testStructure() {
 
     // The status line is empty until something is done.
     check(menu.status().empty(), "no status before the first action");
+
+    // The sky is driven from the menu and nowhere else, so no sky row may advertise a key.
+    check(!anyLabelContains(menu, "Sky override ("), "the sky switch does not name a key");
+    check(!anyLabelContains(menu, "Next sky ("), "and neither does the stepping row");
 }
 
 void testCursorSkipsHeaders() {
@@ -994,7 +998,7 @@ void testSkyOverride() {
         check(variant && variant->optionIndex == 0, "and the row starts on Automatic");
 
         // The switch.
-        selectLabel(menu, "Sky override (K)");
+        selectLabel(menu, "Sky override");
         menu.handleKey(tw::Key::Select);
         check(g_sky.enabled(), "the row switches the override on");
         check(menu.status().rfind("Sky override: on", 0) == 0,
@@ -1014,7 +1018,7 @@ void testSkyOverride() {
               "and the status line says so: " + menu.status());
 
         // The button: the same thing the Y key does.
-        selectLabel(menu, "Next sky (Y)");
+        selectLabel(menu, "Next sky");
         menu.handleKey(tw::Key::Select);
         check(g_sky.variant() == 2, "Next sky walks to the next one");
         check(menu.status() == "Sky variant: Cloudy", "and names it: " + menu.status());
@@ -1054,7 +1058,7 @@ void testSkyOverride() {
         const tw::MenuItem* only = menu.item("Sky variant");
         check(only && only->options.size() == 1 && only->options[0] == "Automatic",
               "an unloaded world still offers Automatic");
-        check(hasLabel(menu, "Sky override (K)"),
+        check(hasLabel(menu, "Sky override"),
               "and the switch is still there, so the feature is never a row that vanished");
     }
 
@@ -1248,7 +1252,7 @@ void testSectionJump() {
     check(menu.items()[menu.selectedIndex()].label == "Free Camera", "the jump starts at CAMERA");
 
     const char* forward[] = { "Spawn Ped", "Record keyframe (L)", "Weather",
-                              "Sky override (K)", "Level target", "Free Camera" };
+                              "Sky override", "Level target", "Free Camera" };
     for (const char* want : forward) {
         menu.jumpSection(1);
         const std::string got = menu.items()[menu.selectedIndex()].label;
@@ -1263,7 +1267,7 @@ void testSectionJump() {
     check(menu.items()[menu.selectedIndex()].label == "Level target",
           "PageUp from CAMERA wraps to the last section");
     menu.jumpSection(-1);
-    check(menu.items()[menu.selectedIndex()].label == "Sky override (K)", "and then to SKY");
+    check(menu.items()[menu.selectedIndex()].label == "Sky override", "and then to SKY");
     menu.jumpSection(-1);
     check(menu.items()[menu.selectedIndex()].label == "Weather", "and then to WORLD");
     menu.jumpSection(-1);

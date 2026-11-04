@@ -917,7 +917,7 @@ void buildDebugMenu(Menu& menu, const DebugHooks& hooks) {
 
         {
             MenuItem on;
-            on.label = "Sky override (K)";
+            on.label = "Sky override";
             on.kind = ItemKind::Toggle;
             on.toggled = sky->enabled();
             on.onToggle = [sky, &menu](bool want) {
@@ -965,7 +965,7 @@ void buildDebugMenu(Menu& menu, const DebugHooks& hooks) {
 
         {
             MenuItem next;
-            next.label = "Next sky (Y)";
+            next.label = "Next sky";
             next.kind = ItemKind::Action;
             next.onAction = [sky, &menu]() {
                 sky->nextVariant();
