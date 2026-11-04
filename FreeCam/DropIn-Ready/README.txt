@@ -1,0 +1,808 @@
+Triad Wars - Debug Menu, drop-in ready
+======================================
+
+No installer and no .bat files in this package: it is dinput8.dll, START-HERE.txt,
+this README and the hashes. Putting it in is one drag.
+
+START-HERE.txt is the short version - three steps and the keys. Read that first;
+this document is the long one, and everything in it still applies.
+
+QUICK START
+
+  1. If your game folder already has a dinput8.dll in it, rename it to
+     dinput8.original.dll first (Explorer: click it, press F2). Dragging over it
+     without that step loses the file you had.
+
+  2. Select everything in this folder (Ctrl+A) and drag the selection into the
+     folder that holds TriadWars.exe and Play-TriadWars.bat. The files, not the
+     folder: a folder inside a folder is one level too deep, and the game only
+     looks for dinput8.dll right next to TriadWars.exe.
+
+  3. Start the game as usual and get into the world - not the title screen, not a
+     loading screen. Press Insert, arrow down to "Free Camera" and press Enter.
+     F10 puts the camera back at any time, from anywhere.
+
+  KEY        WHAT IT DOES
+  Insert     open and close this menu
+  Arrows     move through the menu      Enter  choose      Backspace  back
+  Free Camera  the menu entry that turns the camera on and off
+  W A S D    fly                Space / C  up / down
+  right mouse  look around      Shift / Ctrl  faster / slower
+  L / J / M  record a keyframe / play the path / clear it
+  Left/Right playback speed     O  freeze      P  follow the player
+  B          spawn an NPC 3 m ahead of the player
+  N          next NPC model     H  hostile or friendly
+  F10        panic: put the camera back and switch off
+
+Everything below is the same document the installer package carries, with the
+install, uninstall and file-name paragraphs changed to match this layout.
+
+IF WINDOWS SAYS IT IS A VIRUS
+-----------------------------
+
+It is not, and this is what is going on. This zip holds a DLL that the game loads in place
+of its own dinput8.dll, and that DLL changes a running game: it hooks one function and
+writes camera matrices. That is exactly the shape of a class of malware, so heuristic
+scanners flag it - not for anything it does, but for the company it keeps. Nobody can sign
+this for you: a code-signing certificate costs money and identifies its holder, which a
+mod like this does not have.
+
+What has been done to keep the warnings down, without changing what the camera does:
+
+  - the standalone injector is no longer in this zip. It used CreateRemoteThread and
+    WriteProcessMemory to put a DLL into the game, which every engine reads as an
+    injector, and it was the single most-flagged file here. The DLL that is left uses
+    none of those calls: check the import table if you like - no OpenProcess, no
+    WriteProcessMemory, no network functions at all.
+  - same DLL as the installer package, but this one is already called dinput8.dll,
+    because that is the whole point of dragging it in. That is the one thing the other
+    package does better: a file with that name inside a downloaded archive is the
+    pattern scanners look for, so there it ships as FreeCam\menu-plugin.dll and the
+    installer renames it. If a scanner objects to this one, use that one - the bytes
+    are identical, and SHA256SUMS.txt shows it.
+  - both DLLs now carry proper version information - name, description, publisher, the
+    sentence "no network, no install, no keylogger" - instead of being anonymous blobs.
+    Binaries with no version information score worse, and there was no reason for them to
+    have none.
+  - the copy of the game's code that the hook jumps through is allocated non-executable
+    and only made executable once it is filled, instead of being writable and executable
+    at the same time, which is what a self-modifying loader looks like.
+
+What the DLL does, plainly:
+
+  - it reads the keyboard for its own hotkeys (and for W A S D while the camera flies),
+    which is why it needs DirectInput;
+  - it works entirely inside the game's own process: no other program is started, no
+    other process is touched, nothing is downloaded, nothing is written outside the game
+    folder and TW_MenuLog.txt;
+  - everything it patches is put back when you switch the camera off or press F10.
+
+SHA256SUMS.txt in the zip lists the hash of every file in it, so you can check that what
+you have is what was built:
+
+    certutil -hashfile dinput8.dll SHA256
+
+To stop the warning in the first place, unblock the zip before extracting it (right
+click, Properties, Unblock), or let the installer do it - it clears the "downloaded from
+the internet" mark on the extracted files.
+
+If a scanner still objects, the honest fix is to report it as a false positive, which
+Microsoft acts on for Defender: https://www.microsoft.com/en-us/wdsi/filesubmission -
+choose "I believe this file is incorrectly detected", attach dinput8.dll and
+say what it is. If you would rather not run something your scanner objects to, that is a
+perfectly good decision; the source is all in the repository, and ./build.sh rebuilds
+both binaries with zig.
+
+
+INSTALL - DRAG AND DROP
+-----------------------
+
+  1. Open this folder and your Triad Wars folder side by side.
+
+  2. If your game folder already has a dinput8.dll in it - the debug menu, or an
+     older version of this - rename it to dinput8.original.dll before you go on.
+     That is your undo button, and it takes one keypress.
+
+  3. Drag the files themselves into the game folder: the one with TriadWars.exe
+     and Play-TriadWars.bat in it. Select all of them (Ctrl+A) and drag the
+     selection - not the folder, which would land one level too deep where the
+     game never looks. Windows may ask whether to replace a file - say yes only if
+     you already saved the old one in step 2.
+
+  4. Start the game with Play-TriadWars.bat as usual.
+
+  5. Once you are in the world (not the title screen or a loading screen), press
+     Insert. The menu comes up with a Free Camera entry and the NPC spawn entries.
+
+The other package does exactly this for you, backup included, and has the .bat files
+that put everything back. If you would rather double-click than drag, use that one.
+
+This package installs the menu build only - the one with the Free Camera entry. The
+older standalone build (a DLL loaded by a small injector program) is not shipped in
+either package: the injector is the file scanners object to most, and it did the one
+thing this mod otherwise never does, which is touch another process. It still builds
+from the repository with ./build.sh if you want it.
+
+WHAT THE FREE CAMERA DOES
+-------------------------
+
+The game draws through a small function that hands out the camera's view matrix, and
+it calls it with the camera in hand. The menu hooks that function, so it can see which
+object the game is drawing with - not guess. It takes the object the renderer asks
+about most often, checks that its matrix really is a camera's, and remembers where that
+matrix sits inside it.
+
+While free cam is on, that same function answers with a matrix built from your pose,
+at the moment it is asked. The game rewrites its own camera every frame; an answer
+cannot be overwritten, which a stored matrix can. The matrices in memory are written as
+well, for the code that reads them directly, and put back when you switch off, so the
+game carries on from its own camera and not from where you flew to.
+
+WHAT CHANGED IN THIS BUILD
+--------------------------
+
+  - Build 30. The sky really changes colour, and the model list holds the game's own NPCs.
+
+    - The sky's colours were being written to pages the game had made read-only, and a
+      write to a read-only page is dropped without a word: the row moved, the number
+      moved, the sky did not. Every block is now opened for writing before it is touched,
+      and the protection it borrowed is handed back the moment the write is done, so the
+      game's pages are left exactly as they were found. The game is also asked for the
+      sky it is already showing, once, after the colour is in place: its own setup runs
+      again and builds its copy of the colours from the parameters this build painted, so
+      the colour reaches the sky at once instead of only on the next weather change.
+    - The colour also lifts as well as scales now. A night sky multiplied by a colour is
+      still a night sky, so a colour with red in it did nothing at all in the dark; a
+      little of the colour is added on top of the multiply, which is what makes it visible
+      whatever the sky's own brightness.
+    - "Sky colour strength" now spans a sane range in both directions, and a block is
+      believed if seven of its nine floats are plausible rather than all nine, so the
+      sky blocks that carry one or two out-of-range values are found instead of skipped.
+    - SPAWN, "Rescan models": the list was four names in the executable. The row reads the
+      installed game files - every file up to 96 MB whole, and the first and last 32 MB of
+      the big archives, which is where their name tables live - and collects every
+      character property set it finds, so the list holds the NPCs the game actually ships.
+      It runs in the background at below-normal priority, so the game keeps its frame
+      rate, and the result is merged with the built-ins and FreeCam.npc.txt without
+      duplicates and written back there, so the next start has it immediately.
+    - SPAWN, "Models found": how many models the list holds and how many of them came out
+      of the game files, or "scanning..." while a scan is running.
+    - The scan starts by itself a few seconds after the game is up; the row is for running
+      it again after a reinstall or a new install of the data files.
+    - Stats and parameter property sets are dropped as they are found: they hash to a
+      stat block, not a character, and a list that offers them is a list that spawns
+      nothing.
+    - A still of the section is in packaging/menu-build30-preview.png, rendered from the
+      same row list and colour table this build uses.
+
+  - Build 29. The skybox is a part of the menu, and only of the menu.
+
+    - Build 28 gave the sky a pair of keys - K for the switch, Y for the next variant.
+      Those are gone. The SKY section is the whole of it now: no key to remember, nothing
+      that only works while you are not looking at the menu, and one place where the sky
+      can be read back.
+    - Nothing was lost with them. "Sky override" is the switch K used to be,
+      "Sky variant" walks the whole list with Left and Right, and "Next sky" is Y as a
+      row - all three reachable with the arrows, the mouse or the pad.
+    - The override keeps holding while the menu is closed: the section is where the sky
+      is set, not where it lives. Open the menu, set it, close the menu, and it stays.
+    - A still of the section is in packaging/menu-build30-preview.png, rendered from the
+      same row list and colour table this build uses.
+
+  - Build 28. The skybox can be held still, and painted.
+
+    - WORLD, "Sky override": switch it on and the sky stops being the weather's
+      business. The game changes its sky on its own - when the rain starts, when the
+      mission moves you across the island - and a sky picked in a menu was gone the next
+      time it did. With the override on, the sky stays where it was put.
+    - WORLD, "Sky variant": every skydome this installation actually has, read out of the
+      game's own sky list, so the names are the ones the game uses and not a guess. The
+      first entry is Automatic - the game chooses again - and the rest are held.
+    - "Next sky": step to the next variant from the row, for when the list is long.
+      Picking a sky switches the override on, because a sky that is picked and then left
+      to the weather is not a sky anybody chose.
+    - "Sky colour": eleven presets - the sky unchanged, golden hour, warm amber, rose
+      dusk, violet, arctic, emerald, sepia, crimson, moonlight, acid - and Custom.
+    - "Sky colour strength": how far toward that colour the sky is taken. It scales the
+      sky's own colours rather than replacing them, so a sunset still reads as a sunset.
+      At 0% the override holds the variant and changes no colour at all.
+    - "Tint red", "Tint green", "Tint blue": a colour of your own. Moving any of the three
+      switches the picker to Custom, so the row never claims a preset it is not using.
+    - The "Sky" line underneath says what the override is doing - which sky it is holding
+      and at what strength - and says so plainly when the world has not loaded yet.
+    - The switch takes the sky and gives it back. Switched off, every colour value this
+      build borrowed is written back exactly as it was found: the game gets the sky it
+      had, not a painted-over version of it.
+    - Nothing here writes through a pointer it has not checked. The sky's colours sit
+      behind three pointers inside the game, so each one is verified before it is read,
+      the block at the end has to look like a colour block before it is believed, and a
+      build whose sky is not shaped the way this one is simply finds nothing, says so in
+      the Sky line, and leaves the memory alone. The variant half works either way.
+
+  - Build 27. The menu can be restyled, and it opens on the dragon.
+
+    - Background: the full-size dragon the menu was always meant to have, drawn behind
+      the rows and cropped to fit the window rather than stretched. Three other looks are
+      offered: the same dragon tiled, the small pattern the menu used to stretch, and no
+      picture at all - just the panel the text sits on.
+    - APPEARANCE, "Background contrast": how strongly the artwork shows through, from
+      nothing to full. The panel colour is always painted underneath, so the rows stay
+      readable at every setting.
+    - APPEARANCE, "Colours": four complete themes - Triad (the gold and red it shipped
+      with), Neon, Ink (grey, the least intrusive) and Jade. A theme sets the title, the
+      text, the selection bar, the section titles, the status line and the panel.
+    - APPEARANCE, "Text size": 85% to 160%, which scales the rows and the text together,
+      so a menu over a 4K game can be read without squinting.
+    - "Reset appearance" goes straight back to the shipped look.
+    - The settings are written to FreeCam.menu.txt next to the game, so the look survives
+      a restart. A missing file, or one from an older build that this one cannot read,
+      simply means the shipped look - it never fails to open.
+    - SPAWN, "Spawn now (B)": the same spawn as the B key, as a row that can be clicked.
+      The row above it is still the name field, for a model that is not on any list.
+    - A still of the four looks is in packaging/menu-build27-preview.png, rendered from
+      the same row list and colour table this build uses.
+    - Nothing here changes the free camera: the corner display, the flight and its hotkeys
+      are exactly what they were. This is the debug menu's own appearance.
+
+  - Build 26. Noclip and the spawner are where you can see them.
+
+    - The menu was sized to its contents, which was fine while it had four short sections.
+      With PATH and SPAWN it grew taller than the screen, and the sections below the bottom
+      edge could be neither read nor scrolled to - a window sized to its contents has
+      nothing to scroll. It now opens at a height that fits whatever the game is running
+      at, scrolls when there is more, and brings the row the cursor is on into view.
+    - The sections are ordered CAMERA, SPAWN, PATH, WORLD, PROGRESSION: the spawner sits
+      directly under the camera instead of under the recording tools.
+    - PageUp and PageDown jump from section to section, so SPAWN is one press away however
+      long the menu gets.
+    - "Noclip (V)" and the whole SPAWN section are always listed, even in a build where
+      they cannot work: an entry that says why it cannot work is an answer, while a missing
+      entry looks like a feature that was never built. With the hooks absent, noclip puts
+      its own row back to OFF and says so.
+    - The ped model list is filled in from syncState as soon as the spawner has models. It
+      used to be fixed at what was known when the menu was built, which is before the game
+      folder is necessarily readable - so the list could be empty for the whole session.
+    - Noclip from the menu now starts the camera thread that moves the player, and says
+      whether the player is in the world yet instead of switching a row on over a loading
+      screen.
+    - Spawning from the menu says when it is waiting for the world, and the "Spawner" row
+      shows "working..." while a request is queued. Both are read under the same lock the
+      camera thread writes the status with, so the row cannot tear a string out from under
+      the spawn.
+
+  - Build 25. Every feature is in the menu, and every row says which key it is.
+
+    - The camera's other modes are entries now: "Freeze camera (O)", "Follow player (P)"
+      and "Look at player (P)" - the frozen camera panning to keep you in frame - plus
+      "Fly speed", how many metres a second the camera travels, 1 to 60.
+    - The recorded path has a section of its own: "Record keyframe (L)", "Play path (J)"
+      as a toggle that shows when a playback is running, "Clear path (M)", the "Playback
+      speed" picker with every rung the arrow keys walk (0.1x to 4x), and a "Keyframes"
+      row saying how many are recorded - the one number needed to know whether a playback
+      can start at all.
+    - The spawner shows its own state - ready, waiting, or blocked after a fault - and
+      "Reset spawner (R)" is an entry, so the one way back on after a fault is no longer
+      only a key nobody would guess.
+    - "Spawn Ped" now puts the NPC at the "Preview distance" the hologram is standing at
+      instead of always three metres: move the slider and the figure and the NPC move
+      together. The B key still spawns at three metres.
+    - None of this writes the flight state from the render thread. The menu queues the
+      action its key runs, the camera thread carries it out at the top of its next tick,
+      and the answer comes back as the menu's own status line - the same sentence the
+      corner display shows.
+    - Rows the menu can show but not set ("Keyframes", "Spawner") are Info rows: the
+      cursor steps over them, so Enter can never land on a row that does nothing.
+
+  - Build 24. The spawner has a hologram: where the NPC will stand, and which one, before
+    anything is spawned.
+
+    - SPAWN, "Spawn preview": a wireframe figure standing on the spot the next spawn
+      would use, with a ring on the ground at its feet. The spot is the spawner's own
+      transform - the same call the spawn itself makes - so the ring is where the NPC
+      will stand, not an estimate that could drift from it.
+    - The model name is written over the figure's head, and the distance and the side
+      under its feet. Both are read from the same field and toggle "Spawn Ped" uses, so
+      the label cannot disagree with what the button would spawn.
+    - Nothing is created to draw it. A preview that put a real NPC in the world would be
+      a spawn - the same allocator, the same fault path, something to clean up - so the
+      figure is geometry drawn over the game, and switching it on spawns nothing.
+    - It is built from the game's own view and projection matrices and drawn through
+      them, so it stands in the world rather than sitting on the screen: it turns with
+      the NPC, gets smaller with distance, and stays put when you fly around it. A point
+      behind the camera is dropped rather than drawn, which is the difference between a
+      figure in front of you and one smeared across the view.
+    - Those matrices come from the camera thread, which the preview starts if it is not
+      already up, and the preview keeps its own read-only camera to read them from - so
+      it works with the free camera switched off. If the build has no view accessor to
+      hook, the overlay says so instead of drawing a guess.
+    - SPAWN, "Preview distance": 0 to 10 metres ahead of the player, 3 by default, the
+      same number the spawner takes. 0 puts the figure where you are standing.
+    - SPAWN, "Hostile NPC": the same flag the H key flips, so the side can be set from
+      the menu and the label on the figure shows which one it is.
+
+  - Build 23. The menu owns the weather and the skybox.
+
+    - Weather used to be four presets, because the old code only wrote one number.
+      That number is a continuous 0..2 amount the game clamps itself, so it is now a
+      slider - every value between dry and the cap - with the presets kept as
+      shortcuts and three more of them added above what used to be the top.
+    - Four more weather controls, each one a field the game's own script bindings
+      read and write: rain chance (how likely the weather system is to rain on its
+      own), surface wetness override, the interval between the game's own weather
+      changes, and a lock that stops it changing at all.
+    - Skybox (skydome): the menu lists the skydomes the running game actually has,
+      read out of its own skydome table, and switches between them. "Automatic"
+      hands the choice back to the weather. The list only exists once the world has
+      loaded, so the entry starts with Automatic and fills in on its own.
+
+  - Build 22. V turns noclip on and off with the free camera switched off, and the
+    menu entry does the same.
+
+    - Noclip flies the character, not a camera, so it never needed the free camera.
+      The key was only read while the camera was flying, though, and the thread that
+      reads keys was only started by switching something on - so in practice V did
+      nothing until the free camera had been on at least once. The key is now read
+      whether the camera is on or off, and the thread starts with the menu.
+    - [ and ] (the flying speed) come with it. Both work with the camera off too.
+    - The menu entry is unchanged: CAMERA, "Noclip (fly the player)", ON/OFF. The row
+      follows V when it is pressed in game, the same way it follows the entry.
+
+  - Build 21. U hands the player their controls while the free camera stays on, and
+    takes them back when pressed again. Noclip moved to V.
+
+    - With the camera flying, the game's controls are held back: that is what stops
+      the character walking out from under the view or swinging a punch while WASD is
+      flying the camera. U gives the game those controls anyway - walk, fight,
+      interact, drive, look around - and the camera stays exactly where it is, at the
+      angle it has, and stops reading its own keys so the two do not fight over WASD.
+    - U again takes them back: the player freezes where they stand and the keys are
+      the camera's. The corner display says which of the two is active, and the line
+      reads "player free - move, fight, interact" or "player frozen - free cam
+      controls", so it is never ambiguous who has the keys.
+    - The menu has the same switch: CAMERA, "Player free (U)", second entry, ON/OFF.
+      A hotkey press shows up there on the next frame, the same way the noclip row
+      does. With the free camera off the player has the controls already, so the
+      entry says so rather than pretending to do something.
+    - Noclip is on V now, and still in the menu ("Noclip (fly the player)"). U was
+      noclip from build 16 to 20; it could not also be the player's controls, because
+      both move the character and one of them has to own WASD. Turning noclip on
+      switches the freed player back off, and U does the same to noclip - whichever
+      was pressed last has the character.
+    - O (freeze), P (follow), F10 and switching the free camera off all give the
+      player the controls as they always did, and each of them clears the U flag, so
+      there is no state where the keys belong to nobody.
+
+  - Build 20. "Unlock all content" now switches the game's events and activities on
+    as well. It used to stop at the content - levels, vehicles, clothing, upgrades - and
+    left a fresh profile with three tutorial jobs and no event running.
+
+    - Jobs: all 116 of the game's errands can be offered, not the tutorial's first rung.
+      The board and the "Next Job" button now draw from the whole catalogue, including
+      the 29 jobs the game data switches off (the combat-tutorial variants, the
+      commodity collectors) and the two behind the export chain, which used to hide 49
+      more jobs that list them as prerequisites.
+    - The job board is refilled on the press, so the three cards change straight away
+      instead of at midnight.
+    - Events: the challenge is started with a full rotation ahead of it and opted into,
+      so the events screen has a live challenge with its reward tiers instead of
+      "nothing running" - and it is still running and still joined when the rotation
+      rolls over, instead of asking you to take part again a week later.
+    - Rivals: every turf's post-raid cooldown is cleared, so all seven are on the world
+      map again (the "Unlock raids and events" entry does this on its own), and a raid
+      from then on no longer takes that turf off the map while the flag is set.
+    - Favours: job rewards and favour packs can pay all 137 upgrade cards whatever
+      your level, the two free-to-play-only ones ("Health Regen Cap I", "Tough
+      Guy I") included - a level 1 profile otherwise reaches six of them.
+    - Content: every favour, enforcer upgrade and shop item is put in the bags and the
+      enforcer, rackets and triad are put at the top level, from this server's own
+      catalogues - the older unlock needs the game's extracted gamedb.json and does
+      nothing without it.
+    - The favour shops for the extortion and gambling racket tutorials had no catalogue
+      at all, which leaves their screen blank; they list the favour packs now.
+    - The flag it sets is UnlockBag.All in state.json, and the server reads it on its
+      next request (handlers.py is touched, which is how the server reloads). Deleting
+      that line - or its "All" - puts the board back to the story ladder; nothing else
+      in the profile is undone.
+    - It needs this build's LocalServer/state.py. If you run your own copy of the
+      server, update that file too: an older one does not know the flag, and the menu
+      says so in its status line instead of pretending the jobs opened.
+
+  - Build 19. "Spawn Ped" is back in the menu, as one entry.
+
+    - It is in the menu under SPAWN: "Spawn Ped". Click the field, type a character's
+      property-set name, press Enter, and that character is spawned three metres in
+      front of the player. Any name the game knows works, including ones this build has
+      never seen - the spawner hands the name to the game's own spawn call, and a name
+      it does not know comes back as a line in the corner display instead of a crash.
+    - "Ped model (list)" underneath fills the field in with a name the spawner already
+      knows, so it can be spawned without typing (and the name can still be edited
+      afterwards). The list is the built-ins, anything in FreeCam.npc.txt, and every
+      character property set the game files name.
+    - "Hostile" is not on the menu any more: a ped spawned this way belongs to its own
+      default side. The B hotkey and its H switch still work as before.
+    - While the menu is open the game's hotkeys are not read. Typing "before" into the
+      field used to also spawn the hotkey ped (B), walk the models (N) and switch
+      noclip (V, U in that build) and the player's own controls, because those keys are
+      read straight from the keyboard rather than through the menu. They are ignored
+      while the menu is open, and the free camera and noclip hold still for the same
+      reason.
+
+  - Build 18. Noclip is a proper mode now, in the menu and on the keyboard.
+
+    - It is in TriadMenu (CAMERA section), "Noclip (fly the player)", and it can be
+      switched on with a hotkey without opening the menu at all (U then; V since build
+      21, which gave U to the player's own controls). It works with the free camera
+      switched off: it moves the character, not a camera.
+    - The character stays where you put it. Before, the position was only written while
+      a key was held, so letting go meant the game's gravity pulled you down between
+      presses - a very fast lift rather than noclip. Now the position the mode owns is
+      written every tick, so you hover, walk off a roof and keep going, and land only
+      when you switch it off.
+    - "Noclip speed" is a menu entry next to it: 1x to 8x, applied as you browse it. On
+      the keyboard [ and ] step through the same list, and the corner display shows the
+      speed while noclip is on, not just for a second after the key.
+    - F10 now switches noclip off as well, whether or not the free camera is on: the
+      panic key means "give me the character back", not "put the camera back".
+
+  - Build 17. The menu is called TriadMenu now, and it has been cleaned up and dressed
+    up.
+
+    - The list is shorter. Everything that could not work or was a duplicate is gone:
+      the old NPC spawn entries (they came back in build 19 as the single "Spawn Ped"
+      entry; B, N and H are unchanged), Time of day,
+      Teleport to waypoint, Hide HUD, Invincible and Reload config. All of those
+      answered "not wired yet" or did nothing at all, and a menu that offers what it
+      cannot do is worse than a short one.
+    - What is left is grouped: CAMERA, WORLD, PROGRESSION.
+    - Every entry shows its state on the right - ON/OFF, the weather that is selected,
+      the level, the preset - so the menu can be read without pressing anything.
+    - The mouse works: click an entry to select it, click it again to use it. The right
+      mouse button is the right arrow, for the entries that have a value.
+    - The background is a red Chinese dragon, tattoo style, drawn behind the list at a
+      little over half strength so the text stays readable.
+
+  - Build 16. Three new things, and one that was already there but would not survive a
+    bad spawn.
+
+  - Noclip: the character is flown instead of a camera. Menu item "Noclip (fly the
+    player)", or a hotkey (U then; V since build 21). WASD moves, Space goes up, C goes
+    down, Shift is fast and Ctrl is slow; the left and right arrows set the speed from
+    1x to 8x. Only the character's position is written - never the rotation - so the
+    game keeps its bearing and its animations, and switching noclip off drops you
+    wherever you are and lets the game's own physics take over. That is how you get
+    onto a roof: fly there, switch off, land.
+
+  - The model list is filled from the game's own data files. The scan walks the folder,
+    reads the character property sets it finds in the data files, adds them to the
+    built-ins and writes them to FreeCam.npc.txt, so the list survives a restart and can
+    be trimmed by hand. Since build 30 it has the menu entries "Rescan models" and
+    "Models found" and starts itself a few seconds after the world loads;
+    FreeCam.npc.txt next to TriadWars.exe is still the way to add a name by hand.
+
+  - Unlock All now opens the raids and events too. Unlocking the content was only half
+    of it: every rival is on a post-raid cooldown and the jobs are a chain, so the map
+    could still be empty. The unlock now clears every rival's cooldown and marks the
+    earlier jobs as done, which opens the ladder. There is a separate "Unlock Raids and
+    Events" item for when the cooldowns come back after you have raided. The job board
+    re-rolls when it is used, so a job in progress is replaced by a new one.
+
+  - A spawn that faults inside the game no longer takes the next one down with it: the
+    spawner switches itself off, says so, and R gives it one more try.
+
+  - The spawn items in the menu now actually do something. They did not before, for a
+    dull reason: the spawn is carried out on the camera thread - the only thread that
+    has the game's per-thread allocator - and that thread only existed once you had
+    flown the camera. Choosing "Spawn NPC" without ever flying left the request
+    sitting in a queue that nothing ran. The thread is now started when you ask for a
+    spawn, whether or not the camera is on.
+  - A spawn asked for too early - on a loading screen, or before the player exists -
+    is retried for eight seconds instead of failing, so pressing the key on the way
+    into the world still works.
+  - The spawn calls go through the menu's guarded trampoline, so a failure inside the
+    game's spawn code comes back as a line in the corner display instead of a crash.
+
+  - B spawns an NPC three metres in front of the player, facing the way you face. N walks
+    through the models, H switches between hostile and friendly. V turns noclip on and
+    off, R allows one more spawn after a fault. The spawner is hotkey-only since build
+    17; the menu does not carry it any more.
+    The result of each spawn, with the faction ids it read, goes to TW_MenuLog.txt.
+
+    The spawn is the game's own: the model's property-set name is hashed, the game makes
+    an id for it, and its SpawnAtXform builds the object - the same three calls its own
+    encounters make when they put an on-foot unit in the world. "Hostile" and "friendly"
+    are the faction field the game reads when it works out who is on whose side: friendly
+    sets the NPC to your faction, hostile gives it a different one. The model list holds
+    the character prefabs the game's executable names by itself, and since build 30 every
+    one the data files name as well; any others you know can still go in FreeCam.npc.txt
+    (one property-set name per line, next to TriadWars.exe) and they join the list.
+
+  - J plays the recorded keyframes back (it was K up to build 10). Builds 8 and 9 read
+    the key twice in one frame to check the freeze first, which used the press up, so the
+    playback never started at all; hotkeys now latch their press for the frame, so that
+    cannot happen to any of them. J also thaws a frozen camera before playing.
+  - The playback is key to key again, exactly as it was when it worked: the camera
+    travels from each keyframe to the next at the speed it was flown, so the scene lasts
+    as long as the flight did and every key is hit on the dot. A turn that crosses 180
+    degrees goes the short way round.
+  - Two timing faults that made a playback look like it did nothing are fixed. A path
+    whose keys had all been taken in the same instant played in a few milliseconds (the
+    camera simply jumped to the last key); it is now played with the keys spaced out.
+    And a path kept across switching free cam off and on used to squeeze every new key
+    into 0.02 s of the old path - it now carries on from where it stopped.
+  - While a path is playing the log says where it has got to, every two seconds:
+    "FreeCam: playback 3.4 of 12.0 s at camera 1401.2 -820.5 5.3 (1.00x, J stops it)".
+
+  - A frozen camera pans instead of standing still: with the camera held by O, press P
+    and it keeps its position and turns to keep the player in the middle of the picture
+    as they walk, drive and fight. It never follows - only the angles change. P again
+    holds it still, and O thaws it back into a free-flying camera.
+  - That is the whole flow: free cam on = the player is held and the camera flies;
+    O = the player is freed and the camera is pinned where it is; O then P = the pinned
+    camera watches the player.
+  - The playback speed keys and M now say what they did in the log, so a key that seems
+    to do nothing can be checked: "FreeCam: playback speed 1.25x (right arrow)" and
+    "FreeCam: 37 keyframe(s) cleared - the next L starts a new path".
+
+  - While the camera is flying, the player does not act any more. The character stands
+    still, does not swing, shoot or start conversations, and does not turn with the
+    mouse. The game's own controls are held back at three places (see below); nothing
+    else about the game changes, and they come back the instant you switch the camera
+    off or press O or P.
+  - P now pans as well as follows: the camera keeps its framing and turns with the
+    player's own camera, so walking and looking around stays where you framed it.
+  - M forgets every recorded keyframe, so the next L starts a new scene instead of
+    adding to the old one.
+  - The left and right arrow keys change how fast a recorded path plays back, from 0.1x
+    to 4x in steps (0.1, 0.2, 0.25, 0.33, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4). The speed is
+    shown in the top-right corner as it changes and stays set for the next playback.
+  - Switching back and forth no longer glitches: turning the camera off only puts the
+    old matrices back while the camera still holds ours, so a game pose written since
+    is never overwritten by a stale one.
+
+  - The mouse is no longer inverted, and this time the cause is known. The game
+    keeps its camera matrix the other way round from how earlier builds wrote it:
+    the rows of the view matrix hold the camera's right, up and backwards axes, and
+    its world matrix holds the same three axes as rows - the two are inverses, which
+    is why the translation of one is not the position and the other's is. Writing a
+    world matrix into the view slot makes the picture look out of the back of the
+    camera, and every control then works backwards. The matrices are now built the way
+    the game's own camera builds them; the test suite checks the result against a
+    camera matrix copied out of a real TW_MenuLog.txt, and it is the picture, not a
+    sign in the mouse code, that is now right.
+  - O freezes the camera where it is. The view stays put while your character walks,
+    drives, fights and interacts - useful for watching a scene from a fixed angle. O
+    again hands the camera back, and F10 clears the freeze as well.
+  - A small hotkey display in the top-right corner shows what was just pressed (P, L,
+    K, O, F10). It fades away by itself after a moment, so the corner is empty while
+    you are just flying.
+  - P and the keyframes from the last build are unchanged.
+
+CONTROLS
+--------
+
+    Insert              open TriadMenu
+    Up / Down           move the cursor; PageUp / PageDown jump between sections
+    Left / Right        change the value on the row (Enter applies it)
+    Free Camera         toggle it in the menu
+    W A S D             move forward, back, left, right
+    Space / C           up / down
+    Hold right mouse    look around (the pointer is held still while you do)
+    Shift               five times faster
+    Ctrl                a fifth of the speed
+    P                   follow the player - the camera keeps its framing and goes
+                        wherever the player goes; P again to stay put. With the camera
+                        frozen (O), P pans it to keep the player in frame instead
+    L                   record a keyframe where the camera is now
+    J                   play the captured keyframes back as a scene, at the speed they
+                        were flown (or whatever the arrows were set to)
+    Left / Right arrow  play the path back slower / faster, 0.1x to 4x
+    M                   forget every keyframe, to start a new scene
+    O                   freeze the camera where it is - the view stays put while the
+                        player moves, fights and interacts; O again to unfreeze
+    F10                 panic: put the camera back and switch off, from anywhere
+    B                   spawn the selected NPC three metres in front of the player,
+                        facing the way the player faces (the menu's "Spawn Ped" does the
+                        same with a name you type)
+    N                   next NPC model
+    H                   NPCs spawn hostile or friendly (the menu has the same choice)
+    U                   player free on/off: hand the game's controls to the
+                        character while the camera stays put (menu item
+                        "Player free (U)"); U again freezes them and the camera
+                        flies again
+    V                   noclip on/off: fly the character themselves (menu item
+                        "Noclip (fly the player)")
+    [ / ]               noclip speed down / up, 1x to 8x (only while noclip is on)
+    R                   allow one more spawn after the spawner stopped itself
+
+The mouse is natural: push it forward and you look up, pull it back and you look down.
+Moving it right turns right.
+
+Spawning NPCs:
+
+  - "Spawn Ped" in the menu (SPAWN section): type the character's property-set name in
+    the field and press Enter. Three metres in front, standing upright, facing the way
+    you face. This is the way to spawn a ped whose name is not in any list; a name the
+    game does not know is reported, not crashed on.
+  - B puts one on the ground three metres in front of the player, standing upright and
+    facing the same way, using the model picked with N. It is the game's own spawn call, so the NPC is a real character
+    of the chosen kind, not a model pasted into the scene.
+  - H decides whether it belongs to your faction (it will not fight you) or to a
+    different one (the game's AI reads that field when it works out who is on whose side).
+    The menu's "NPC attitude" selector does the same thing.
+  - "Spawn NPC on me" is the same spawn with no offset at all, for when three metres
+    ahead is inside a wall or when you want it exactly where you stand.
+  - If that spot is refused - a doorway, a wall, the middle of the road - the same call
+    is made once more at the player's own position, and the corner display says "on you"
+    instead of "3 m ahead". So one key press either makes one NPC or says why it could
+    not; it does not keep trying and filling the street.
+  - A spawn never runs on the render thread: the game's spawn path allocates through a
+    per-thread allocator, so the camera thread carries it out after running the game's own
+    initialiser for that allocator. If it fails, the reason is in TW_MenuLog.txt.
+
+Noclip:
+
+  - U, or "Noclip (fly the player)" in the menu. WASD moves, Space up, C down, Shift is
+    fast, Ctrl is slow. It works with the camera off as well - it is the character that
+    moves, not a camera.
+  - The speed is 1x to 8x: "Noclip speed" in the menu, or [ and ] on the keyboard. The
+    corner display shows the current speed the whole time noclip is on.
+  - You stay where you are put. The position is written every tick, so the character
+    hovers instead of falling, and walking off a ledge keeps you at the same height.
+  - Only the position is written. The rotation belongs to the game: the character keeps
+    facing the way it faced, the animation system keeps working, and switching noclip
+    off hands the character back to the game, which drops them to the ground from that
+    spot.
+  - The game's own controls still work underneath, so you can shoot or interact while
+    flying; the game's own walking is simply overwritten by the position being held.
+
+Follow and keyframes:
+
+  - P pins the camera to the player: it keeps whatever offset it had when you pressed P,
+    follows the player wherever they go, and turns with them as they look around. While
+    P is on the player is in control; the camera is not flown by hand.
+  - L records the camera's pose (where it is and where it looks). Press it again
+    somewhere else. Two are enough; up to 64 are kept.
+  - J plays them back, taking the same time the flight took, then stops on the last one.
+    Press J again to replay, or J while it is playing to stop and stay where it got to.
+    Recording more keyframes adds to the same path until free cam is switched off - a
+    path survives switching free cam off and on again, and is cleared when the game is
+    restarted.
+
+    The playback is the flight, replayed: from keyframe to keyframe, at the speed the
+    camera was flown, starting to move on the first frame. Put the keys a second or two
+    apart and the scene will follow the route you took.
+  - The arrow keys set the speed of that playback, 0.1x to 4x, shown as you press them
+    (0.5x is slow motion, 2x is twice as fast). The speed you leave it at is kept.
+  - M clears the path completely, so the next keyframes are a new scene.
+
+While the path is playing, the mouse and movement keys are ignored: the path is driving.
+
+The player's controls:
+
+  - Free camera on, no O and no P: the camera is yours and the player's controls are
+    held back. The character cannot walk, drive, attack or interact, and the mouse does
+    not turn the character either. That is what makes the flight a camera and not a
+    puppet show.
+  - U hands the controls to the character without moving the camera: walk, fight,
+    interact, drive and look around from where the camera is. The camera stops taking
+    WASD while it is doing that, so the two are not both flying. U again freezes the
+    player where they stand and the keys are the camera's again.
+  - O (freeze) or P (follow) hand the controls straight back: move, fight, interact and
+    look around as usual, while the camera keeps watching.
+  - Switching free cam off, or F10, gives them back too - there is no state you can get
+    stuck in.
+  - How: the game reads the keyboard through DirectInput and the mouse through raw
+    input. The keyboard device's state is emptied of everything except the camera's own
+    keys, WM_INPUT (the raw mouse) is dropped before the game's window procedure sees
+    it, and the game's imports of GetAsyncKeyState/GetKeyboardState are redirected. The
+    DLL and the menu keep reading the real keyboard, which is why the hotkeys and the
+    menu still work.
+
+The freeze (O):
+
+  - The camera stops where it is and stays there. The player is untouched, so WASD,
+    attacking, driving and interacting all still work - you are just watching from a
+    fixed angle.
+  - While frozen, the mouse is not captured, so the right button goes to the game.
+  - Freezing stops a follow (P) and a playback (J): both would drag the view along.
+  - O again, F10, or switching free cam off all thaw it. Switching free cam off and on
+    always starts unfrozen.
+
+A frozen camera that pans (O, then P):
+
+  - O pins the camera where it is and gives the controls back to the player.
+  - P then aims the pinned camera at the player: the camera does not move, it only turns,
+    so it keeps the player in frame wherever they go. The pan is smoothed, not a snap.
+  - P again stops the aiming; O again (or F10) hands the camera back to you to fly.
+
+The hotkey display:
+
+  - Sits in the top-right corner, one line per key pressed, newest on top.
+  - Fades out a second after the press; nothing is drawn while it is empty.
+  - It is drawn by the same overlay as the menu, so it works with the menu closed.
+
+The menu's own keys (arrows, Enter, Backspace) still work, so you can open the menu
+while flying and switch it off from there.
+
+
+IF IT DOES NOT WORK
+-------------------
+
+TW_MenuLog.txt, next to TriadWars.exe, records everything. The second line of a flight
+says which build is running - "build 19" for this one. If it says a lower number, the game
+is loading an older dinput8.dll: drag this package's dinput8.dll in again.
+Load into the world first - the camera cannot be told apart on a loading screen -
+then toggle it and look for these lines, in this order:
+
+    FreeCam: camera thread up (build 19: B spawns an NPC 3 m ahead, N picks the model, H the side, U noclip, R clears a spawn fault)
+    FreeCam: switched on, asking the renderer which camera it draws
+    FreeCam: hooked the view accessor at 0000... with an absolute jump (original kept at ...)
+    FreeCam: the renderer asked about 0000... for the first time
+    FreeCam:   vtable 0000... (GameCameraComponent), base 0000..., so +0x182a800
+    FreeCam:   +0x40 is a rigid transform
+    FreeCam: using the camera the renderer asks for at 0000... view +0x40, world +0x80,
+             view row sign 1, 41 calls, 4.6 units from the player
+    FreeCam: on at x y z (yaw ..., pitch ...)
+    FreeCam: camera at x y z, view accessor hooked, answered 118 of 120 calls, writes held 0
+
+"hooked the view accessor" is what makes the camera findable at all, and "answered" is
+the count of times the game asked for the view and got ours - that number climbing
+means the game is drawing your pose. "writes held" only counts matrices written to
+memory; the game overwrites those every frame and the answer overrides them, so it is
+normal for "taken back" to be high as long as "answered" is climbing.
+
+Right after the choice there is one line per candidate it chose from:
+
+    FreeCam: candidate 0000... (GameCameraComponent), 41 calls, 4.6 units from the player
+
+If it picked the wrong one it says so and picks again:
+
+    FreeCam: the renderer never asked about 0000... in two seconds; picking another camera
+
+These lines mean it fell back or gave up:
+
+    FreeCam: the view accessor does not match this game build; leaving it alone
+    FreeCam: the view accessor is hooked but the game has not called it in three seconds
+    FreeCam: the manager's camera at 0000... did not look like one either
+    FreeCam: waiting for the player transform - needed to tell a camera from the rest
+
+The first two mean the accessor bytes were not found in your TriadWars.exe, or the game
+does not call that function - send the log, it says what was looked for and where. The
+last two mean you are not in the world yet, or a camera is nowhere near the player.
+
+While flying, the player's controls are held back on purpose, so the character stays
+put. If the character does walk around anyway, the log says what was managed:
+
+    FreeCam: input blocking ready - 2 import(s) redirected, 2 keyboard device class(es) filtered
+    FreeCam: player controls held back (the camera is flying)
+    FreeCam: player controls given back (following the player)
+
+Zero keyboard device classes means DirectInput could not be reached on this machine; the
+raw mouse and the polling functions are still blocked, and P or O still work.
+
+
+IS THIS SAFE FOR MY GAME
+------------------------
+
+It is the game's own debug menu (now called TriadMenu), built from its sources, with
+four modules added rather than patched into it: the free camera (freecam_game.cpp), the
+input hold-back that keeps your character still while the camera flies (input_block.cpp),
+the NPC spawner (freecam_spawn.cpp), the noclip (freecam_noclip.cpp) and the raids and
+events unlock (freecam_unlock.cpp). The menu's own features are untouched, the crash
+guard is still installed at startup, and every memory address is checked before it is
+read or written - the spawner in particular never writes unless the object it found
+reads back what the game just reported for it.
+
+Keep a copy of the file you replace: rename your current dinput8.dll to
+dinput8.original.dll before copying this one in. To go back, rename it back.
+
+
+UNINSTALL
+---------
+
+Delete dinput8.dll from the game folder, then rename dinput8.original.dll back to
+dinput8.dll. If the game folder never had a menu in it, deleting dinput8.dll is the
+whole uninstall. Nothing else is written to the game folder except TW_MenuLog.txt,
+and FreeCam.npc.txt if you made one for the spawner.
+
+Either way the game runs fine with no dinput8.dll there: that file is only the menu.

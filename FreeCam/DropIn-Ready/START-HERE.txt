@@ -1,0 +1,49 @@
+Triad Wars - Debug Menu: the drop-in install
+============================================
+
+You need this folder and the folder the game is installed in - the one with
+TriadWars.exe and Play-TriadWars.bat in it.
+
+1. SAVE WHAT IS THERE
+   Look in the game folder for a file called dinput8.dll. If it is already there,
+   click it, press F2 and rename it to dinput8.original.dll. That is your undo,
+   and it takes one keypress. Most game folders do not have one.
+
+2. DRAG THE FILES, NOT THE FOLDER
+   Select everything in this folder (Ctrl+A) and drag the selection onto the game
+   folder. If Windows asks to replace a file, say yes - you saved the old one in
+   step 1.
+
+   Do not drag the folder itself: the game looks for dinput8.dll right next to
+   TriadWars.exe, and a folder inside a folder is one level too deep, where it is
+   simply never loaded. If that happens, open the inner folder and move the files
+   up one level - nothing is broken, it just was not seen.
+
+3. PLAY
+   Start the game with Play-TriadWars.bat, get into the world (not the title
+   screen, not a loading screen), and press Insert for the menu.
+
+   Insert        open and close the menu
+   Arrows, Enter move through it and choose
+   Free Camera   the entry that turns the flying camera on
+   W A S D       fly            Space / C   up / down      right mouse  look
+   B             spawn an NPC 3 m ahead      N  next model   H  hostile/friendly
+   F10           panic: camera back, everything off
+
+   WORLD -> "Sky override" paints the sky, and SPAWN -> "Models found" reads the
+   game files so the model list holds the NPCs this installation actually has.
+
+TO REMOVE IT
+   Delete dinput8.dll from the game folder, and rename dinput8.original.dll back
+   to dinput8.dll if you made one. Nothing else is added except TW_MenuLog.txt
+   (and FreeCam.npc.txt, if the spawner wrote one).
+
+CHECKING THE FILE (optional)
+   certutil -hashfile dinput8.dll SHA256      (Get-FileHash in PowerShell)
+   The hash should match SHA256SUMS.txt in this folder.
+
+IF A SCANNER OBJECTS
+   README.txt next to this file explains why an unsigned DLL a game loads gets
+   flagged, and what can be done about it. It has the full feature list and the
+   troubleshooting steps as well.
+
