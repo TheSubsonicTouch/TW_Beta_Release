@@ -1,4 +1,4 @@
-"""Package the debug menu as a drag-and-drop folder.
+"""Package the debug menu as a drop-in-ready folder and archive.
 
     python FreeCam/make_dropin.py
 
@@ -9,6 +9,10 @@ of looking like the "proxy DLL next to a game" pattern that scanners score badly
 
 Both packages carry the same DLL, byte for byte, built from the same sources - this script
 does not rebuild anything, it only arranges what ./menu/build_menu.sh already produced.
+
+The folder itself (FreeCam/DropIn-Ready) is committed as well as zipped: it is what gets
+dragged, so what is in the repository is the thing the instructions describe. Run this
+script again after a rebuild and commit both the folder and the zip.
 
 The README is generated from packaging/menu-README.txt rather than kept as a second copy,
 so the long explanations (what the camera does, the false-positive section, the log
@@ -23,15 +27,18 @@ import zipfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 DLL = os.path.join(HERE, "menu", "dist", "dinput8.dll")
 README = os.path.join(HERE, "packaging", "menu-README.txt")
-OUT_DIR = os.path.join(HERE, "dropin")
-OUT_ZIP = os.path.join(HERE, "TriadWars-DebugMenu-DragAndDrop.zip")
+OUT_DIR = os.path.join(HERE, "DropIn-Ready")
+OUT_ZIP = os.path.join(HERE, "TriadWars-DropIn-Ready.zip")
 
 PACKAGE_TITLE = "\r\n".join([
-    "Triad Wars - Debug Menu, drag and drop",
+    "Triad Wars - Debug Menu, drop-in ready",
     "======================================",
     "",
-    "No installer and no .bat files in this package: it is dinput8.dll, this README and",
-    "the hashes. Putting it in is one drag.",
+    "No installer and no .bat files in this package: it is dinput8.dll, START-HERE.txt,",
+    "this README and the hashes. Putting it in is one drag.",
+    "",
+    "START-HERE.txt is the short version - three steps and the keys. Read that first;",
+    "this document is the long one, and everything in it still applies.",
     "",
     "QUICK START",
     "",
@@ -39,8 +46,10 @@ PACKAGE_TITLE = "\r\n".join([
     "     dinput8.original.dll first (Explorer: click it, press F2). Dragging over it",
     "     without that step loses the file you had.",
     "",
-    "  2. Drag dinput8.dll into the folder that holds TriadWars.exe and",
-    "     Play-TriadWars.bat.",
+    "  2. Select everything in this folder (Ctrl+A) and drag the selection into the",
+    "     folder that holds TriadWars.exe and Play-TriadWars.bat. The files, not the",
+    "     folder: a folder inside a folder is one level too deep, and the game only",
+    "     looks for dinput8.dll right next to TriadWars.exe.",
     "",
     "  3. Start the game as usual and get into the world - not the title screen, not a",
     "     loading screen. Press Insert, arrow down to \"Free Camera\" and press Enter.",
@@ -64,6 +73,59 @@ PACKAGE_TITLE = "\r\n".join([
     "",
 ])
 
+START_HERE = "\r\n".join([
+    "Triad Wars - Debug Menu: the drop-in install",
+    "============================================",
+    "",
+    "You need this folder and the folder the game is installed in - the one with",
+    "TriadWars.exe and Play-TriadWars.bat in it.",
+    "",
+    "1. SAVE WHAT IS THERE",
+    "   Look in the game folder for a file called dinput8.dll. If it is already there,",
+    "   click it, press F2 and rename it to dinput8.original.dll. That is your undo,",
+    "   and it takes one keypress. Most game folders do not have one.",
+    "",
+    "2. DRAG THE FILES, NOT THE FOLDER",
+    "   Select everything in this folder (Ctrl+A) and drag the selection onto the game",
+    "   folder. If Windows asks to replace a file, say yes - you saved the old one in",
+    "   step 1.",
+    "",
+    "   Do not drag the folder itself: the game looks for dinput8.dll right next to",
+    "   TriadWars.exe, and a folder inside a folder is one level too deep, where it is",
+    "   simply never loaded. If that happens, open the inner folder and move the files",
+    "   up one level - nothing is broken, it just was not seen.",
+    "",
+    "3. PLAY",
+    "   Start the game with Play-TriadWars.bat, get into the world (not the title",
+    "   screen, not a loading screen), and press Insert for the menu.",
+    "",
+    "   Insert        open and close the menu",
+    "   Arrows, Enter move through it and choose",
+    "   Free Camera   the entry that turns the flying camera on",
+    "   W A S D       fly            Space / C   up / down      right mouse  look",
+    "   B             spawn an NPC 3 m ahead      N  next model   H  hostile/friendly",
+    "   F10           panic: camera back, everything off",
+    "",
+    "   WORLD -> \"Sky override\" paints the sky, and SPAWN -> \"Models found\" reads the",
+    "   game files so the model list holds the NPCs this installation actually has.",
+    "",
+    "TO REMOVE IT",
+    "   Delete dinput8.dll from the game folder, and rename dinput8.original.dll back",
+    "   to dinput8.dll if you made one. Nothing else is added except TW_MenuLog.txt",
+    "   (and FreeCam.npc.txt, if the spawner wrote one).",
+    "",
+    "CHECKING THE FILE (optional)",
+    "   certutil -hashfile dinput8.dll SHA256      (Get-FileHash in PowerShell)",
+    "   The hash should match SHA256SUMS.txt in this folder.",
+    "",
+    "IF A SCANNER OBJECTS",
+    "   README.txt next to this file explains why an unsigned DLL a game loads gets",
+    "   flagged, and what can be done about it. It has the full feature list and the",
+    "   troubleshooting steps as well.",
+    "",
+    "",
+])
+
 NEW_INSTALL = (
     "INSTALL - DRAG AND DROP\r\n"
     "-----------------------\r\n"
@@ -74,9 +136,11 @@ NEW_INSTALL = (
     "     older version of this - rename it to dinput8.original.dll before you go on.\r\n"
     "     That is your undo button, and it takes one keypress.\r\n"
     "\r\n"
-    "  3. Drag dinput8.dll into the game folder: the one with TriadWars.exe and\r\n"
-    "     Play-TriadWars.bat in it. Windows may ask whether to replace a file - say yes\r\n"
-    "     only if you already saved the old one in step 2.\r\n"
+    "  3. Drag the files themselves into the game folder: the one with TriadWars.exe\r\n"
+    "     and Play-TriadWars.bat in it. Select all of them (Ctrl+A) and drag the\r\n"
+    "     selection - not the folder, which would land one level too deep where the\r\n"
+    "     game never looks. Windows may ask whether to replace a file - say yes only if\r\n"
+    "     you already saved the old one in step 2.\r\n"
     "\r\n"
     "  4. Start the game with Play-TriadWars.bat as usual.\r\n"
     "\r\n"
@@ -195,13 +259,19 @@ def main():
     dll_out = os.path.join(OUT_DIR, "dinput8.dll")
     readme_out = os.path.join(OUT_DIR, "README.txt")
     sums_out = os.path.join(OUT_DIR, "SHA256SUMS.txt")
+    start_out = os.path.join(OUT_DIR, "START-HERE.txt")
 
     with open(DLL, "rb") as src, open(dll_out, "wb") as dst:
         dst.write(src.read())
     with open(readme_out, "w", encoding="utf-8", newline="") as f:
         f.write(readme)
+    with open(start_out, "w", encoding="utf-8", newline="") as f:
+        f.write(START_HERE)
 
-    entries = [("dinput8.dll", dll_out), ("README.txt", readme_out)]
+    # START-HERE first: it is the file a new player should open, and it is the one that
+    # has to be read before the DLL is dragged anywhere.
+    entries = [("START-HERE.txt", start_out), ("dinput8.dll", dll_out),
+               ("README.txt", readme_out)]
     # newline="" plus explicit CRLF: writing \r\n into a file opened with newline="\r\n"
     # would turn into \r\r\n, which certutil would then not match.
     with open(sums_out, "w", encoding="utf-8", newline="") as f:
