@@ -223,38 +223,57 @@ std::string ExeFolder() {
     return len > 0 ? std::string(narrow) : std::string();
 }
 
-std::vector<std::string> LoadModels() {
+// The models named in FreeCam.npc.txt, in file order. Empty when the file is not there -
+// which is the normal case on a first run, before the scan has written one.
+std::vector<std::string> ReadNpcFile() {
     std::vector<std::string> out;
     const std::string folder = ExeFolder();
-    if (!folder.empty()) {
-        FILE *f = std::fopen((folder + "\\FreeCam.npc.txt").c_str(), "r");
-        if (f) {
-            char line[256];
-            while (std::fgets(line, sizeof line, f)) {
-                char *s = line;
-                while (*s == ' ' || *s == '\t') s++;
-                char *end = s + std::strlen(s);
-                while (end > s && (end[-1] == '\n' || end[-1] == '\r' || end[-1] == ' ')) *--end = 0;
-                if (!*s || *s == '#') continue;
-                if (std::strncmp(s, "object-", 7) != 0) continue;   // a property set, nothing else
-                out.push_back(s);
-            }
-            std::fclose(f);
-            if (!out.empty()) {
-                TW_Log("Spawn: %d model(s) read from FreeCam.npc.txt", static_cast<int>(out.size()));
-                return out;
-            }
-            TW_Log("Spawn: FreeCam.npc.txt held no property-set names, using the built-in list");
-        }
+    if (folder.empty()) return out;
+    FILE *f = std::fopen((folder + "\\FreeCam.npc.txt").c_str(), "r");
+    if (!f) return out;
+    char line[256];
+    while (std::fgets(line, sizeof line, f)) {
+        char *s = line;
+        while (*s == ' ' || *s == '\t') s++;
+        char *end = s + std::strlen(s);
+        while (end > s && (end[-1] == '\n' || end[-1] == '\r' || end[-1] == ' ')) *--end = 0;
+        if (!*s || *s == '#') continue;
+        if (std::strncmp(s, "object-", 7) != 0) continue;   // a property set, nothing else
+        out.push_back(s);
     }
-    for (const char *name : kBuiltInModels) out.push_back(name);
+    std::fclose(f);
     return out;
+}
+
+// Built-ins first - they are the ones the executable itself vouches for - then the file,
+// then whatever the scan found. Duplicates are dropped, so the three sources can overlap
+// freely and the list stays one model per line.
+std::vector<std::string> MergeModels(const std::vector<std::string> &scanned) {
+    std::vector<std::string> out;
+    const auto add = [&out](const std::string &name) {
+        if (name.size() < 8) return;
+        if (std::find(out.begin(), out.end(), name) == out.end()) out.push_back(name);
+    };
+    for (const char *name : kBuiltInModels) add(name);
+    for (const std::string &name : ReadNpcFile()) add(name);
+    for (const std::string &name : scanned) add(name);
+    return out;
+}
+
+std::vector<std::string> LoadModels() {
+    const std::vector<std::string> models = MergeModels({});
+    if (models.size() > sizeof(kBuiltInModels) / sizeof(kBuiltInModels[0]))
+        TW_Log("Spawn: %d model(s) from the built-ins and FreeCam.npc.txt",
+               static_cast<int>(models.size()));
+    return models;
 }
 
 // Loaded once, replaced when the game files are scanned. The revision lets the menu know
 // it has to rebuild its list.
 std::vector<std::string> g_models;
 int g_modelsRev = 0;
+int g_scannedCount = 0;      // how many of the list came out of the game's data files
+volatile LONG g_scanBusy = 0;    // a background scan is reading the game folder
 
 // The list is replaced by a scan (on the game thread) while the camera thread and the
 // menu both read it, so the same lock covers it. A CRITICAL_SECTION is recursive, so a
@@ -262,11 +281,15 @@ int g_modelsRev = 0;
 void Lock();
 void Unlock();
 
-const std::vector<std::string> &Models() {
+// A copy, never a reference: a background scan can replace the list between the moment it
+// is handed out and the moment it is read, and a reference would then be read after the
+// vector behind it had been destroyed.
+std::vector<std::string> Models() {
     Lock();
     if (g_models.empty()) g_models = LoadModels();
+    const std::vector<std::string> copy = g_models;
     Unlock();
-    return g_models;
+    return copy;
 }
 
 // --- state ---------------------------------------------------------------
@@ -516,6 +539,58 @@ bool PlausibleNameChar(char c) {
 
 // Collects the names in one buffer. A name has to be long enough to be a real model and
 // must not run into the end of the buffer.
+// The big archives are named files in a table that sits at one end of them, and they are far
+// too large to read whole. So a big file is read from both ends instead: a table at the front
+// is found by the head, one at the back by the tail, and the several gigabytes in between -
+// the models and textures themselves - never have to be touched.
+bool ReadChunk(const std::wstring &path, unsigned long long offset, size_t len,
+               std::vector<unsigned char> *out) {
+    HANDLE h = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                           nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (h == INVALID_HANDLE_VALUE) return false;
+    LARGE_INTEGER at{};
+    at.QuadPart = static_cast<LONGLONG>(offset);
+    if (!SetFilePointerEx(h, at, nullptr, FILE_BEGIN)) {
+        CloseHandle(h);
+        return false;
+    }
+    out->resize(len);
+    DWORD got = 0, total = 0;
+    while (total < out->size() &&
+           ReadFile(h, out->data() + total, static_cast<DWORD>(out->size() - total), &got, nullptr) &&
+           got) {
+        total += got;
+    }
+    CloseHandle(h);
+    out->resize(total);
+    return total > 0;
+}
+
+// The same names again as UTF-16: some of the game's tables are wide, and a name stored
+// that way is invisible to a byte scan because of the zero after every letter.
+void ScanWide(const std::vector<unsigned char> &data, std::vector<std::string> *found) {
+    const size_t prefix = sizeof kCharacterPrefix - 1;
+    for (int align = 0; align < 2; ++align) {
+        for (size_t i = static_cast<size_t>(align); i + 2 * prefix < data.size(); i += 2) {
+            bool hit = true;
+            for (size_t k = 0; k < prefix && hit; ++k) {
+                if (data[i + 2 * k] != static_cast<unsigned char>(kCharacterPrefix[k]) ||
+                    data[i + 2 * k + 1] != 0)
+                    hit = false;
+            }
+            if (!hit) continue;
+            std::string name(kCharacterPrefix, prefix);
+            for (size_t j = i + 2 * prefix; j + 1 < data.size() && data[j + 1] == 0; j += 2) {
+                if (!PlausibleNameChar(static_cast<char>(data[j]))) break;
+                name.push_back(static_cast<char>(data[j]));
+            }
+            if (name.size() - prefix >= 3 && name.size() <= 96 &&
+                std::find(found->begin(), found->end(), name) == found->end())
+                found->push_back(name);
+        }
+    }
+}
+
 void ScanBuffer(const std::vector<unsigned char> &data, std::vector<std::string> *found) {
     const size_t prefix = sizeof kCharacterPrefix - 1;
     if (data.size() <= prefix) return;
@@ -573,6 +648,10 @@ int ScanForModels(std::vector<std::string> *found, unsigned long long *bytesRead
     std::vector<std::wstring> pending{ root };
     std::vector<unsigned char> data;
     std::vector<std::string> names;
+    const auto scanBoth = [&names](const std::vector<unsigned char> &data) {
+        ScanBuffer(data, &names);
+        ScanWide(data, &names);
+    };
 
     while (!pending.empty() && *filesRead < kMaxFiles && *bytesRead < kByteBudget) {
         std::wstring dir = pending.back();
@@ -589,17 +668,49 @@ int ScanForModels(std::vector<std::string> *found, unsigned long long *bytesRead
                 continue;
             }
             if (*filesRead >= kMaxFiles || *bytesRead >= kByteBudget) break;
-            if (fd.nFileSizeHigh != 0 || fd.nFileSizeLow < 32 || fd.nFileSizeLow > kFileCap) continue;
+            if (fd.nFileSizeLow < 32) continue;
 
+            const unsigned long long size =
+                (static_cast<unsigned long long>(fd.nFileSizeHigh) << 32) | fd.nFileSizeLow;
+            const std::wstring path = dir + L"\\" + fd.cFileName;
             data.clear();
-            if (!ReadWholeFile(dir + L"\\" + fd.cFileName, &data, kFileCap)) continue;
-            ++*filesRead;
-            *bytesRead += data.size();
-            ScanBuffer(data, &names);
+            if (size <= kFileCap) {
+                if (!ReadWholeFile(path, &data, kFileCap)) continue;
+                ++*filesRead;
+                *bytesRead += data.size();
+                scanBoth(data);
+                continue;
+            }
+
+            // Too big to read whole: both ends, which is where a name table lives.
+            const size_t kPeek = 32ull << 20;              // 32 MB from each end
+            if (ReadChunk(path, 0, kPeek, &data)) {
+                ++*filesRead;
+                *bytesRead += data.size();
+                scanBoth(data);
+            }
+            if (*bytesRead >= kByteBudget) break;
+            data.clear();
+            if (ReadChunk(path, size - kPeek, kPeek, &data)) {
+                *bytesRead += data.size();
+                scanBoth(data);
+            }
         } while (FindNextFileW(h, &fd));
         FindClose(h);
     }
 
+    // A property set is not a ped: the executable's own table names things like
+    // "...-stats-BaseAttackParameters" that hash to a stat block, not to a character.
+    // Anything with a stats/parameters suffix is dropped rather than offered in a list
+    // where picking it would spawn nothing.
+    names.erase(std::remove_if(names.begin(), names.end(),
+                               [](const std::string &n) {
+                                   if (n.size() > 96) return true;
+                                   if (n.find("-stats-") != std::string::npos) return true;
+                                   if (n.find("Parameters") != std::string::npos) return true;
+                                   return false;
+                               }),
+                names.end());
     std::sort(names.begin(), names.end());
     *found = names;
     return static_cast<int>(names.size());
@@ -615,9 +726,59 @@ std::string SpawnShortName(const std::string &model) {
     return model;
 }
 
-const std::vector<std::string> &SpawnModels() { return Models(); }
+std::vector<std::string> SpawnModels() { return Models(); }
 
 int SpawnModelsRevision() { return g_modelsRev; }
+
+int SpawnModelCount() { return static_cast<int>(Models().size()); }
+
+int SpawnScannedModelCount() {
+    Lock();
+    const int n = g_scannedCount;
+    Unlock();
+    return n;
+}
+
+bool SpawnScanRunning() { return InterlockedCompareExchange(&g_scanBusy, 1, 1) == 1; }
+
+// Defined further down, next to the scanner it drives.
+std::string SpawnScanGameFiles();
+
+// The scan reads a gigabyte of game data, so it runs on its own thread rather than inside
+// a menu frame. It touches no game memory - only files and this module's own list - which
+// is why it is safe to start it before the world has loaded.
+struct ScanThreadArg {
+    bool report;
+};
+
+DWORD WINAPI ScanThread(LPVOID arg) {
+    const bool report = arg && static_cast<ScanThreadArg *>(arg)->report;
+    delete static_cast<ScanThreadArg *>(arg);
+    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_BELOW_NORMAL);
+    const std::string line = SpawnScanGameFiles();
+    if (report) {
+        Lock();
+        g_status = line;
+        Unlock();
+    }
+    InterlockedExchange(&g_scanBusy, 0);
+    return 0;
+}
+
+bool SpawnScanAsync() {
+    // Claim the flag first: two callers in the same frame cannot both start a scan.
+    if (InterlockedCompareExchange(&g_scanBusy, 1, 0) != 0) return false;
+    ScanThreadArg *arg = new ScanThreadArg{ false };
+    HANDLE h = CreateThread(nullptr, 0, ScanThread, arg, 0, nullptr);
+    if (!h) {
+        delete arg;
+        InterlockedExchange(&g_scanBusy, 0);
+        return false;
+    }
+    CloseHandle(h);
+    TW_Log("Spawn scan: started in the background");
+    return true;
+}
 
 std::string SpawnScanGameFiles() {
     std::vector<std::string> found;
@@ -630,12 +791,12 @@ std::string SpawnScanGameFiles() {
         return "Scan: no character models found in the game files";
     }
 
-    // Keep the built-ins in front - they are the ones the executable itself vouches for -
-    // then everything the scan found, without duplicates.
-    std::vector<std::string> merged;
-    for (const char *name : kBuiltInModels) merged.push_back(name);
-    for (const std::string &name : found) {
-        if (std::find(merged.begin(), merged.end(), name) == merged.end()) merged.push_back(name);
+    // Built-ins first, then the file, then everything the scan found, without duplicates.
+    const std::vector<std::string> merged = MergeModels(found);
+    {
+        Lock();
+        g_scannedCount = count;
+        Unlock();
     }
 
     // Written where the next launch reads it, so the list survives a restart and can be
@@ -658,9 +819,9 @@ std::string SpawnScanGameFiles() {
     const int total = static_cast<int>(g_models.size());
     Unlock();
 
-    char buf[120];
-    std::snprintf(buf, sizeof buf, "Scan: %d model(s) (%d new) - N cycles them", total,
-                  count);
+    char buf[140];
+    std::snprintf(buf, sizeof buf, "NPC models: %d in the list, %d read from the game files",
+                  total, count);
     TW_Log("Spawn scan: model list is now %d long", total);
     return buf;
 }
@@ -674,7 +835,7 @@ void SpawnClearFault() {
 bool SpawnBlocked() { return g_blocked; }
 
 void SpawnSelectByName(const std::string &model) {
-    const auto &models = Models();
+    const auto models = Models();
     for (int i = 0; i < static_cast<int>(models.size()); ++i) {
         if (models[i] == model) {
             g_model = i;

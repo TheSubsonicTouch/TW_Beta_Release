@@ -12,11 +12,11 @@
 //     the spawn dies on [rax+0x58] with rax = NULL. So the request is carried out on the
 //     camera thread after EnsureThreadAllocator() has published the block there, never
 //     on the render thread where the menu lives.
-//   * the model list cannot be read out of the game without the game running: the
-//     character prefabs that exist are named in data bundles, not in the executable, and
-//     the executable only names a handful. SpawnModels() therefore offers those, and
-//     FreeCam.npc.txt next to the DLL replaces the list with anything else you want to
-//     try. A name the game does not know fails with a message, it does not crash.
+//   * the character prefabs that exist are named in the game's data bundles rather than
+//     in the executable, and the executable only names a handful. SpawnModels() therefore
+//     starts from those, adds anything in FreeCam.npc.txt, and - once, in the background -
+//     every "object-physical-character-..." name it can read out of the game's own files.
+//     A name the game does not know fails with a message, it does not crash.
 #pragma once
 
 #include <string>
@@ -28,7 +28,7 @@ namespace game {
 // Models the menu offers, most useful first. Built from the character property sets the
 // executable itself names, or from FreeCam.npc.txt when that file is there (one name per
 // line, # starts a comment).
-const std::vector<std::string>& SpawnModels();
+std::vector<std::string> SpawnModels();
 
 // Which model the hotkeys use, and whether it is spawned hostile. The menu sets these
 // too, so both ways of choosing stay in step.
@@ -46,10 +46,23 @@ std::string SpawnShortName(const std::string& model);
 void SpawnSelectByName(const std::string& model);
 
 // A scan of the game folder that collects every character property set it can see in the
-// game's data files, merges them with the built-ins, writes FreeCam.npc.txt and makes them
-// the list the menu offers. Read-only, bounded, and only run when asked for. Returns the
-// status line for the menu.
+// game's data files, merges them with the built-ins and FreeCam.npc.txt, writes the merged
+// list back to FreeCam.npc.txt and makes it the list the menu offers. Read-only and
+// bounded. Returns the status line for the menu.
 std::string SpawnScanGameFiles();
+
+// The same scan, on a thread of its own, so the menu does not stop while it reads a
+// gigabyte of game data. Returns false when one is already running - starting it twice is
+// harmless rather than useful, and the list is replaced once, at the end.
+bool SpawnScanAsync();
+
+// True while a background scan is reading the game folder.
+bool SpawnScanRunning();
+
+// How many models the menu can offer right now, and how many of those came from the game
+// files rather than from the executable's own handful.
+int SpawnModelCount();
+int SpawnScannedModelCount();
 
 // Goes up every time the model list is replaced, so the menu can rebuild its selector.
 int SpawnModelsRevision();
