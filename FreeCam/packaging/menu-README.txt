@@ -104,6 +104,40 @@ game carries on from its own camera and not from where you flew to.
 WHAT CHANGED IN THIS BUILD
 --------------------------
 
+  - Build 30. The sky really changes colour, and the model list holds the game's own NPCs.
+
+    - The sky's colours were being written to pages the game had made read-only, and a
+      write to a read-only page is dropped without a word: the row moved, the number
+      moved, the sky did not. Every block is now opened for writing before it is touched,
+      and the protection it borrowed is handed back the moment the write is done, so the
+      game's pages are left exactly as they were found. The game is also asked for the
+      sky it is already showing, once, after the colour is in place: its own setup runs
+      again and builds its copy of the colours from the parameters this build painted, so
+      the colour reaches the sky at once instead of only on the next weather change.
+    - The colour also lifts as well as scales now. A night sky multiplied by a colour is
+      still a night sky, so a colour with red in it did nothing at all in the dark; a
+      little of the colour is added on top of the multiply, which is what makes it visible
+      whatever the sky's own brightness.
+    - "Sky colour strength" now spans a sane range in both directions, and a block is
+      believed if seven of its nine floats are plausible rather than all nine, so the
+      sky blocks that carry one or two out-of-range values are found instead of skipped.
+    - SPAWN, "Rescan models": the list was four names in the executable. The row reads the
+      installed game files - every file up to 96 MB whole, and the first and last 32 MB of
+      the big archives, which is where their name tables live - and collects every
+      character property set it finds, so the list holds the NPCs the game actually ships.
+      It runs in the background at below-normal priority, so the game keeps its frame
+      rate, and the result is merged with the built-ins and FreeCam.npc.txt without
+      duplicates and written back there, so the next start has it immediately.
+    - SPAWN, "Models found": how many models the list holds and how many of them came out
+      of the game files, or "scanning..." while a scan is running.
+    - The scan starts by itself a few seconds after the game is up; the row is for running
+      it again after a reinstall or a new install of the data files.
+    - Stats and parameter property sets are dropped as they are found: they hash to a
+      stat block, not a character, and a list that offers them is a list that spawns
+      nothing.
+    - A still of the section is in packaging/menu-build30-preview.png, rendered from the
+      same row list and colour table this build uses.
+
   - Build 29. The skybox is a part of the menu, and only of the menu.
 
     - Build 28 gave the sky a pair of keys - K for the switch, Y for the next variant.
@@ -115,7 +149,7 @@ WHAT CHANGED IN THIS BUILD
       row - all three reachable with the arrows, the mouse or the pad.
     - The override keeps holding while the menu is closed: the section is where the sky
       is set, not where it lives. Open the menu, set it, close the menu, and it stays.
-    - A still of the section is in packaging/menu-build29-preview.png, rendered from the
+    - A still of the section is in packaging/menu-build30-preview.png, rendered from the
       same row list and colour table this build uses.
 
   - Build 28. The skybox can be held still, and painted.
@@ -345,7 +379,8 @@ WHAT CHANGED IN THIS BUILD
       it does not know comes back as a line in the corner display instead of a crash.
     - "Ped model (list)" underneath fills the field in with a name the spawner already
       knows, so it can be spawned without typing (and the name can still be edited
-      afterwards). The list is the built-ins plus anything in FreeCam.npc.txt.
+      afterwards). The list is the built-ins, anything in FreeCam.npc.txt, and every
+      character property set the game files name.
     - "Hostile" is not on the menu any more: a ped spawned this way belongs to its own
       default side. The B hotkey and its H switch still work as before.
     - While the menu is open the game's hotkeys are not read. Typing "before" into the
@@ -400,11 +435,12 @@ WHAT CHANGED IN THIS BUILD
     wherever you are and lets the game's own physics take over. That is how you get
     onto a roof: fly there, switch off, land.
 
-  - The model list can be filled from the game's own data files. The scan walks the
-    folder, reads the character property sets it finds in the data files, adds them to
-    the built-ins and writes them to FreeCam.npc.txt, so the list survives a restart and
-    can be trimmed by hand. It has no menu entry since build 17; FreeCam.npc.txt next to
-    TriadWars.exe is the supported way to add a model.
+  - The model list is filled from the game's own data files. The scan walks the folder,
+    reads the character property sets it finds in the data files, adds them to the
+    built-ins and writes them to FreeCam.npc.txt, so the list survives a restart and can
+    be trimmed by hand. Since build 30 it has the menu entries "Rescan models" and
+    "Models found" and starts itself a few seconds after the world loads;
+    FreeCam.npc.txt next to TriadWars.exe is still the way to add a name by hand.
 
   - Unlock All now opens the raids and events too. Unlocking the content was only half
     of it: every rival is on a post-raid cooldown and the jobs are a chain, so the map
@@ -439,9 +475,9 @@ WHAT CHANGED IN THIS BUILD
     encounters make when they put an on-foot unit in the world. "Hostile" and "friendly"
     are the faction field the game reads when it works out who is on whose side: friendly
     sets the NPC to your faction, hostile gives it a different one. The model list holds
-    the character prefabs the game's executable names by itself; the rest live inside the
-    game's data files, so any others you know can go in FreeCam.npc.txt (one property-set
-    name per line, next to TriadWars.exe) and they join the list.
+    the character prefabs the game's executable names by itself, and since build 30 every
+    one the data files name as well; any others you know can still go in FreeCam.npc.txt
+    (one property-set name per line, next to TriadWars.exe) and they join the list.
 
   - J plays the recorded keyframes back (it was K up to build 10). Builds 8 and 9 read
     the key twice in one frame to check the freeze first, which used the press up, so the
