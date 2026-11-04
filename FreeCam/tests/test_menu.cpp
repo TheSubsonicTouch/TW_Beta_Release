@@ -353,6 +353,9 @@ void testActions() {
     // menu for, so it does not sit at the bottom under the recording tools.
     menu.handleKey(tw::Key::Down);   // Spawn Ped, over the SPAWN header
     check(menu.items()[menu.selectedIndex()].label == "Spawn Ped", "then the spawn section");
+    menu.handleKey(tw::Key::Down);   // Spawn now (B): the button beside the name field
+    check(menu.items()[menu.selectedIndex()].label == "Spawn now (B)",
+          "then the spawn button");
     menu.handleKey(tw::Key::Down);   // Ped model (list)
     check(menu.items()[menu.selectedIndex()].label == "Ped model (list)",
           "then the model list");
@@ -1148,6 +1151,156 @@ void testMissingHooksStillListed() {
     check(list && list->options.empty(), "the model list is there, with nothing in it yet");
 }
 
+// The menu's appearance is a plain value object, so it can be checked without a GPU: the
+// clamps that keep a settings file from making the menu unreadable, and a save/load round
+// trip that a restart depends on.
+void testMenuStyle() {
+    tw::MenuStyle style;                 // the shipped look
+    check(style.themeIndex() == 0, "the shipped theme is Triad");
+    check(style.background() == 0, "the shipped background is the dragon");
+    check(style.backgroundAlpha() > 0.5f && style.backgroundAlpha() < 0.6f,
+          "at a little over half strength");
+    check(style.scale() == 1.0f, "and the text at its normal size");
+
+    // Every theme is a complete set of colours, and none of them is invisible.
+    check(tw::MenuThemeCount() == 4, "four themes");
+    for (int i = 0; i < tw::MenuThemeCount(); ++i) {
+        const tw::MenuColours& c = tw::MenuThemeAt(i);
+        const std::string name = tw::MenuThemeNames()[i];
+        check(c.text[3] > 0.9f, name + ": the row text is opaque");
+        check(c.text[0] + c.text[1] + c.text[2] > 1.5f, name + ": and light enough to read");
+        check(c.selected[3] > 0.3f, name + ": the selection bar is visible");
+        check(c.panel[3] > 0.5f, name + ": the panel hides the game behind it");
+    }
+    check(tw::MenuThemeAt(-5).text[0] == tw::MenuThemeAt(0).text[0], "a low index clamps");
+    check(tw::MenuThemeAt(99).text[0] == tw::MenuThemeAt(3).text[0], "a high index clamps");
+
+    // The enum and the names are two lists that have to agree: the model stores an index,
+    // the renderer switches on it, and a mismatch would draw the wrong picture without
+    // anything failing. This is the check that pins them together.
+    check(tw::MenuBackgroundCount() == 4, "four backgrounds");
+    check(tw::MenuBackgroundCount() == static_cast<int>(tw::MenuBackground::Count),
+          "and the names cover every enum value");
+    check(std::string(tw::MenuBackgroundNames()[static_cast<int>(tw::MenuBackground::Dragon)]) ==
+              "Dragon",
+          "index 0 is the dragon");
+    check(std::string(tw::MenuBackgroundNames()[static_cast<int>(tw::MenuBackground::DragonTiled)]) ==
+              "Dragon (tiled)",
+          "index 1 is the tiled dragon");
+    check(std::string(tw::MenuBackgroundNames()[static_cast<int>(tw::MenuBackground::Pattern)]) ==
+              "Pattern",
+          "index 2 is the pattern");
+    check(std::string(tw::MenuBackgroundNames()[static_cast<int>(tw::MenuBackground::None)]) ==
+              "None",
+          "index 3 is no picture");
+
+    // Clamping, including the values a NaN slider could produce.
+    style.setThemeIndex(99);
+    check(style.themeIndex() == 3, "the theme index clamps at the top");
+    style.setBackground(-1);
+    check(style.background() == 0, "the background index clamps at zero");
+    style.setBackgroundAlpha(4.0f);
+    check(style.backgroundAlpha() == 1.0f, "contrast clamps to full");
+    style.setBackgroundAlpha(-2.0f);
+    check(style.backgroundAlpha() == 0.0f, "and to nothing");
+    style.setScale(9.0f);
+    check(style.scale() == tw::MenuStyle::kMaxScale, "the text cannot grow past its limit");
+    style.setScale(0.0f);
+    check(style.scale() == tw::MenuStyle::kMinScale, "nor shrink below it");
+
+    // Reset puts every value back, and says whether it had anything to do.
+    tw::MenuStyle fresh;
+    check(!fresh.reset(), "resetting the shipped look changes nothing");
+    fresh.setThemeIndex(2);
+    fresh.setScale(1.4f);
+    check(fresh.reset(), "resetting a changed look says so");
+    check(fresh.themeIndex() == 0 && fresh.scale() == 1.0f, "and puts everything back");
+
+    // The file format: save then load must come back to the same numbers.
+    tw::MenuStyle saved;
+    saved.setThemeIndex(1);
+    saved.setBackground(0);
+    saved.setBackgroundAlpha(0.25f);
+    saved.setScale(1.25f);
+    const std::string text = saved.save();
+    tw::MenuStyle loaded;
+    check(loaded.load(text), "a saved style loads");
+    check(loaded.themeIndex() == 1 && loaded.background() == 0, "with its indices");
+    check(loaded.backgroundAlpha() == 0.25f, "its contrast");
+    check(loaded.scale() == 1.25f, "and its text size");
+    check(loaded.save() == text, "and saves back to the same line");
+
+    // A hand-edited file: unknown keys are ignored, missing ones keep their defaults, and
+    // out-of-range values are clamped rather than accepted.
+    tw::MenuStyle edited;
+    check(edited.load("theme=3;scale=99;nonsense=4"), "a partial line still loads");
+    check(edited.themeIndex() == 3, "the key it knew was used");
+    check(edited.scale() == tw::MenuStyle::kMaxScale, "the out-of-range value was clamped");
+    check(edited.background() == 0, "the key it did not mention kept its default");
+    check(!edited.load(""), "an empty file changes nothing");
+    check(!edited.load("hello"), "and neither does a line with no keys in it");
+    check(edited.themeIndex() == 3, "and neither one disturbs what was there");
+
+    // The rows: they write the style, and the style is the only copy.
+    tw::MenuStyle live;
+    int toggles = 0, picks = 0, levels = 0;
+    std::vector<std::string> spawned;
+    tw::DebugHooks hooks = fullHooks(&toggles, &picks, &levels, &spawned);
+    hooks.style = &live;
+    tw::Menu menu;
+    menu.setVisible(true);
+    tw::buildDebugMenu(menu, hooks);
+
+    check(hasHeader(menu, "APPEARANCE"), "there is an APPEARANCE section");
+    for (const char* label : { "Colours", "Background", "Background contrast", "Text size",
+                               "Reset appearance" }) {
+        check(hasLabel(menu, label), std::string("the appearance row ") + label + " is there");
+    }
+
+    // Colours: the picker opens on the current one and browsing it applies at once.
+    const tw::MenuItem* colours = menu.item("Colours");
+    check(colours && colours->options.size() == 4, "every theme is offered");
+    check(colours && colours->optionIndex == 0, "the picker opens on Triad");
+    selectLabel(menu, "Colours");
+    menu.handleKey(tw::Key::Right);
+    check(live.themeIndex() == 1, "moving the picker writes the style");
+    check(menu.status() == "Colours: Neon", "and says which one");
+
+    // Background, the same shape.
+    selectLabel(menu, "Background");
+    menu.handleKey(tw::Key::Right);
+    check(live.background() == static_cast<int>(tw::MenuBackground::DragonTiled),
+          "the background picker writes the style");
+    check(menu.item("Background")->optionIndex ==
+              static_cast<std::size_t>(tw::MenuBackground::DragonTiled),
+          "and the row shows the picture it landed on");
+
+    // The sliders write the values their labels promise, and the style clamps them.
+    selectLabel(menu, "Background contrast");
+    menu.handleKey(tw::Key::Left);
+    check(live.backgroundAlpha() < 0.55f, "the contrast slider moves the style");
+    selectLabel(menu, "Text size");
+    menu.handleKey(tw::Key::Right);
+    check(live.scale() > 1.0f, "the text size slider moves the style");
+
+    // Reset puts the object back and moves both pickers with it, so the rows cannot end up
+    // describing a look that is no longer being drawn.
+    selectLabel(menu, "Reset appearance");
+    menu.handleKey(tw::Key::Select);
+    check(live.themeIndex() == 0 && live.background() == 0, "Reset restores the shipped look");
+    check(menu.item("Colours")->optionIndex == 0, "the colours picker follows the reset");
+    check(menu.item("Background")->optionIndex == 0, "and so does the background picker");
+    check(menu.status() == "Appearance: back to the shipped look", "and says so");
+
+    // A build with no style object simply has no appearance section - the menu is still
+    // fully usable, it just cannot be restyled.
+    tw::DebugHooks bare = fullHooks(&toggles, &picks, &levels, &spawned);
+    bare.style = nullptr;
+    tw::Menu plain;
+    tw::buildDebugMenu(plain, bare);
+    check(!hasHeader(plain, "APPEARANCE"), "no style object, no appearance section");
+}
+
 }  // namespace
 
 int main() {
@@ -1164,6 +1317,7 @@ int main() {
     testCameraModes();
     testSectionJump();
     testMissingHooksStillListed();
+    testMenuStyle();
     testUnlockCatalog();
     testUnlockProfile();
     testUnlockKeepsProgress();

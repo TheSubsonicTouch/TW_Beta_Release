@@ -104,6 +104,29 @@ game carries on from its own camera and not from where you flew to.
 WHAT CHANGED IN THIS BUILD
 --------------------------
 
+  - Build 27. The menu can be restyled, and it opens on the dragon.
+
+    - Background: the full-size dragon the menu was always meant to have, drawn behind
+      the rows and cropped to fit the window rather than stretched. Three other looks are
+      offered: the same dragon tiled, the small pattern the menu used to stretch, and no
+      picture at all - just the panel the text sits on.
+    - APPEARANCE, "Background contrast": how strongly the artwork shows through, from
+      nothing to full. The panel colour is always painted underneath, so the rows stay
+      readable at every setting.
+    - APPEARANCE, "Colours": four complete themes - Triad (the gold and red it shipped
+      with), Neon, Ink (grey, the least intrusive) and Jade. A theme sets the title, the
+      text, the selection bar, the section titles, the status line and the panel.
+    - APPEARANCE, "Text size": 85% to 160%, which scales the rows and the text together,
+      so a menu over a 4K game can be read without squinting.
+    - "Reset appearance" goes straight back to the shipped look.
+    - The settings are written to FreeCam.menu.txt next to the game, so the look survives
+      a restart. A missing file, or one from an older build that this one cannot read,
+      simply means the shipped look - it never fails to open.
+    - SPAWN, "Spawn now (B)": the same spawn as the B key, as a row that can be clicked.
+      The row above it is still the name field, for a model that is not on any list.
+    - Nothing here changes the free camera: the corner display, the flight and its hotkeys
+      are exactly what they were. This is the debug menu's own appearance.
+
   - Build 26. Noclip and the spawner are where you can see them.
 
     - The menu was sized to its contents, which was fine while it had four short sections.

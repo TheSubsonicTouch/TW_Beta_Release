@@ -25,12 +25,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName",      "TheSubsonicTouch"
             VALUE "FileDescription",  "Triad Wars Free Camera - debug menu with a free camera"
-            VALUE "FileVersion",      "1.0.0.26"
+            VALUE "FileVersion",      "1.0.0.27"
             VALUE "InternalName",     "dinput8"
             VALUE "LegalCopyright",   "Free camera by TheSubsonicTouch. Triad Wars is (c) United Front Games / Square Enix."
             VALUE "OriginalFilename", "dinput8.dll"
             VALUE "ProductName",      "Triad Wars Free Camera"
-            VALUE "ProductVersion",   "1.0.0.26"
+            VALUE "ProductVersion",   "1.0.0.27"
             VALUE "Comments",         "Game camera control for the offline Triad Wars build. No network, no install, no keylogger: it reads the keyboard only for its own hotkeys and never sends anything anywhere."
         END
     END
@@ -47,3 +47,6 @@ END
 // rather than a byte array so the artwork stays a picture in the repository and
 // the DLL carries it as data, which is what it is.
 2 RCDATA "assets/triadmenu_bg.png"
+// The full-size dragon, for the tiled background the menu offers now. Its own resource,
+// so a menu drawn on the small pattern never pays to have it decoded.
+3 RCDATA "assets/triadmenu_dragon.png"

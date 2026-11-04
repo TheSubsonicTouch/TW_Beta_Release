@@ -41,6 +41,79 @@ struct MenuItem {
     std::function<std::string(const std::string&)> onPick;
 };
 
+// ---------------------------------------------------------------------------
+// How the menu looks.
+// ---------------------------------------------------------------------------
+// A plain value object, held by the renderer and handed to buildDebugMenu, so the rows
+// that change it and the code that draws with it are looking at the same numbers with no
+// round trip through the game thread. Everything here is clamped on the way in: a saved
+// setting from an older build, or a slider dragged past its end, must not be able to make
+// the menu unreadable.
+struct MenuColours {
+    float accent[4];      // the title, the selection edge, the hotkeys in the footer
+    float text[4];        // the rows themselves
+    float selected[4];    // the bar behind the selected row
+    float header[4];      // section titles
+    float status[4];      // the status line at the bottom
+    float panel[4];       // the window's own background, behind the artwork
+};
+
+const char* const* MenuThemeNames();     // { "Triad", "Neon", "Ink", "Jade" }
+int MenuThemeCount();
+const MenuColours& MenuThemeAt(int index);   // clamped
+
+// Which picture is drawn behind the rows, and how. Both artworks are in the DLL: the
+// dragon large enough to fill the window, and the small pattern to tile behind it.
+//
+// The order here IS the order of MenuBackgroundNames() and of the row's choices - the two
+// are checked against each other by the tests, because an index that means one thing to the
+// model and another to the renderer is a background that silently draws the wrong picture.
+enum class MenuBackground { Dragon = 0, DragonTiled, Pattern, None, Count };
+const char* const* MenuBackgroundNames();    // { "Dragon", "Dragon (tiled)", "Pattern", "None" }
+int MenuBackgroundCount();                   // matches MenuBackground::Count
+
+class MenuStyle {
+public:
+    // The defaults: the Triad theme, the dragon, its artwork at a bit over half strength.
+    MenuStyle();
+
+    int themeIndex() const { return theme_; }
+    void setThemeIndex(int i);
+    const MenuColours& colours() const { return MenuThemeAt(theme_); }
+
+    // 0 is the dragon stretched to cover the window, 1 the same picture tiled, 2 the small
+    // pattern tiled, 3 nothing (the flat panel, which is what the text is readable against).
+    int background() const { return background_; }
+    void setBackground(int i);
+
+    // How strongly the artwork shows through, 0..1. The row's default is the value the
+    // menu shipped with; anything above keeps the text legible by tinting the panel too.
+    float backgroundAlpha() const { return alpha_; }
+    void setBackgroundAlpha(float a);
+
+    // Text and row size, 0.85 (a little smaller than shipped) to 1.6.
+    float scale() const { return scale_; }
+    void setScale(float s);
+
+    // Back to the values above. Returns true when anything actually changed.
+    bool reset();
+
+    // "theme=0;bg=1;alpha=0.55;scale=1.00". save() always produces a string that load()
+    // reads back to the same values; load() returns false and changes nothing when the
+    // string is not one of ours.
+    std::string save() const;
+    bool load(const std::string& text);
+
+    static constexpr float kMinScale = 0.85f;
+    static constexpr float kMaxScale = 1.60f;
+
+private:
+    int theme_ = 0;
+    int background_ = 0;      // the dragon, which is what this build ships with
+    float alpha_ = 0.55f;
+    float scale_ = 1.0f;
+};
+
 class Menu {
 public:
     // Adds a submenu-free item list. Items keep insertion order.
@@ -200,6 +273,10 @@ struct DebugHooks {
     // the result of the last spawn. Reset is R.
     std::function<std::string()> spawnerStatus;
     std::function<std::string()> resetSpawner;
+
+    // The menu's own appearance, when this build can draw more than one look. The rows
+    // write it directly, so the next frame is drawn with the new setting.
+    MenuStyle* style = nullptr;
 
     // Progression.
     std::vector<std::string> levelTargets;          // Enforcer/Rackets/Triad/Rivals

@@ -2,8 +2,143 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <cstdlib>
 
 namespace tw {
+
+// ---------------------------------------------------------------------------
+// Appearance
+// ---------------------------------------------------------------------------
+
+namespace {
+
+// Four looks, each a set of six colours. They are deliberately conservative - a menu over a
+// dark game has to stay readable at every setting - so even the loudest one is a tint
+// rather than a slab of colour.
+const MenuColours kThemes[] = {
+    // Triad: the colours the menu shipped with - gold on bone, red bars, cyan status.
+    { { 0.93f, 0.78f, 0.42f, 1.0f },
+      { 0.94f, 0.92f, 0.88f, 1.0f },
+      { 0.55f, 0.10f, 0.10f, 0.55f },
+      { 0.86f, 0.24f, 0.22f, 1.0f },
+      { 0.55f, 0.85f, 0.92f, 1.0f },
+      { 0.05f, 0.05f, 0.06f, 0.86f } },
+    // Neon: the hologram's colours, for anyone who liked them on the spawn figure.
+    { { 0.45f, 0.95f, 1.00f, 1.0f },
+      { 0.88f, 0.97f, 1.00f, 1.0f },
+      { 0.10f, 0.40f, 0.55f, 0.55f },
+      { 0.35f, 0.80f, 0.95f, 1.0f },
+      { 0.75f, 0.98f, 1.00f, 1.0f },
+      { 0.03f, 0.07f, 0.10f, 0.88f } },
+    // Ink: no colour at all - grey on near-black, for the least intrusive look.
+    { { 0.85f, 0.85f, 0.85f, 1.0f },
+      { 0.95f, 0.95f, 0.95f, 1.0f },
+      { 0.25f, 0.25f, 0.25f, 0.60f },
+      { 0.70f, 0.70f, 0.70f, 1.0f },
+      { 0.80f, 0.80f, 0.80f, 1.0f },
+      { 0.02f, 0.02f, 0.02f, 0.92f } },
+    // Jade: the other end of the same street.
+    { { 0.62f, 0.90f, 0.62f, 1.0f },
+      { 0.92f, 0.98f, 0.92f, 1.0f },
+      { 0.10f, 0.40f, 0.22f, 0.55f },
+      { 0.42f, 0.80f, 0.52f, 1.0f },
+      { 0.70f, 0.95f, 0.75f, 1.0f },
+      { 0.03f, 0.07f, 0.05f, 0.88f } },
+};
+const int kThemeCount = static_cast<int>(sizeof(kThemes) / sizeof(kThemes[0]));
+const char* const kThemeNames[] = { "Triad", "Neon", "Ink", "Jade" };
+
+const char* const kBackgroundNames[] = { "Dragon", "Dragon (tiled)", "Pattern", "None" };
+
+constexpr float kMinAlpha = 0.0f;
+constexpr float kMaxAlpha = 1.0f;
+
+float clampf(float v, float lo, float hi) {
+    if (!(v > lo)) v = lo;      // also catches NaN: !(NaN > lo) is true
+    if (v > hi) v = hi;
+    return v;
+}
+
+}  // namespace
+
+const char* const* MenuThemeNames() { return kThemeNames; }
+
+int MenuThemeCount() { return kThemeCount; }
+
+const MenuColours& MenuThemeAt(int index) {
+    if (index < 0) index = 0;
+    if (index >= kThemeCount) index = kThemeCount - 1;
+    return kThemes[index];
+}
+
+const char* const* MenuBackgroundNames() { return kBackgroundNames; }
+
+int MenuBackgroundCount() { return static_cast<int>(MenuBackground::Count); }
+
+MenuStyle::MenuStyle() = default;
+
+void MenuStyle::setThemeIndex(int i) {
+    if (i < 0) i = 0;
+    if (i >= MenuThemeCount()) i = MenuThemeCount() - 1;
+    theme_ = i;
+}
+
+void MenuStyle::setBackground(int i) {
+    if (i < 0) i = 0;
+    if (i >= MenuBackgroundCount()) i = MenuBackgroundCount() - 1;
+    background_ = i;
+}
+
+void MenuStyle::setBackgroundAlpha(float a) { alpha_ = clampf(a, kMinAlpha, kMaxAlpha); }
+
+void MenuStyle::setScale(float s) { scale_ = clampf(s, kMinScale, kMaxScale); }
+
+bool MenuStyle::reset() {
+    const MenuStyle defaults;
+    const bool changed = theme_ != defaults.theme_ || background_ != defaults.background_ ||
+                         alpha_ != defaults.alpha_ || scale_ != defaults.scale_;
+    *this = defaults;
+    return changed;
+}
+
+std::string MenuStyle::save() const {
+    char buf[128];
+    std::snprintf(buf, sizeof buf, "theme=%d;bg=%d;alpha=%.2f;scale=%.2f", theme_,
+                  background_, static_cast<double>(alpha_), static_cast<double>(scale_));
+    return buf;
+}
+
+// A fixed, tolerant reader rather than anything clever: four keys, any order, unknown keys
+// ignored, and every value clamped. A hand-edited file, or one written by an older build,
+// loads what it can instead of losing every setting at once.
+bool MenuStyle::load(const std::string& text) {
+    if (text.empty()) return false;
+    MenuStyle parsed;
+    bool any = false;
+    std::size_t at = 0;
+    while (at < text.size()) {
+        std::size_t end = text.find(';', at);
+        if (end == std::string::npos) end = text.size();
+        const std::string pair = text.substr(at, end - at);
+        at = end + 1;
+        const std::size_t eq = pair.find('=');
+        if (eq == std::string::npos) continue;
+        std::string key = pair.substr(0, eq);
+        const std::string value = pair.substr(eq + 1);
+        while (!key.empty() && (key.back() == ' ' || key.back() == '\t')) key.pop_back();
+        if (key.empty() || value.empty()) continue;
+        char* stop = nullptr;
+        const double number = std::strtod(value.c_str(), &stop);
+        if (stop == value.c_str()) continue;           // not a number: leave this one alone
+        if (key == "theme") { parsed.setThemeIndex(static_cast<int>(number)); any = true; }
+        else if (key == "bg") { parsed.setBackground(static_cast<int>(number)); any = true; }
+        else if (key == "alpha") { parsed.setBackgroundAlpha(static_cast<float>(number)); any = true; }
+        else if (key == "scale") { parsed.setScale(static_cast<float>(number)); any = true; }
+    }
+    if (!any) return false;
+    *this = parsed;
+    return true;
+}
 
 void Menu::addItem(MenuItem item) { items_.push_back(std::move(item)); }
 
@@ -408,6 +543,27 @@ void buildDebugMenu(Menu& menu, const DebugHooks& hooks) {
             menu.setStatus(spawnPedFn(name));
         };
         menu.addItem(ped);
+
+        // The same spawn as a plain button. The row above is a text field: it takes typing
+        // and Enter, which is how a name that is not on the list gets in. This is the one
+        // that can be clicked and does the obvious thing with what is already there.
+        MenuItem now;
+        now.label = "Spawn now (B)";
+        now.kind = ItemKind::Action;
+        now.onAction = [&menu, spawnPedFn]() {
+            const MenuItem* it = menu.item("Spawn Ped");
+            if (!it) return;
+            std::string name = it->text;
+            const std::size_t first = name.find_first_not_of(" \t");
+            const std::size_t last = name.find_last_not_of(" \t");
+            name = (first == std::string::npos) ? std::string() : name.substr(first, last - first + 1);
+            if (name.empty()) {
+                menu.setStatus("Spawn Ped: pick a model first");
+                return;
+            }
+            menu.setStatus(spawnPedFn(name));
+        };
+        menu.addItem(now);
     } else {
         MenuItem ped;
         ped.label = "Spawn Ped";
@@ -709,5 +865,106 @@ void buildDebugMenu(Menu& menu, const DebugHooks& hooks) {
 
     // Put the cursor on the first entry that can be used, not on the CAMERA title.
     menu.select(0);
+
+    // ---- Appearance -------------------------------------------------------
+    // The menu's own look: a theme, the artwork behind it, how strongly that artwork shows
+    // and how big the rows are. None of these touch the game - they change what this window
+    // draws - so they are handled here in the model rather than through a game-thread job,
+    // and the renderer reads the same object on the next frame.
+    if (hooks.style) {
+        header("APPEARANCE");
+
+        MenuStyle* style = hooks.style;
+
+        {
+            std::vector<std::string> themes;
+            for (int i = 0; i < MenuThemeCount(); ++i) themes.emplace_back(MenuThemeNames()[i]);
+            MenuItem theme = makeSelector("Colours", themes,
+                                          [style, &menu](const std::string& name) {
+                                              for (int i = 0; i < MenuThemeCount(); ++i) {
+                                                  if (name == MenuThemeNames()[i]) {
+                                                      style->setThemeIndex(i);
+                                                      return "Colours: " + name;
+                                                  }
+                                              }
+                                              return std::string("Colours: ") + name;
+                                          });
+            theme.optionIndex = static_cast<std::size_t>(style->themeIndex());
+            theme.applyOnChange = true;   // the whole window changes as it is browsed
+            menu.addItem(theme);
+        }
+
+        {
+            std::vector<std::string> backgrounds;
+            for (int i = 0; i < MenuBackgroundCount(); ++i)
+                backgrounds.emplace_back(MenuBackgroundNames()[i]);
+            MenuItem bg = makeSelector("Background", backgrounds,
+                                       [style](const std::string& name) {
+                                           for (int i = 0; i < MenuBackgroundCount(); ++i) {
+                                               if (name == MenuBackgroundNames()[i]) {
+                                                   style->setBackground(i);
+                                                   return "Background: " + name;
+                                               }
+                                           }
+                                           return std::string("Background: ") + name;
+                                       });
+            bg.optionIndex = static_cast<std::size_t>(style->background());
+            bg.applyOnChange = true;
+            menu.addItem(bg);
+        }
+
+        {
+            // "Contrast" is the name that says what it is for: the artwork competes with the
+            // text, so this is how much of it to let through.
+            MenuItem contrast;
+            contrast.label = "Background contrast";
+            contrast.kind = ItemKind::Slider;
+            contrast.minValue = 0.0f;
+            contrast.maxValue = 1.0f;
+            contrast.step = 0.05f;
+            contrast.value = style->backgroundAlpha();
+            contrast.onChange = [style, &menu](float v) {
+                style->setBackgroundAlpha(v);
+                char buf[64];
+                std::snprintf(buf, sizeof buf, "Background contrast: %.0f%%",
+                              static_cast<double>(v * 100.0f));
+                menu.setStatus(buf);
+            };
+            menu.addItem(contrast);
+        }
+
+        {
+            MenuItem scale;
+            scale.label = "Text size";
+            scale.kind = ItemKind::Slider;
+            scale.minValue = MenuStyle::kMinScale;
+            scale.maxValue = MenuStyle::kMaxScale;
+            scale.step = 0.05f;
+            scale.value = style->scale();
+            scale.onChange = [style, &menu](float v) {
+                style->setScale(v);
+                char buf[64];
+                std::snprintf(buf, sizeof buf, "Text size: %.0f%%",
+                              static_cast<double>(v * 100.0f));
+                menu.setStatus(buf);
+            };
+            menu.addItem(scale);
+        }
+
+        {
+            MenuItem reset;
+            reset.label = "Reset appearance";
+            reset.kind = ItemKind::Action;
+            reset.onAction = [style, &menu]() {
+                const bool changed = style->reset();
+                menu.setOptionIndex("Colours", static_cast<std::size_t>(style->themeIndex()));
+                menu.setOptionIndex("Background", static_cast<std::size_t>(style->background()));
+                menu.setStatus(changed ? "Appearance: back to the shipped look"
+                                       : "Appearance: already the shipped look");
+            };
+            menu.addItem(reset);
+        }
+    }
+
 }
 }  // namespace tw

@@ -8,8 +8,10 @@
 #include <wincodec.h>
 #include <xinput.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -167,6 +169,12 @@ LONG CALLBACK vehHandler(EXCEPTION_POINTERS* ep) {
 
 tw::Menu g_menu;
 std::function<void()> g_syncState;   // see DebugHooks::syncState
+
+// How the menu looks. One object, written by the APPEARANCE rows and read by renderMenu on
+// the next frame - and saved next to the game so the choice survives a restart.
+tw::MenuStyle g_style;
+bool g_styleDirty = false;
+ULONGLONG g_styleSavedAt = 0;
 
 
 // Only the work that has to happen on the game thread: the three actions that call into
@@ -374,14 +382,21 @@ void releaseRenderTarget() {
 // Imaging Component decodes it once, at startup, into a D3D11 texture; ImGui then draws
 // it behind the menu rows with a fixed alpha, so the pattern is always the backdrop and
 // never competes with the text.
-constexpr int kBgResourceId = 2;
+constexpr int kBgResourceId = 2;       // the small pattern, the backdrop the menu shipped with
+constexpr int kDragonResourceId = 3;   // the full-size dragon, for the tiled look
 ID3D11ShaderResourceView* g_bgSrv = nullptr;
 int g_bgW = 0;
 int g_bgH = 0;
+ID3D11ShaderResourceView* g_dragonSrv = nullptr;
+int g_dragonW = 0;
+int g_dragonH = 0;
 
 // Every COM object is released on every exit path, including the failures: this runs
 // inside the game's process, and a leak here is the game's leak.
-bool decodePng(ID3D11Device* dev, const void* data, DWORD size) {
+// Decodes into whichever pair of globals is passed in, so the two pictures share one
+// implementation rather than two copies that could disagree about the format.
+bool decodePng(ID3D11Device* dev, const void* data, DWORD size,
+               ID3D11ShaderResourceView** outSrv, int* outW, int* outH) {
     IWICImagingFactory* factory = nullptr;
     IWICStream* stream = nullptr;
     IWICBitmapDecoder* decoder = nullptr;
@@ -426,9 +441,9 @@ bool decodePng(ID3D11Device* dev, const void* data, DWORD size) {
         init.SysMemPitch = w * 4;
         if (FAILED(dev->CreateTexture2D(&desc, &init, &texture))) break;
 
-        if (FAILED(dev->CreateShaderResourceView(texture, nullptr, &g_bgSrv))) break;
-        g_bgW = static_cast<int>(w);
-        g_bgH = static_cast<int>(h);
+        if (FAILED(dev->CreateShaderResourceView(texture, nullptr, outSrv))) break;
+        *outW = static_cast<int>(w);
+        *outH = static_cast<int>(h);
         ok = true;
     } while (false);
 
@@ -441,27 +456,85 @@ bool decodePng(ID3D11Device* dev, const void* data, DWORD size) {
     return ok;
 }
 
-void loadBackground(ID3D11Device* dev) {
-    if (g_bgSrv || !dev) return;
+// One of the two pictures, decoded on first use and kept. Both are in the DLL's resources,
+// so nothing is read from disk and nothing can go missing from the folder.
+bool loadArtwork(ID3D11Device* dev, int resourceId, ID3D11ShaderResourceView** srv,
+                 int* w, int* h) {
+    if (*srv) return true;
+    if (!dev) return false;
     HINSTANCE self = GetModuleHandleW(nullptr);
-    HRSRC res = FindResourceW(self, MAKEINTRESOURCEW(kBgResourceId),
-                                       MAKEINTRESOURCEW(10) /* RT_RCDATA */);
+    HRSRC res = FindResourceW(self, MAKEINTRESOURCEW(resourceId),
+                                    MAKEINTRESOURCEW(10) /* RT_RCDATA */);
     if (!res) {
-        TW_Log("Menu background: the dragon artwork is not in this DLL.");
-        return;
+        TW_Log("Menu background: artwork %d is not in this DLL.", resourceId);
+        return false;
     }
     HGLOBAL block = LoadResource(self, res);
     const void* bytes = block ? LockResource(block) : nullptr;
     const DWORD size = SizeofResource(self, res);
     if (!bytes || size == 0) {
-        TW_Log("Menu background: the artwork could not be read.");
-        return;
+        TW_Log("Menu background: artwork %d could not be read.", resourceId);
+        return false;
     }
-    if (!decodePng(dev, bytes, size)) {
-        TW_Log("Menu background: the artwork could not be decoded; using the plain panel.");
-        return;
+    if (!decodePng(dev, bytes, size, srv, w, h)) {
+        TW_Log("Menu background: artwork %d could not be decoded; using the plain panel.",
+               resourceId);
+        return false;
     }
-    TW_Log("Menu background: %dx%d dragon pattern loaded.", g_bgW, g_bgH);
+    TW_Log("Menu background: artwork %d loaded, %dx%d.", resourceId, *w, *h);
+    return true;
+}
+
+// The appearance settings live next to the game, in FreeCam.menu.txt: one line, the format
+// MenuStyle::save writes. Written at most once a second while something is being dragged,
+// so a slider does not turn into a file write per frame. A missing or unreadable file is
+// not an error - it means the shipped look.
+std::string stylePath() {
+    wchar_t exe[MAX_PATH] = { 0 };
+    const DWORD n = GetModuleFileNameW(nullptr, exe, MAX_PATH);
+    std::wstring path(exe, n);
+    const std::size_t slash = path.find_last_of(L"\\/");
+    if (slash != std::wstring::npos) path.resize(slash + 1);
+    path += L"FreeCam.menu.txt";
+    // Narrow it: the file only ever holds ASCII, and everything else here is narrow.
+    std::string narrow;
+    for (wchar_t c : path) narrow += (c < 128) ? static_cast<char>(c) : '?';
+    return narrow;
+}
+
+void loadStyle() {
+    const std::string path = stylePath();
+    FILE* f = std::fopen(path.c_str(), "rb");
+    if (!f) return;
+    char buf[256] = { 0 };
+    const size_t got = std::fread(buf, 1, sizeof buf - 1, f);
+    std::fclose(f);
+    const std::string text(buf, got);
+    if (g_style.load(text)) {
+        TW_Log("Menu style: loaded from %s: %s", path.c_str(), g_style.save().c_str());
+    } else {
+        TW_Log("Menu style: %s is not a style this build understands; using the shipped look",
+               path.c_str());
+    }
+}
+
+void saveStyleIfDirty() {
+    if (!g_styleDirty) return;
+    const ULONGLONG now = GetTickCount64();
+    if (g_styleSavedAt && now - g_styleSavedAt < 1000) return;   // debounce a dragged slider
+    g_styleSavedAt = now;
+    g_styleDirty = false;
+    const std::string path = stylePath();
+    FILE* f = std::fopen(path.c_str(), "wb");
+    if (!f) return;
+    const std::string text = g_style.save() + "\n";
+    std::fwrite(text.data(), 1, text.size(), f);
+    std::fclose(f);
+}
+
+void loadBackground(ID3D11Device* dev) {
+    loadArtwork(dev, kBgResourceId, &g_bgSrv, &g_bgW, &g_bgH);
+    loadArtwork(dev, kDragonResourceId, &g_dragonSrv, &g_dragonW, &g_dragonH);
 }
 
 void initImGui(IDXGISwapChain* sc) {
@@ -548,6 +621,7 @@ void initImGui(IDXGISwapChain* sc) {
     // WIC needs COM on this thread; the game already has it up in most builds, and
     // RPC_E_CHANGED_MODE just means it is in the other apartment model.
     CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+    loadStyle();          // before the first frame, so the menu opens in the saved look
     loadBackground(g_dev);
 
     ImGui_ImplWin32_Init(g_hwnd);
@@ -635,12 +709,22 @@ const char* rowValue(const tw::MenuItem& it) {
     }
 }
 
+// One colour of a theme as ImGui wants it.
+ImVec4 colour(const float c[4]) { return ImVec4(c[0], c[1], c[2], c[3]); }
+
 void renderMenu() {
-    const ImVec4 gold(0.93f, 0.78f, 0.42f, 1.0f);
-    const ImVec4 goldDim(0.72f, 0.55f, 0.28f, 1.0f);
-    const ImVec4 bone(0.94f, 0.92f, 0.88f, 1.0f);
-    const ImVec4 red(0.86f, 0.24f, 0.22f, 1.0f);
-    const ImVec4 cyan(0.55f, 0.85f, 0.92f, 1.0f);
+    const tw::MenuColours& theme = g_style.colours();
+    const ImVec4 gold = colour(theme.accent);
+    const ImVec4 bone = colour(theme.text);
+    const ImVec4 red = colour(theme.header);
+    const ImVec4 cyan = colour(theme.status);
+    // A dimmed accent for the second line of a title; no separate setting for it, because
+    // there is nothing a player would want to say with it that the accent does not say.
+    const ImVec4 goldDim(theme.accent[0] * 0.78f, theme.accent[1] * 0.78f,
+                         theme.accent[2] * 0.78f, theme.accent[3]);
+    // Text size applies to every row: a window over a 4K game needs to be readable and a
+    // window over a laptop does not need to be huge.
+    ImGui::SetWindowFontScale(g_style.scale());
 
     // The menu is taller than it used to be, and a window sized to its contents simply
     // grows past the bottom of the screen - where the last sections cannot be read and
@@ -657,9 +741,11 @@ void renderMenu() {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(14, 12));
     ImGui::Begin("TriadMenu", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings);
 
-    // The dragon, behind everything the window draws: cover-fit, so the tiles never
-    // stretch. It is drawn at a little over half strength and the window background stays
-    // dark, so the rows keep their contrast.
+    // The artwork, behind everything the window draws. Two pictures and four ways of
+    // showing them (see MenuBackground): the dragon stretched to cover the window, the same
+    // picture tiled at its own size, the small pattern tiled, or nothing but the panel. The
+    // panel colour is always painted first, so a picture that failed to decode - or was
+    // turned off - still leaves something to read against.
     ImDrawList* dl = ImGui::GetWindowDrawList();
     const ImVec2 wp = ImGui::GetWindowPos();
     // The content region, not the whole window: the window's own draw list is painted
@@ -668,22 +754,74 @@ void renderMenu() {
     const ImVec2 cmax = ImGui::GetWindowContentRegionMax();
     const ImVec2 ws(cmax.x - cmin.x, cmax.y - cmin.y);
     const ImVec2 origin(wp.x + cmin.x, wp.y + cmin.y);
-    if (g_bgSrv && ws.x > 1.0f && ws.y > 1.0f) {
-        ImVec2 uv0(0.0f, 0.0f), uv1(1.0f, 1.0f);
-        const float imgAspect = static_cast<float>(g_bgW) / static_cast<float>(g_bgH);
-        const float winAspect = ws.x / ws.y;
-        if (winAspect > imgAspect) {
-            const float keep = imgAspect / winAspect;
-            uv0.y = (1.0f - keep) * 0.5f;
-            uv1.y = 1.0f - uv0.y;
-        } else {
-            const float keep = winAspect / imgAspect;
-            uv0.x = (1.0f - keep) * 0.5f;
-            uv1.x = 1.0f - uv0.x;
+    if (ws.x > 1.0f && ws.y > 1.0f) {
+        // The panel first: it is what the text is really readable against, and the picture
+        // is a tint on top of it.
+        dl->AddRectFilled(origin, ImVec2(origin.x + ws.x, origin.y + ws.y),
+                          ImGui::GetColorU32(colour(theme.panel)), 4.0f);
+
+        const int alpha = static_cast<int>(g_style.backgroundAlpha() * 255.0f + 0.5f);
+        // The indices are the model's, in the order MenuBackgroundNames() lists them.
+        const int mode = g_style.background();
+        const bool dragon = mode == static_cast<int>(tw::MenuBackground::Dragon) ||
+                            mode == static_cast<int>(tw::MenuBackground::DragonTiled);
+        const bool tiled = mode == static_cast<int>(tw::MenuBackground::DragonTiled) ||
+                           mode == static_cast<int>(tw::MenuBackground::Pattern);
+        ImTextureID tex = static_cast<ImTextureID>(0);
+        int texW = 0, texH = 0;
+        if (dragon) {
+            tex = reinterpret_cast<ImTextureID>(g_dragonSrv);
+            texW = g_dragonW;
+            texH = g_dragonH;
+        } else if (tiled) {
+            tex = reinterpret_cast<ImTextureID>(g_bgSrv);
+            texW = g_bgW;
+            texH = g_bgH;
         }
-        dl->AddImageRounded(reinterpret_cast<ImTextureID>(g_bgSrv), origin,
-                            ImVec2(origin.x + ws.x, origin.y + ws.y), uv0, uv1,
-                            IM_COL32(255, 255, 255, 120), 4.0f);
+
+        if (tex && texW > 0 && texH > 0 && alpha > 0) {
+            const ImU32 tint = IM_COL32(255, 255, 255, alpha);
+            if (!tiled) {
+                // Cover-fit: the whole picture, cropped to the window's shape so it is
+                // never stretched out of proportion.
+                ImVec2 uv0(0.0f, 0.0f), uv1(1.0f, 1.0f);
+                const float imgAspect = static_cast<float>(texW) / static_cast<float>(texH);
+                const float winAspect = ws.x / ws.y;
+                if (winAspect > imgAspect) {
+                    const float keep = imgAspect / winAspect;
+                    uv0.y = (1.0f - keep) * 0.5f;
+                    uv1.y = 1.0f - uv0.y;
+                } else {
+                    const float keep = winAspect / imgAspect;
+                    uv0.x = (1.0f - keep) * 0.5f;
+                    uv1.x = 1.0f - uv0.x;
+                }
+                dl->AddImageRounded(tex, origin, ImVec2(origin.x + ws.x, origin.y + ws.y),
+                                    uv0, uv1, tint, 4.0f);
+            } else {
+                // Tiled at a size worked out from the picture and the text scale, so the
+                // pattern keeps its proportions at every window size. Clipped by hand: the
+                // draw list has no scissor here, and a tile that ran past the window would
+                // be painted over the game.
+                const float tile = (mode == static_cast<int>(tw::MenuBackground::Pattern)
+                                        ? 240.0f : 380.0f) *
+                                   g_style.scale();
+                const float stepX = tile;
+                const float stepY = tile * static_cast<float>(texH) / static_cast<float>(texW);
+                const ImVec2 clipMax(origin.x + ws.x, origin.y + ws.y);
+                for (float y = origin.y; y < clipMax.y; y += stepY) {
+                    for (float x = origin.x; x < clipMax.x; x += stepX) {
+                        dl->AddImage(tex, ImVec2(x, y),
+                                     ImVec2(std::min(x + stepX, clipMax.x),
+                                            std::min(y + stepY, clipMax.y)),
+                                     ImVec2(0.0f, 0.0f),
+                                     ImVec2(std::min(1.0f, (clipMax.x - x) / stepX),
+                                            std::min(1.0f, (clipMax.y - y) / stepY)),
+                                     tint);
+                    }
+                }
+            }
+        }
     }
 
     // Title block: the name, a rule, and where the keys are.
@@ -699,7 +837,9 @@ void renderMenu() {
 
     // Rows sit flush against each other, so the selection reads as one bar rather than a
     // row with gaps either side of it.
-    const float rowHeight = 26.0f;
+    // The row has to grow with the text: a fixed height clips a larger font, and the slider
+    // exists precisely so the text can be made larger.
+    const float rowHeight = 26.0f * g_style.scale();
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8.0f, 1.0f));
     const auto& items = g_menu.items();
     const float rowWidth = ImGui::GetContentRegionAvail().x;
@@ -713,7 +853,8 @@ void renderMenu() {
             ImGui::PopStyleColor();
             const ImVec2 p = ImGui::GetCursorScreenPos();
             dl->AddLine(ImVec2(p.x, p.y + 1.0f), ImVec2(p.x + rowWidth, p.y + 1.0f),
-                        ImGui::GetColorU32(ImVec4(0.55f, 0.32f, 0.14f, 0.55f)), 1.0f);
+                        ImGui::GetColorU32(ImVec4(theme.header[0], theme.header[1],
+                                                  theme.header[2], 0.55f)), 1.0f);
             ImGui::Dummy(ImVec2(1.0f, 2.0f));
             continue;
         }
@@ -725,11 +866,12 @@ void renderMenu() {
             ImGui::Dummy(ImVec2(rowWidth, rowHeight));
             const float textY = p.y + (rowHeight - ImGui::GetTextLineHeight()) * 0.5f;
             dl->AddText(ImVec2(p.x + 12.0f, textY),
-                        ImGui::GetColorU32(ImVec4(0.70f, 0.68f, 0.64f, 1.0f)), it.label.c_str());
+                        ImGui::GetColorU32(ImVec4(theme.text[0] * 0.74f, theme.text[1] * 0.74f,
+                                                  theme.text[2] * 0.74f, 1.0f)), it.label.c_str());
             if (!it.text.empty()) {
                 const ImVec2 size = ImGui::CalcTextSize(it.text.c_str());
                 dl->AddText(ImVec2(p.x + rowWidth - size.x - 12.0f, textY),
-                            ImGui::GetColorU32(ImVec4(0.55f, 0.85f, 0.92f, 1.0f)), it.text.c_str());
+                            ImGui::GetColorU32(cyan), it.text.c_str());
             }
             continue;
         }
@@ -747,7 +889,7 @@ void renderMenu() {
         // Selection bar.
         if (selected) {
             dl->AddRectFilled(ImVec2(p.x, p.y), ImVec2(p.x + rowWidth, p.y + rowHeight),
-                              ImGui::GetColorU32(ImVec4(0.55f, 0.10f, 0.10f, 0.55f)), 4.0f);
+                              ImGui::GetColorU32(colour(theme.selected)), 4.0f);
             dl->AddRectFilled(ImVec2(p.x, p.y + 2.0f), ImVec2(p.x + 2.5f, p.y + rowHeight - 2.0f),
                               ImGui::GetColorU32(gold), 1.0f);
             // The cursor is walked with the arrow keys, so the row it lands on has to be
@@ -775,7 +917,7 @@ void renderMenu() {
             if (fieldW > 60.0f) {
                 char buf[128];
                 std::snprintf(buf, sizeof buf, "%s", it.text.c_str());
-                ImGui::SetCursorScreenPos(ImVec2(fieldX, p.y + 3.0f));
+                ImGui::SetCursorScreenPos(ImVec2(fieldX, p.y + (rowHeight - ImGui::GetFrameHeight()) * 0.5f));
                 ImGui::SetNextItemWidth(fieldW);
                 ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(5.0f, 3.0f));
                 ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.10f, 0.04f, 0.05f, 0.90f));
@@ -805,9 +947,14 @@ void renderMenu() {
         const char* value = rowValue(it);
         if (value && *value) {
             const ImVec2 size = ImGui::CalcTextSize(value);
+            // ON is the theme's status colour and OFF its dimmed text: the colour that says
+            // "running" is the same one that says "this is what the camera is doing".
             const ImU32 col = ImGui::GetColorU32(
-                it.kind == tw::ItemKind::Toggle ? (it.toggled ? ImVec4(0.45f, 0.90f, 0.45f, 1.0f) : ImVec4(0.62f, 0.58f, 0.52f, 1.0f))
-                                                : ImVec4(0.86f, 0.76f, 0.52f, 1.0f));
+                it.kind == tw::ItemKind::Toggle
+                    ? (it.toggled ? colour(theme.status)
+                                  : ImVec4(theme.text[0] * 0.60f, theme.text[1] * 0.60f,
+                                           theme.text[2] * 0.60f, 1.0f))
+                    : gold);
             dl->AddText(ImVec2(p.x + rowWidth - size.x - 12.0f, textY), col, value);
         }
 
@@ -833,7 +980,8 @@ void renderMenu() {
     }
 
     ImGui::Dummy(ImVec2(1.0f, 2.0f));
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.55f, 0.52f, 0.48f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(theme.text[0] * 0.55f, theme.text[1] * 0.55f,
+                                                theme.text[2] * 0.55f, 1.0f));
     ImGui::TextUnformatted("Up/Down move   Left/Right change   Enter apply");
     ImGui::TextUnformatted("PageUp/PageDown jump between sections   mouse wheel scrolls");
     ImGui::TextUnformatted("Right click = right arrow   Insert / Backspace close");
@@ -923,6 +1071,17 @@ void renderSpawnHologram() {
 
 void renderFrame() {
     const bool menuOn = g_menu.visible();
+    // The APPEARANCE rows write g_style directly, so the only way to notice a change is to
+    // compare. Saving is debounced inside saveStyleIfDirty.
+    {
+        static std::string last = g_style.save();
+        const std::string now = g_style.save();
+        if (now != last) {
+            last = now;
+            g_styleDirty = true;
+            saveStyleIfDirty();
+        }
+    }
     tw::game::FreeCamHudLine probe[1];
     const bool hudOn = tw::game::FreeCamHudLines(probe, 1) > 0;
     const bool previewOn = tw::game::HologramPreviewActive();
@@ -1046,6 +1205,7 @@ DWORD WINAPI installThread(LPVOID) {
 
 void buildMenu() {
     tw::DebugHooks hooks;
+    hooks.style = &g_style;         // the APPEARANCE rows write what renderMenu reads
     // Only what the menu still offers. The camera, the spawner and noclip keep their
     // hotkeys (see freecam_game.cpp); the menu is for the things that are easier to read
     // than to remember, and for the actions that write a save file.
