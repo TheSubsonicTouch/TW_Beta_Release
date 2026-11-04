@@ -1027,6 +1027,40 @@ std::string spawnPreviewModel() {
     return std::string();
 }
 
+// The sky paint: the colour the SKY section chose, laid over the top of the frame and
+// faded out before the street. It goes into the background draw list with the hologram, so
+// it sits over the game and under the menu, and it is drawn in bands because a draw list
+// has no gradient of its own - sixty-four of them across the top half is smooth to the eye
+// and costs nothing worth measuring.
+//
+// The shape is the shape of a sky: strongest at the very top of the frame, gone by 62% of
+// the way down, so what the paint touches is the sky and the tops of the towers, not the
+// pavement or the HUD along the bottom.
+void renderSkyPaint() {
+    float r = 1.0f, g = 1.0f, b = 1.0f, alpha = 0.0f;
+    if (!tw::game::SkyPaint(&r, &g, &b, &alpha)) return;
+    const ImGuiIO& io = ImGui::GetIO();
+    const float w = io.DisplaySize.x;
+    const float h = io.DisplaySize.y;
+    if (w < 8.0f || h < 8.0f) return;
+
+    ImDrawList* dl = ImGui::GetBackgroundDrawList();
+    const int bands = 64;
+    const float bottom = h * 0.62f;
+    for (int i = 0; i < bands; ++i) {
+        const float t0 = static_cast<float>(i) / bands;
+        const float t1 = static_cast<float>(i + 1) / bands;
+        // Squared falloff: a sky is mostly at the top of the picture, and a straight ramp
+        // reads as a coloured band across the middle of the screen.
+        const float f0 = (1.0f - t0) * (1.0f - t0);
+        const float f1 = (1.0f - t1) * (1.0f - t1);
+        const ImU32 c0 = ImGui::ColorConvertFloat4ToU32(ImVec4(r, g, b, alpha * f0));
+        const ImU32 c1 = ImGui::ColorConvertFloat4ToU32(ImVec4(r, g, b, alpha * f1));
+        dl->AddRectFilledMultiColor(ImVec2(0.0f, bottom * t0), ImVec2(w, bottom * t1), c0, c0,
+                                    c1, c1);
+    }
+}
+
 // The spawn hologram: a wireframe NPC standing where the next spawn would put one, with
 // its model name over its head. It goes into the background draw list, so it sits over the
 // game and under the menu - the menu can be open on top of it and the figure is still
@@ -1099,13 +1133,16 @@ void renderFrame() {
     tw::game::FreeCamHudLine probe[1];
     const bool hudOn = tw::game::FreeCamHudLines(probe, 1) > 0;
     const bool previewOn = tw::game::HologramPreviewActive();
-    if (!menuOn && !hudOn && !tw::game::NoclipActive() && !previewOn) return;
+    const bool paintOn = tw::game::SkyPaintActive();
+    if (!menuOn && !hudOn && !tw::game::NoclipActive() && !previewOn && !paintOn) return;
 
     ImGui_ImplDX11_NewFrame();
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
 
-    // First, so everything else draws on top of it.
+    // First, so everything else draws on top of it: the sky goes under the hologram and
+    // under the menu, over the game, which is where the sky is.
+    renderSkyPaint();
     renderSpawnHologram();
 
     if (menuOn) renderMenu();
@@ -1142,9 +1179,9 @@ HRESULT STDMETHODCALLTYPE hkPresent(IDXGISwapChain* sc, UINT sync, UINT flags) {
         // the camera, spawn the hotkey ped and toggle noclip.
         tw::game::FreeCamSetMenuOpen(g_menu.visible());
         drainJobs();   // run queued actions on the game thread, then show results
-        // The sky override is a per-frame job rather than a queued one: it has to keep
-        // holding the variant and repaint the colour every frame, and it has to put the
-        // borrowed values back the frame it is switched off.
+        // The sky override is a per-frame job rather than a queued one: the game picks its
+        // own sky whenever it likes, so the chosen variant is asked for again every frame
+        // it moves. The colour needs no tick - it is drawn with the menu's own frame.
         tw::game::SkyTick();
         // Camera actions are carried out by the camera thread, so their answer arrives on
         // its own schedule; whenever one lands it takes the status line.
