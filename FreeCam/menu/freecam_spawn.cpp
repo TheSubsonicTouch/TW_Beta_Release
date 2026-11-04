@@ -777,6 +777,25 @@ bool SpawnPump() {
 
 const std::string &SpawnStatus() { return g_status; }
 
+std::string SpawnStatusCopy() {
+    Lock();
+    const std::string copy = g_status;
+    Unlock();
+    return copy;
+}
+
+bool SpawnPlayerReady() {
+    fc_mat player;
+    return PlayerTransform(&player);
+}
+
+bool SpawnPending() {
+    Lock();
+    const bool pending = g_pending;
+    Unlock();
+    return pending;
+}
+
 
 }  // namespace game
 }  // namespace tw

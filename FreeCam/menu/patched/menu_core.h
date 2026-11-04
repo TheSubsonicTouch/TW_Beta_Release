@@ -50,6 +50,11 @@ public:
     // Feed one key press. Returns true if the menu consumed it.
     bool handleKey(Key key);
 
+    // Move the cursor to the first usable entry of the next (+1) or previous (-1) section,
+    // wrapping at the ends. PageDown and PageUp: the menu is longer than a short screen, and
+    // walking it a row at a time to reach SPAWN is how a feature ends up never being found.
+    bool jumpSection(int delta);
+
     void setVisible(bool v) { visible_ = v; }
     bool visible() const { return visible_; }
     void toggleVisible() { visible_ = !visible_; }

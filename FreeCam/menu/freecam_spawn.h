@@ -79,6 +79,19 @@ bool SpawnSpot(float metres, float out[16]);
 // Returns true when a request was carried out.
 bool SpawnPump();
 
+// A copy of the last status line, taken under the lock the camera thread writes it with.
+// The menu shows this every frame, so it must not read the live string while the pump is
+// replacing it.
+std::string SpawnStatusCopy();
+
+// Whether a spawn could happen right now: the player is in the world, so there is a
+// transform to stand in front of. False on a loading screen - the menu says so instead of
+// queueing a spawn that can only time out.
+bool SpawnPlayerReady();
+
+// Whether a request is still queued (waiting for the world, or for the allocator).
+bool SpawnPending();
+
 // The last result, e.g. "Spawned object-physical-character-police 3 m ahead (hostile)".
 // Empty until something has been spawned. Also written to TW_MenuLog.txt, with the
 // hashes and the faction ids, so a failure can be read back later.

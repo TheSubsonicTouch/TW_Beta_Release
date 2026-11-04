@@ -219,6 +219,8 @@ void NoclipSet(bool on) {
 
 bool NoclipActive() { return g_active; }
 
+bool NoclipPlayerReady() { return PlayerMatrix() != nullptr; }
+
 float NoclipSpeed() { return kSpeedValues[g_speedIndex]; }
 
 void NoclipSetSpeedIndex(int index) {

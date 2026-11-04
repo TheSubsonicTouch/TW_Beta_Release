@@ -284,7 +284,7 @@ void pollInput() {
     if (GetForegroundWindow() != g_hwnd) return;
 
     static bool kInsert = false, kUp = false, kDown = false, kLeft = false, kRight = false,
-                kEnter = false, kBack = false;
+                kEnter = false, kBack = false, kPageUp = false, kPageDown = false;
     static bool gStart = false, gUp = false, gDown = false, gLeft = false, gRight = false,
                 gA = false, gB = false;
 
@@ -304,6 +304,8 @@ void pollInput() {
     const bool right = edge(keyDown(VK_RIGHT), kRight);
     const bool enter = edge(keyDown(VK_RETURN), kEnter);
     const bool back = edge(keyDown(VK_BACK), kBack);
+    const bool pageUp = edge(keyDown(VK_PRIOR), kPageUp);
+    const bool pageDown = edge(keyDown(VK_NEXT), kPageDown);
     if (!typing) {
         if (up) g_menu.handleKey(tw::Key::Up);
         if (down) g_menu.handleKey(tw::Key::Down);
@@ -311,6 +313,10 @@ void pollInput() {
         if (right) g_menu.handleKey(tw::Key::Right);
         if (enter) g_menu.handleKey(tw::Key::Select);
         if (back) g_menu.handleKey(tw::Key::Back);
+        // The sections are the menu's table of contents: one page key per section, so
+        // SPAWN is one press away however long the list grows.
+        if (pageUp) g_menu.jumpSection(-1);
+        if (pageDown) g_menu.jumpSection(1);
     }
 
     XINPUT_STATE xs{};
@@ -636,11 +642,20 @@ void renderMenu() {
     const ImVec4 red(0.86f, 0.24f, 0.22f, 1.0f);
     const ImVec4 cyan(0.55f, 0.85f, 0.92f, 1.0f);
 
+    // The menu is taller than it used to be, and a window sized to its contents simply
+    // grows past the bottom of the screen - where the last sections cannot be read and
+    // cannot be scrolled to either, because there is nothing to scroll. So the window is
+    // given a height that fits whatever the game is running at, and everything else
+    // scrolls.
+    const ImGuiIO& io = ImGui::GetIO();
+    const float screenH = io.DisplaySize.y > 200.0f ? io.DisplaySize.y : 720.0f;
+    const float maxH = screenH - 56.0f;                 // title bar and the window border
+    const float wantH = maxH < 760.0f ? maxH : 760.0f;  // never taller than a short screen
     ImGui::SetNextWindowPos(ImVec2(26, 26), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(520, 0), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSizeConstraints(ImVec2(400, 0), ImVec2(1000, 4000));
+    ImGui::SetNextWindowSize(ImVec2(560, wantH), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSizeConstraints(ImVec2(420, 220), ImVec2(1000, maxH));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(14, 12));
-    ImGui::Begin("TriadMenu", nullptr, ImGuiWindowFlags_NoCollapse);
+    ImGui::Begin("TriadMenu", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings);
 
     // The dragon, behind everything the window draws: cover-fit, so the tiles never
     // stretch. It is drawn at a little over half strength and the window background stays
@@ -735,6 +750,14 @@ void renderMenu() {
                               ImGui::GetColorU32(ImVec4(0.55f, 0.10f, 0.10f, 0.55f)), 4.0f);
             dl->AddRectFilled(ImVec2(p.x, p.y + 2.0f), ImVec2(p.x + 2.5f, p.y + rowHeight - 2.0f),
                               ImGui::GetColorU32(gold), 1.0f);
+            // The cursor is walked with the arrow keys, so the row it lands on has to be
+            // brought into view - otherwise Down past the bottom edge looks like the menu
+            // ended. Only when the selection changes, so the wheel is still the wheel.
+            static std::size_t shown = static_cast<std::size_t>(-1);
+            if (shown != i) {
+                shown = i;
+                ImGui::SetScrollHereY(0.42f);
+            }
         } else if (hovered) {
             dl->AddRectFilled(ImVec2(p.x, p.y), ImVec2(p.x + rowWidth, p.y + rowHeight),
                               ImGui::GetColorU32(ImVec4(0.45f, 0.10f, 0.10f, 0.28f)), 4.0f);
@@ -812,6 +835,7 @@ void renderMenu() {
     ImGui::Dummy(ImVec2(1.0f, 2.0f));
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.55f, 0.52f, 0.48f, 1.0f));
     ImGui::TextUnformatted("Up/Down move   Left/Right change   Enter apply");
+    ImGui::TextUnformatted("PageUp/PageDown jump between sections   mouse wheel scrolls");
     ImGui::TextUnformatted("Right click = right arrow   Insert / Backspace close");
     ImGui::PopStyleColor();
 
@@ -1109,11 +1133,17 @@ void buildMenu() {
         // would be worse than no preview.
         const float metres = tw::game::HologramDistance();
         tw::game::SpawnRequestAt(model, tw::game::SpawnHostile(), metres);
-        char line[160];
+        char line[200];
+        // A spawn asked for before the player exists waits for up to eight seconds and then
+        // gives up; saying so now is the difference between "queued" and "queued and
+        // actually going to happen".
         std::snprintf(line, sizeof line,
-                      "Spawn Ped: %s (%s, %.0f m ahead) - queued, see the corner display",
+                      "Spawn Ped: %s (%s, %.0f m ahead) - %s",
                       model.c_str(), tw::game::SpawnHostile() ? "hostile" : "friendly",
-                      static_cast<double>(metres));
+                      static_cast<double>(metres),
+                      tw::game::SpawnPlayerReady()
+                          ? "queued, see the corner display"
+                          : "queued - waiting for you to be in the world");
         return std::string(line);
     };
     // The side is the same flag the H key flips, so the toggle and the hotkey are one
@@ -1148,7 +1178,8 @@ void buildMenu() {
     // visible in the menu instead of only in the log.
     hooks.spawnerStatus = []() {
         if (tw::game::SpawnBlocked()) return std::string("blocked - R resets");
-        const std::string& s = tw::game::SpawnStatus();
+        if (tw::game::SpawnPending()) return std::string("working...");
+        const std::string s = tw::game::SpawnStatusCopy();
         return s.empty() ? std::string("ready") : s;
     };
     hooks.resetSpawner = []() {
@@ -1176,8 +1207,15 @@ void buildMenu() {
         hooks.noclipSpeeds.push_back(kNoclipSpeeds[i]);
     hooks.setNoclip = [](bool on) {
         tw::game::NoclipSet(on);
-        return std::string(on ? "Noclip: on - WASD, Space up, C down; [ and ] change the speed"
-                              : "Noclip: off - the character drops to the ground");
+        if (!on) return std::string("Noclip: off - the character drops to the ground");
+        // Two things have to be true for it to move anything: the thread that writes the
+        // transform has to be running, and there has to be a player to write. Both are
+        // reported, because "on" that does nothing is the worst possible answer.
+        const bool thread = tw::game::FreeCamEnsureThread();
+        if (!thread) return std::string("Noclip: on, but the camera thread would not start");
+        if (!tw::game::NoclipPlayerReady())
+            return std::string("Noclip: on - waiting for you to be in the world");
+        return std::string("Noclip: on - WASD, Space up, C down; V or this row turns it off");
     };
     hooks.setNoclipSpeed = [](const std::string& label) {
         for (int i = 0; i < tw::game::NoclipSpeedCount(); ++i) {
@@ -1266,11 +1304,13 @@ void buildMenu() {
             char buf[64];
             std::snprintf(buf, sizeof buf, "%d recorded", tw::game::FreeCamKeyframeCount());
             g_menu.setInfo("Keyframes", buf);
-            const std::string spawner = tw::game::SpawnBlocked()
-                                            ? std::string("blocked - R resets")
-                                            : (tw::game::SpawnStatus().empty()
-                                                   ? std::string("ready")
-                                                   : tw::game::SpawnStatus());
+            std::string spawner;
+            if (tw::game::SpawnBlocked()) spawner = "blocked - R resets";
+            else if (tw::game::SpawnPending()) spawner = "working...";
+            else {
+                spawner = tw::game::SpawnStatusCopy();
+                if (spawner.empty()) spawner = "ready";
+            }
             g_menu.setInfo("Spawner", spawner);
         }
         g_menu.setOptionIndex("Noclip speed", static_cast<std::size_t>(tw::game::NoclipSpeedIndex()));
@@ -1286,6 +1326,19 @@ void buildMenu() {
         // hand that read it last frame; both entries follow the truth.
         g_menu.setToggled("Hostile NPC", tw::game::SpawnHostile());
         g_menu.setToggled("Spawn preview", tw::game::HologramPreviewActive());
+        // The spawner's model list is built from the game folder, which may not have been
+        // readable when the menu was built. Refill the choices the moment there are any:
+        // the row is there from the first frame, so it should never stay empty.
+        {
+            static int seenRev = -1;
+            const int rev = tw::game::SpawnModelsRevision();
+            const tw::MenuItem* row = g_menu.item("Ped model (list)");
+            const bool empty = !row || row->options.empty();
+            if (rev != seenRev || (empty && !tw::game::SpawnModels().empty())) {
+                seenRev = rev;
+                g_menu.setOptions("Ped model (list)", tw::game::SpawnModels());
+            }
+        }
     };
 
     tw::buildDebugMenu(g_menu, hooks);

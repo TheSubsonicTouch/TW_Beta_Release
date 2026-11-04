@@ -104,6 +104,32 @@ game carries on from its own camera and not from where you flew to.
 WHAT CHANGED IN THIS BUILD
 --------------------------
 
+  - Build 26. Noclip and the spawner are where you can see them.
+
+    - The menu was sized to its contents, which was fine while it had four short sections.
+      With PATH and SPAWN it grew taller than the screen, and the sections below the bottom
+      edge could be neither read nor scrolled to - a window sized to its contents has
+      nothing to scroll. It now opens at a height that fits whatever the game is running
+      at, scrolls when there is more, and brings the row the cursor is on into view.
+    - The sections are ordered CAMERA, SPAWN, PATH, WORLD, PROGRESSION: the spawner sits
+      directly under the camera instead of under the recording tools.
+    - PageUp and PageDown jump from section to section, so SPAWN is one press away however
+      long the menu gets.
+    - "Noclip (V)" and the whole SPAWN section are always listed, even in a build where
+      they cannot work: an entry that says why it cannot work is an answer, while a missing
+      entry looks like a feature that was never built. With the hooks absent, noclip puts
+      its own row back to OFF and says so.
+    - The ped model list is filled in from syncState as soon as the spawner has models. It
+      used to be fixed at what was known when the menu was built, which is before the game
+      folder is necessarily readable - so the list could be empty for the whole session.
+    - Noclip from the menu now starts the camera thread that moves the player, and says
+      whether the player is in the world yet instead of switching a row on over a loading
+      screen.
+    - Spawning from the menu says when it is waiting for the world, and the "Spawner" row
+      shows "working..." while a request is queued. Both are read under the same lock the
+      camera thread writes the status with, so the row cannot tear a string out from under
+      the spawn.
+
   - Build 25. Every feature is in the menu, and every row says which key it is.
 
     - The camera's other modes are entries now: "Freeze camera (O)", "Follow player (P)"
@@ -413,6 +439,8 @@ CONTROLS
 --------
 
     Insert              open TriadMenu
+    Up / Down           move the cursor; PageUp / PageDown jump between sections
+    Left / Right        change the value on the row (Enter applies it)
     Free Camera         toggle it in the menu
     W A S D             move forward, back, left, right
     Space / C           up / down

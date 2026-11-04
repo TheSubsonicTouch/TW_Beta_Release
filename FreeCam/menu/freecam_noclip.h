@@ -27,6 +27,12 @@ bool NoclipStep();
 void NoclipSet(bool on);
 bool NoclipActive();
 
+// Whether the character can be moved right now: the player object exists and its world
+// transform is readable. False on a loading screen or a menu, where noclip is harmless but
+// does nothing - the debug menu says which of the two it is rather than toggling a row
+// over a player that is not there yet.
+bool NoclipPlayerReady();
+
 // The speed multiplier, 1x to 8x, for the menu and the corner display.
 float NoclipSpeed();
 void NoclipSpeedStep(int direction);        // one step along the list below

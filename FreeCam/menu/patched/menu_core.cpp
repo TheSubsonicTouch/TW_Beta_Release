@@ -33,6 +33,40 @@ void Menu::step(int delta) {
     }
 }
 
+bool Menu::jumpSection(int delta) {
+    if (items_.empty() || delta == 0) return false;
+
+    // The section starts, in order. Landing on a section means its first entry, so a jump
+    // never leaves the cursor on a title or an Info row.
+    std::vector<std::size_t> starts;
+    for (std::size_t i = 0; i < items_.size(); ++i) {
+        if (items_[i].header) starts.push_back(i);
+    }
+    if (starts.empty()) {
+        step(delta > 0 ? 1 : -1);
+        return true;
+    }
+
+    std::size_t here = 0;
+    for (std::size_t k = 0; k < starts.size(); ++k) {
+        if (starts[k] <= selected_) here = k;
+    }
+    std::size_t target;
+    if (delta > 0) {
+        target = (here + 1 < starts.size()) ? here + 1 : 0;
+    } else {
+        target = (here > 0) ? here - 1 : starts.size() - 1;
+    }
+
+    for (std::size_t i = starts[target]; i < items_.size(); ++i) {
+        if (!passive(items_[i])) {
+            selected_ = i;
+            return true;
+        }
+    }
+    return false;
+}
+
 bool Menu::handleKey(Key key) {
     if (key == Key::Toggle) {
         toggleVisible();
@@ -278,11 +312,20 @@ void buildDebugMenu(Menu& menu, const DebugHooks& hooks) {
         menu.addItem(playerFree);
     }
 
-    if (hooks.setNoclip) {
+    {
+        // Always listed, for the same reason the SPAWN section is: a build that cannot fly
+        // the player says so on the row instead of leaving it out and looking unfinished.
         MenuItem noclip;
         noclip.label = "Noclip (V)";
         noclip.kind = ItemKind::Toggle;
-        noclip.onToggle = [&menu, fn = hooks.setNoclip](bool on) { menu.setStatus(fn(on)); };
+        noclip.onToggle = [&menu, fn = hooks.setNoclip](bool on) {
+            if (fn) {
+                menu.setStatus(fn(on));
+                return;
+            }
+            menu.setToggled("Noclip (V)", false);   // it did not happen
+            menu.setStatus("Noclip: this build cannot fly the player");
+        };
         menu.addItem(noclip);
     }
     if (hooks.setNoclipSpeed && !hooks.noclipSpeeds.empty()) {
@@ -329,6 +372,120 @@ void buildDebugMenu(Menu& menu, const DebugHooks& hooks) {
         fly.value = hooks.flySpeed ? hooks.flySpeed() : 30.0f;
         fly.onChange = [&menu, fn = hooks.setFlySpeed](float v) { menu.setStatus(fn(v)); };
         menu.addItem(fly);
+    }
+
+    // ---- Spawn -----------------------------------------------------------
+    // The section is always here, even in a build whose spawner did not come up. A missing
+    // entry looks like a feature that was never built; an entry that says why it cannot
+    // work is an answer, and it is the only thing that can be acted on.
+    //
+    // "Spawn Ped" spawns whatever character is named in it, at the distance the preview is
+    // standing at, in front of the player. The name is typed into the entry itself - any
+    // property set the game knows, not just the ones this build guesses - and the list
+    // underneath fills it in for the names that are already known (built-ins and
+    // FreeCam.npc.txt).
+    header("SPAWN");
+
+    if (hooks.spawnPed) {
+        auto spawnPedFn = hooks.spawnPed;
+
+        MenuItem ped;
+        ped.label = "Spawn Ped";
+        ped.kind = ItemKind::Input;
+        ped.text = hooks.pedDefault;
+        ped.onAction = [&menu, spawnPedFn]() {
+            const MenuItem* it = menu.item("Spawn Ped");
+            if (!it) return;
+            // A name typed by hand tends to arrive with a space on the end.
+            std::string name = it->text;
+            const std::size_t first = name.find_first_not_of(" \t");
+            const std::size_t last = name.find_last_not_of(" \t");
+            name = (first == std::string::npos) ? std::string() : name.substr(first, last - first + 1);
+            if (name.empty()) {
+                menu.setStatus("Spawn Ped: type a model name first");
+                return;
+            }
+            menu.setStatus(spawnPedFn(name));
+        };
+        menu.addItem(ped);
+    } else {
+        MenuItem ped;
+        ped.label = "Spawn Ped";
+        ped.kind = ItemKind::Action;
+        ped.onAction = [&menu]() {
+            menu.setStatus("Spawn Ped: this build cannot spawn characters");
+        };
+        menu.addItem(ped);
+    }
+
+    {
+        // The row is there even when the list is empty: the spawner builds its list from the
+        // game folder, which can still be unreadable when the menu is built, and syncState
+        // refills the choices as soon as there are any. A selector that appears late would
+        // be a row that is missing exactly while someone is looking for it.
+        MenuItem list = makeSelector("Ped model (list)", hooks.pedNames,
+                                     [&menu](const std::string& name) {
+                                         menu.setInputText("Spawn Ped", name);
+                                         return "Spawn Ped: " + name;
+                                     });
+        list.applyOnChange = true;
+        menu.addItem(list);
+    }
+
+    if (hooks.setSpawnHostile) {
+        MenuItem side;
+        side.label = "Hostile NPC";
+        side.kind = ItemKind::Toggle;
+        side.toggled = hooks.spawnHostile ? hooks.spawnHostile() : false;
+        side.onToggle = [&menu, fn = hooks.setSpawnHostile](bool on) {
+            menu.setStatus(fn(on));
+        };
+        menu.addItem(side);
+    }
+
+    // The hologram. It is a drawing, not a spawn: nothing is created to show it, and it
+    // follows the name in the field above, so what the figure says is what the button
+    // would put down. The distance is the same number SpawnRequestAt takes.
+    if (hooks.setHologramPreview) {
+        MenuItem preview;
+        preview.label = "Spawn preview";
+        preview.kind = ItemKind::Toggle;
+        preview.toggled = hooks.hologramPreviewActive ? hooks.hologramPreviewActive() : false;
+        preview.onToggle = [&menu, fn = hooks.setHologramPreview](bool on) {
+            menu.setStatus(fn(on));
+        };
+        menu.addItem(preview);
+    }
+    if (hooks.setHologramDistance) {
+        MenuItem dist;
+        dist.label = "Preview distance";
+        dist.kind = ItemKind::Slider;
+        dist.minValue = 0.0f;
+        dist.maxValue = 10.0f;
+        dist.step = 1.0f;
+        dist.value = hooks.hologramDistance ? hooks.hologramDistance() : 3.0f;
+        dist.onChange = [&menu, fn = hooks.setHologramDistance](float v) {
+            menu.setStatus(fn(v));
+        };
+        menu.addItem(dist);
+    }
+
+    // What the spawner is doing - ready, waiting, or switched off after a fault - and R,
+    // which is the only way back on after a fault. The status is shown rather than guessed
+    // at, because a spawner that quietly does nothing is the worst state it can be in.
+    if (hooks.spawnerStatus) {
+        MenuItem state;
+        state.label = "Spawner";
+        state.kind = ItemKind::Info;
+        state.text = hooks.spawnerStatus();
+        menu.addItem(state);
+    }
+    if (hooks.resetSpawner) {
+        MenuItem reset;
+        reset.label = "Reset spawner (R)";
+        reset.kind = ItemKind::Action;
+        reset.onAction = [&menu, fn = hooks.resetSpawner]() { menu.setStatus(fn()); };
+        menu.addItem(reset);
     }
 
     // ---- Path -------------------------------------------------------------
@@ -389,106 +546,6 @@ void buildDebugMenu(Menu& menu, const DebugHooks& hooks) {
             std::snprintf(buf, sizeof buf, "%d recorded", n);
             count.text = buf;
             menu.addItem(count);
-        }
-    }
-
-    // ---- Spawn -----------------------------------------------------------
-    // One entry, "Spawn Ped", which spawns whatever character is named in it three metres
-    // in front of the player. The name is typed into the entry itself - any property set
-    // the game knows, not just the ones this build guesses - and the list underneath fills
-    // it in for the names that are already known (built-ins and FreeCam.npc.txt).
-    if (hooks.spawnPed) {
-        header("SPAWN");
-
-        auto spawnPedFn = hooks.spawnPed;
-
-        MenuItem ped;
-        ped.label = "Spawn Ped";
-        ped.kind = ItemKind::Input;
-        ped.text = hooks.pedDefault;
-        ped.onAction = [&menu, spawnPedFn]() {
-            const MenuItem* it = menu.item("Spawn Ped");
-            if (!it) return;
-            // A name typed by hand tends to arrive with a space on the end.
-            std::string name = it->text;
-            const std::size_t first = name.find_first_not_of(" \t");
-            const std::size_t last = name.find_last_not_of(" \t");
-            name = (first == std::string::npos) ? std::string() : name.substr(first, last - first + 1);
-            if (name.empty()) {
-                menu.setStatus("Spawn Ped: type a model name first");
-                return;
-            }
-            menu.setStatus(spawnPedFn(name));
-        };
-        menu.addItem(ped);
-
-        if (!hooks.pedNames.empty()) {
-            // Picking from the list fills the field in; it does not spawn, so a name can be
-            // adjusted before it is used.
-            MenuItem list = makeSelector("Ped model (list)", hooks.pedNames,
-                                         [&menu](const std::string& name) {
-                                             menu.setInputText("Spawn Ped", name);
-                                             return "Spawn Ped: " + name;
-                                         });
-            list.applyOnChange = true;
-            menu.addItem(list);
-        }
-
-        if (hooks.setSpawnHostile) {
-            MenuItem side;
-            side.label = "Hostile NPC";
-            side.kind = ItemKind::Toggle;
-            side.toggled = hooks.spawnHostile ? hooks.spawnHostile() : false;
-            side.onToggle = [&menu, fn = hooks.setSpawnHostile](bool on) {
-                menu.setStatus(fn(on));
-            };
-            menu.addItem(side);
-        }
-
-        // The hologram. It is a drawing, not a spawn: nothing is created to show it, and it
-        // follows the name in the field above, so what the figure says is what the button
-        // would put down. The distance is the same number SpawnRequestAt takes.
-        if (hooks.setHologramPreview) {
-            MenuItem preview;
-            preview.label = "Spawn preview";
-            preview.kind = ItemKind::Toggle;
-            preview.toggled = hooks.hologramPreviewActive ? hooks.hologramPreviewActive() : false;
-            preview.onToggle = [&menu, fn = hooks.setHologramPreview](bool on) {
-                menu.setStatus(fn(on));
-            };
-            menu.addItem(preview);
-        }
-        if (hooks.setHologramDistance) {
-            MenuItem dist;
-            dist.label = "Preview distance";
-            dist.kind = ItemKind::Slider;
-            dist.minValue = 0.0f;
-            dist.maxValue = 10.0f;
-            dist.step = 1.0f;
-            dist.value = hooks.hologramDistance ? hooks.hologramDistance() : 3.0f;
-            dist.onChange = [&menu, fn = hooks.setHologramDistance](float v) {
-                menu.setStatus(fn(v));
-            };
-            menu.addItem(dist);
-        }
-
-        // What the spawner is doing - ready, waiting, or switched off after a fault - and
-        // R, which is the only way back on after a fault. The status is shown rather than
-        // guessed at, because a spawner that quietly does nothing is the worst state it
-        // can be in.
-        if (hooks.spawnerStatus) {
-            MenuItem state;
-            state.label = "Spawner";
-            state.kind = ItemKind::Info;
-            state.text = hooks.spawnerStatus();
-            menu.addItem(state);
-        }
-        if (hooks.resetSpawner) {
-            MenuItem reset;
-            reset.label = "Reset spawner (R)";
-            reset.kind = ItemKind::Action;
-            reset.onAction = [&menu, fn = hooks.resetSpawner]() { menu.setStatus(fn()); };
-            menu.addItem(reset);
         }
     }
 

@@ -298,7 +298,17 @@ void testCursorSkipsHeaders() {
     for (const auto& item : menu.items()) if (item.header) ++titles;
     check(total == static_cast<std::size_t>(usable + titles + 2),
           "the list is the usable entries plus the section titles and the two info rows");
-    check(titles == 5, "CAMERA, PATH, SPAWN, WORLD, PROGRESSION");
+    check(titles == 5, "CAMERA, SPAWN, PATH, WORLD, PROGRESSION");
+    // And in that order, so the section jumps below can be checked against something.
+    {
+        std::string order;
+        for (const auto& item : menu.items()) {
+            if (!item.header) continue;
+            order += item.label;
+            order += ' ';
+        }
+        check(order == "CAMERA SPAWN PATH WORLD PROGRESSION ", "the sections are in order: " + order);
+    }
 }
 
 void testActions() {
@@ -338,17 +348,11 @@ void testActions() {
     menu.handleKey(tw::Key::Down);   // Look at player (P)
     menu.handleKey(tw::Key::Down);   // Fly speed
     check(menu.items()[menu.selectedIndex()].label == "Fly speed",
-          "the camera's modes come before the path");
-    menu.handleKey(tw::Key::Down);   // Record keyframe (L), over the PATH header
-    check(menu.items()[menu.selectedIndex()].label == "Record keyframe (L)",
-          "then the path section");
-    menu.handleKey(tw::Key::Down);   // Play path (J)
-    menu.handleKey(tw::Key::Down);   // Clear path (M)
-    menu.handleKey(tw::Key::Down);   // Playback speed
-    menu.handleKey(tw::Key::Down);   // Spawn Ped, over the Keyframes info row
+          "the camera's modes come before the spawner");
+    // SPAWN is the second section, straight after CAMERA: it is the one people open the
+    // menu for, so it does not sit at the bottom under the recording tools.
+    menu.handleKey(tw::Key::Down);   // Spawn Ped, over the SPAWN header
     check(menu.items()[menu.selectedIndex()].label == "Spawn Ped", "then the spawn section");
-    // Down through what the spawn section now holds: the list, the side, the preview, the
-    // distance and the spawner's state, and only then the next section.
     menu.handleKey(tw::Key::Down);   // Ped model (list)
     check(menu.items()[menu.selectedIndex()].label == "Ped model (list)",
           "then the model list");
@@ -356,10 +360,18 @@ void testActions() {
     menu.handleKey(tw::Key::Down);   // Spawn preview
     menu.handleKey(tw::Key::Down);   // Preview distance
     check(menu.items()[menu.selectedIndex()].label == "Preview distance",
-          "the preview controls sit at the end of the spawn section");
+          "the preview controls sit in the spawn section");
     menu.handleKey(tw::Key::Down);   // Reset spawner (R), over the Spawner info row
     check(menu.items()[menu.selectedIndex()].label == "Reset spawner (R)",
           "the reset is the last spawn entry");
+    menu.handleKey(tw::Key::Down);   // Record keyframe (L), over the PATH header
+    check(menu.items()[menu.selectedIndex()].label == "Record keyframe (L)",
+          "then the path section");
+    menu.handleKey(tw::Key::Down);   // Play path (J)
+    menu.handleKey(tw::Key::Down);   // Clear path (M)
+    menu.handleKey(tw::Key::Down);   // Playback speed, over the Keyframes info row
+    check(menu.items()[menu.selectedIndex()].label == "Playback speed",
+          "ending on the playback speed");
     menu.handleKey(tw::Key::Down);   // Weather
     check(menu.items()[menu.selectedIndex()].label == "Weather", "down again reaches Weather");
     const std::size_t before = menu.items()[menu.selectedIndex()].optionIndex;
@@ -442,12 +454,14 @@ void testSpawnPed() {
     check(menu.inputText("Spawn Ped") && *menu.inputText("Spawn Ped") == before,
           "the arrows do not edit a typed name");
 
-    // A menu with no spawner has no Spawn Ped entry and no SPAWN section.
+    // A menu with no spawner still has the SPAWN section and a Spawn Ped row: the row says
+    // what it cannot do instead of the section silently not being there. (What a row does
+    // without its hook is checked in testMissingHooksStillListed.)
     tw::Menu bare;
     tw::DebugHooks none;
     tw::buildDebugMenu(bare, none);
-    check(!hasLabel(bare, "Spawn Ped"), "no spawner, no Spawn Ped entry");
-    check(!hasHeader(bare, "SPAWN"), "no spawner, no SPAWN section");
+    check(hasLabel(bare, "Spawn Ped"), "without a spawner the row is still there");
+    check(hasHeader(bare, "SPAWN"), "and so is the section");
 }
 
 void testPlayerFree() {
@@ -940,15 +954,16 @@ void testHologram() {
     check(menu.status() == "Spawn side: hostile", "with its own status line");
     check(spawned.empty(), "changing the side spawns nothing either");
 
-    // No spawner, no hologram: a build that cannot spawn has nothing to preview, and an
-    // entry that cannot do anything is worse than a missing one.
+    // The preview needs its own hooks to do anything: a build that only has a spawner has
+    // no figure to draw, so the rows are not built - but the SPAWN section still is.
     tw::DebugHooks bare;
     bare.setFreeCam = [](bool on) { return std::string(on ? "on" : "off"); };
-    bare.setHologramPreview = [](bool) { return std::string("on"); };
+    bare.spawnPed = [](const std::string&) { return std::string("x"); };
     tw::Menu second;
     tw::buildDebugMenu(second, bare);
     check(!second.item("Spawn preview") && !second.item("Preview distance"),
-          "without the spawner the preview entries are not built");
+          "without the hologram hooks the preview entries are not built");
+    check(hasHeader(second, "SPAWN"), "but the section is");
 }
 
 // Every camera mode the keys have is also an entry, and each entry reaches its own hook.
@@ -1056,6 +1071,83 @@ void testCameraModes() {
           "selecting an info row lands on the next entry");
 }
 
+// PageDown and PageUp: the menu is longer than a short screen, so the sections are also
+// reachable in one press. A jump must always land on something that can be used.
+void testSectionJump() {
+    int toggles = 0, picks = 0, levels = 0;
+    std::vector<std::string> spawned;
+    tw::Menu menu;
+    menu.setVisible(true);
+    tw::buildDebugMenu(menu, fullHooks(&toggles, &picks, &levels, &spawned));
+
+    menu.select(0);
+    check(menu.items()[menu.selectedIndex()].label == "Free Camera", "the jump starts at CAMERA");
+
+    const char* forward[] = { "Spawn Ped", "Record keyframe (L)", "Weather", "Level target",
+                              "Free Camera" };
+    for (const char* want : forward) {
+        menu.jumpSection(1);
+        const std::string got = menu.items()[menu.selectedIndex()].label;
+        check(got == want, std::string("PageDown lands on ") + want + ", got " + got);
+        check(menu.items()[menu.selectedIndex()].kind != tw::ItemKind::Info,
+              std::string("and never on an info row after jumping to ") + want);
+    }
+
+    // Backwards, from the top: the last section, then the one before it.
+    menu.select(0);
+    menu.jumpSection(-1);
+    check(menu.items()[menu.selectedIndex()].label == "Level target",
+          "PageUp from CAMERA wraps to the last section");
+    menu.jumpSection(-1);
+    check(menu.items()[menu.selectedIndex()].label == "Weather", "and then to WORLD");
+    menu.jumpSection(-1);
+    check(menu.items()[menu.selectedIndex()].label == "Record keyframe (L)", "and then to PATH");
+
+    // A menu that is only entries (no titles) still moves, one row at a time.
+    tw::Menu flat;
+    flat.setVisible(true);
+    tw::DebugHooks only;
+    only.setFreeCam = [](bool on) { return std::string(on ? "on" : "off"); };
+    tw::buildDebugMenu(flat, only);
+    flat.select(0);
+    check(flat.jumpSection(1), "a jump in a menu with no sections still moves");
+    check(flat.items()[flat.selectedIndex()].kind != tw::ItemKind::Info,
+          "and still skips info rows");
+}
+
+// A build that cannot spawn and cannot fly the player still shows both, saying why. This
+// is the "every feature is visible" rule: a row that is left out looks like a feature that
+// was never built, and there is nothing to act on.
+void testMissingHooksStillListed() {
+    tw::Menu menu;
+    menu.setVisible(true);
+    tw::DebugHooks bare;                       // no spawner, no noclip, no camera
+    bare.setFreeCam = [](bool on) { return std::string(on ? "on" : "off"); };
+    tw::buildDebugMenu(menu, bare);
+
+    check(hasLabel(menu, "Noclip (V)"), "noclip is listed even with no noclip hook");
+    check(hasHeader(menu, "SPAWN"), "the spawn section is there even with no spawner");
+    check(hasLabel(menu, "Spawn Ped"), "and Spawn Ped is in it");
+
+    // The noclip row refuses and puts itself back rather than pretending to be on.
+    selectLabel(menu, "Noclip (V)");
+    menu.handleKey(tw::Key::Select);
+    check(!menu.item("Noclip (V)")->toggled, "the noclip row does not stay on");
+    check(menu.status() == "Noclip: this build cannot fly the player",
+          "and says why: " + menu.status());
+
+    // Same for the spawner: an entry, and a status line that explains itself.
+    selectLabel(menu, "Spawn Ped");
+    menu.handleKey(tw::Key::Select);
+    check(menu.status() == "Spawn Ped: this build cannot spawn characters",
+          "the spawn row says why: " + menu.status());
+
+    // The model list row exists from the first frame so syncState can fill it in later;
+    // with no spawner it has no choices and says so when it is picked.
+    const tw::MenuItem* list = menu.item("Ped model (list)");
+    check(list && list->options.empty(), "the model list is there, with nothing in it yet");
+}
+
 }  // namespace
 
 int main() {
@@ -1070,6 +1162,8 @@ int main() {
     testSkydome();
     testHologram();
     testCameraModes();
+    testSectionJump();
+    testMissingHooksStillListed();
     testUnlockCatalog();
     testUnlockProfile();
     testUnlockKeepsProgress();
