@@ -90,6 +90,37 @@ tw::DebugHooks fullHooks(int* toggles, int* picks, int* levels,
         ++*picks;
         return "Noclip speed: " + s;
     };
+    // Weather sliders and the skybox: the same shape the game hooks have.
+    hooks.setWeatherAmount = [picks](float v) {
+        ++*picks;
+        return "Rain amount: " + std::to_string(v);
+    };
+    hooks.setWeatherChance = [picks](float v) {
+        ++*picks;
+        return "Rain chance: " + std::to_string(v);
+    };
+    hooks.setWeatherWetness = [picks](float v) {
+        ++*picks;
+        return "Wetness: " + std::to_string(v);
+    };
+    hooks.setWeatherInterval = [picks](int s) {
+        ++*picks;
+        return "Weather interval: " + std::to_string(s);
+    };
+    hooks.setWeatherLock = [toggles](bool on) {
+        ++*toggles;
+        return std::string(on ? "Weather locked" : "Weather unlocked");
+    };
+    hooks.weatherAmount = [] { return 1.2f; };
+    hooks.weatherChance = [] { return 0.25f; };
+    hooks.weatherWetness = [] { return 0.0f; };
+    hooks.weatherLocked = [] { return false; };
+    hooks.skydomes = { "Automatic", "Sunny", "Cloudy", "Stormy", "Custom" };
+    hooks.setSkydome = [picks](int index) {
+        ++*picks;
+        return "Skybox: index " + std::to_string(index);
+    };
+    hooks.skydomeCurrent = [] { return 2; };
     return hooks;
 }
 
@@ -109,6 +140,12 @@ void testStructure() {
     check(hasLabel(menu, "Noclip (fly the player)"), "noclip is there");
     check(hasLabel(menu, "Noclip speed"), "the noclip speed picker is there");
     check(hasLabel(menu, "Weather"), "weather is there");
+    check(hasLabel(menu, "Rain amount"), "the rain amount slider is there");
+    check(hasLabel(menu, "Rain chance"), "the rain chance slider is there");
+    check(hasLabel(menu, "Wetness override"), "the wetness slider is there");
+    check(hasLabel(menu, "Weather change interval"), "the interval slider is there");
+    check(hasLabel(menu, "Lock weather"), "the weather lock is there");
+    check(hasLabel(menu, "Skybox (skydome)"), "the skybox picker is there");
     check(hasLabel(menu, "ReShade preset"), "the ReShade preset picker is there");
     check(hasLabel(menu, "Level target"), "the level target is there");
     check(hasLabel(menu, "Level value"), "the level slider is there");
@@ -666,6 +703,85 @@ void testSparseHooks() {
           "an unwired entry says it is not available");
 }
 
+// The weather controls are the ones the game exposes as script bindings, so each has to
+// reach its own hook and nothing else.
+void testWeatherControls() {
+    int toggles = 0, picks = 0, levels = 0;
+    std::vector<std::string> spawned;
+    tw::Menu menu;
+    menu.setVisible(true);
+    tw::buildDebugMenu(menu, fullHooks(&toggles, &picks, &levels, &spawned));
+
+    // The sliders open on what the game is actually doing, not on zero.
+    const tw::MenuItem* amount = menu.item("Rain amount");
+    check(amount && amount->kind == tw::ItemKind::Slider, "rain amount is a slider");
+    check(amount && amount->value == 1.2f, "the amount slider starts at the game's value");
+    const tw::MenuItem* chance = menu.item("Rain chance");
+    check(chance && chance->value == 0.25f, "the chance slider starts at the game's value");
+
+    selectLabel(menu, "Rain amount");
+    int before = picks;
+    menu.handleKey(tw::Key::Right);
+    check(picks == before + 1, "moving the amount slider calls its hook");
+    check(menu.status().find("Rain amount") != std::string::npos, "and reports it");
+
+    selectLabel(menu, "Weather change interval");
+    before = picks;
+    menu.handleKey(tw::Key::Right);
+    check(picks == before + 1, "the interval slider calls its hook");
+
+    // The lock is a toggle, and its hook is the one that runs.
+    selectLabel(menu, "Lock weather");
+    before = toggles;
+    menu.handleKey(tw::Key::Select);
+    const tw::MenuItem* lock = menu.item("Lock weather");
+    check(lock && lock->toggled, "the lock toggles on");
+    check(toggles == before + 1, "and calls the lock hook");
+    check(menu.status() == "Weather locked", "with its own status line");
+}
+
+// The skybox list is empty until the world loads, so the entry is built with "Automatic"
+// and filled in later; picking one has to reach setSkydome with the index that was chosen.
+void testSkydome() {
+    int toggles = 0, picks = 0, levels = 0;
+    std::vector<std::string> spawned;
+    tw::Menu menu;
+    menu.setVisible(true);
+    tw::buildDebugMenu(menu, fullHooks(&toggles, &picks, &levels, &spawned));
+
+    const tw::MenuItem* sky = menu.item("Skybox (skydome)");
+    check(sky && sky->options.size() == 5, "every skydome is offered");
+    check(sky && sky->optionIndex == 2, "and the menu opens on the one in use");
+
+    selectLabel(menu, "Skybox (skydome)");
+    int before = picks;
+    menu.handleKey(tw::Key::Right);          // Cloudy -> Stormy
+    check(picks == before + 1, "picking a skydome calls its hook");
+    check(menu.status() == "Skybox: index 3", "with the index that was picked");
+
+    // An empty list still leaves exactly one usable choice.
+    tw::DebugHooks bare = fullHooks(&toggles, &picks, &levels, &spawned);
+    bare.skydomes.clear();
+    bare.skydomeCurrent = nullptr;
+    tw::Menu second;
+    tw::buildDebugMenu(second, bare);
+    const tw::MenuItem* only = second.item("Skybox (skydome)");
+    check(only && only->options.size() == 1 && only->options[0] == "Automatic",
+          "an unloaded world still offers Automatic");
+
+    // setOptions refreshes the list without moving a selection that survives.
+    tw::Menu third;
+    tw::buildDebugMenu(third, fullHooks(&toggles, &picks, &levels, &spawned));
+    third.setOptionIndex("Skybox (skydome)", 3);
+    check(third.setOptions("Skybox (skydome)",
+                           { "Automatic", "Sunny", "Cloudy", "Stormy", "Custom", "Night" }),
+          "the list can be refreshed");
+    check(third.item("Skybox (skydome)")->optionIndex == 3, "the choice is kept across a refresh");
+    check(third.setOptions("Skybox (skydome)", { "Automatic", "Sunny" }),
+          "and a shorter list is accepted");
+    check(third.item("Skybox (skydome)")->optionIndex == 0, "with the cursor back on Automatic");
+}
+
 }  // namespace
 
 int main() {
@@ -676,6 +792,8 @@ int main() {
     testPlayerFree();
     testNoclip();
     testSparseHooks();
+    testWeatherControls();
+    testSkydome();
     testUnlockCatalog();
     testUnlockProfile();
     testUnlockKeepsProgress();

@@ -183,6 +183,24 @@ bool Menu::setOptionIndex(const std::string& label, std::size_t index) {
     return false;
 }
 
+bool Menu::setOptions(const std::string& label, std::vector<std::string> options) {
+    for (MenuItem& it : items_) {
+        if (it.header || it.label != label || it.kind != ItemKind::Selector) continue;
+        if (options == it.options) return true;          // nothing changed: leave the cursor
+        // Keep the current choice when it is still offered, so a refresh does not move the
+        // cursor off the skydome the player just picked.
+        const std::string current =
+            it.options.empty() ? std::string() : it.options[it.optionIndex];
+        it.options = std::move(options);
+        it.optionIndex = 0;
+        for (std::size_t i = 0; i < it.options.size(); ++i) {
+            if (it.options[i] == current) { it.optionIndex = i; break; }
+        }
+        return true;
+    }
+    return false;
+}
+
 void buildDebugMenu(Menu& menu, const DebugHooks& hooks) {
     menu.clear();
 
@@ -294,15 +312,109 @@ void buildDebugMenu(Menu& menu, const DebugHooks& hooks) {
     }
 
     // ---- World -----------------------------------------------------------
+    const bool anyWeather = !hooks.weatherPresets.empty() || hooks.setWeatherAmount ||
+                            hooks.setWeatherChance || hooks.setWeatherWetness ||
+                            hooks.setWeatherInterval || hooks.setWeatherLock;
+    const bool anyWorld = anyWeather || !hooks.shaderPresets.empty() || hooks.setSkydome;
+
+    if (anyWorld) header("WORLD");
+
     if (!hooks.weatherPresets.empty()) {
-        header("WORLD");
         MenuItem weather = makeSelector("Weather", hooks.weatherPresets, hooks.setWeather);
         weather.applyOnChange = true;
         menu.addItem(weather);
     }
 
+    // The amount slider is the real control: the presets above only jump to named points of
+    // this range, and the game itself clamps to the same 0..2.
+    if (hooks.setWeatherAmount) {
+        MenuItem amount;
+        amount.label = "Rain amount";
+        amount.kind = ItemKind::Slider;
+        amount.minValue = 0.0f;
+        amount.maxValue = 2.0f;
+        amount.step = 0.1f;
+        amount.value = hooks.weatherAmount ? hooks.weatherAmount() : 0.0f;
+        amount.onChange = [&menu, fn = hooks.setWeatherAmount](float v) {
+            menu.setStatus(fn(v));
+        };
+        menu.addItem(amount);
+    }
+
+    if (hooks.setWeatherChance) {
+        MenuItem chance;
+        chance.label = "Rain chance";
+        chance.kind = ItemKind::Slider;
+        chance.minValue = 0.0f;
+        chance.maxValue = 1.0f;
+        chance.step = 0.05f;
+        chance.value = hooks.weatherChance ? hooks.weatherChance() : 0.0f;
+        chance.onChange = [&menu, fn = hooks.setWeatherChance](float v) {
+            menu.setStatus(fn(v));
+        };
+        menu.addItem(chance);
+    }
+
+    if (hooks.setWeatherWetness) {
+        MenuItem wet;
+        wet.label = "Wetness override";
+        wet.kind = ItemKind::Slider;
+        wet.minValue = 0.0f;
+        wet.maxValue = 1.0f;
+        wet.step = 0.05f;
+        wet.value = hooks.weatherWetness ? hooks.weatherWetness() : 0.0f;
+        wet.onChange = [&menu, fn = hooks.setWeatherWetness](float v) {
+            menu.setStatus(fn(v));
+        };
+        menu.addItem(wet);
+    }
+
+    if (hooks.setWeatherInterval) {
+        MenuItem every;
+        every.label = "Weather change interval";
+        every.kind = ItemKind::Slider;
+        every.minValue = 0.0f;
+        every.maxValue = 600.0f;
+        every.step = 30.0f;
+        every.value = 0.0f;
+        every.onChange = [&menu, fn = hooks.setWeatherInterval](float v) {
+            menu.setStatus(fn(static_cast<int>(v + 0.5f)));
+        };
+        menu.addItem(every);
+    }
+
+    if (hooks.setWeatherLock) {
+        MenuItem lock;
+        lock.label = "Lock weather";
+        lock.kind = ItemKind::Toggle;
+        lock.toggled = hooks.weatherLocked ? hooks.weatherLocked() : false;
+        lock.onToggle = [&menu, fn = hooks.setWeatherLock](bool on) {
+            menu.setStatus(fn(on));
+        };
+        menu.addItem(lock);
+    }
+
+    if (hooks.setSkydome) {
+        // The skydome list is filled in by syncState once the world has loaded, so the
+        // entry starts with the one choice that always works.
+        MenuItem sky;
+        sky.label = "Skybox (skydome)";
+        sky.kind = ItemKind::Selector;
+        sky.options = hooks.skydomes;
+        if (sky.options.empty()) sky.options.push_back("Automatic");
+        sky.optionIndex = hooks.skydomeCurrent ? static_cast<std::size_t>(hooks.skydomeCurrent()) : 0;
+        if (sky.optionIndex >= sky.options.size()) sky.optionIndex = 0;
+        sky.applyOnChange = true;
+        sky.onPick = [&menu, fn = hooks.setSkydome](const std::string& opt) -> std::string {
+            const MenuItem* self = menu.item("Skybox (skydome)");
+            const std::size_t index = self ? self->optionIndex : 0;
+            (void)opt;
+            return fn(static_cast<int>(index));
+        };
+        menu.addItem(sky);
+    }
+
     if (!hooks.shaderPresets.empty()) {
-        if (hooks.weatherPresets.empty()) header("WORLD");
         menu.addItem(makeSelector("ReShade preset", hooks.shaderPresets, hooks.setShader));
     }
 

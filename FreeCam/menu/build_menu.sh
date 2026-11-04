@@ -40,7 +40,8 @@ cp freecam_menu.rc freecam_menu.manifest "$OUT/src/"
 mkdir -p "$OUT/src/assets"
 cp assets/triadmenu_bg.png "$OUT/src/assets/"
 cp freecam_game.h freecam_game.cpp freecam_spawn.h freecam_spawn.cpp \
-   freecam_noclip.h freecam_noclip.cpp freecam_unlock.h freecam_unlock.cpp \
+   freecam_noclip.h freecam_noclip.cpp freecam_weather.h freecam_weather.cpp \
+   freecam_unlock.h freecam_unlock.cpp \
    freecam_unlock_rules.h freecam_unlock_rules.cpp json_util.h \
    input_block.h input_block.cpp "$OUT/src/"
 cp ../src/freecam.h ../src/freecam.c "$OUT/src/"
@@ -89,6 +90,7 @@ cd "$OUT"
 for f in src/dinput8_proxy.cpp src/win_menu.cpp src/menu_core.cpp src/log.cpp \
          src/game_hooks.cpp src/asset_names.cpp src/spawn_guard_stub.cpp \
          src/freecam_game.cpp src/freecam_spawn.cpp src/freecam_noclip.cpp \
+         src/freecam_weather.cpp \
          src/freecam_unlock.cpp src/freecam_unlock_rules.cpp src/input_block.cpp \
          src/imgui.cpp src/imgui_draw.cpp \
          src/imgui_tables.cpp src/imgui_widgets.cpp src/imgui_impl_win32.cpp \

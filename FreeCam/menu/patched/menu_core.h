@@ -78,6 +78,10 @@ public:
     // caller can stay unconditional.
     bool setToggled(const std::string& label, bool on);
     bool setOptionIndex(const std::string& label, std::size_t index);
+    // Replaces a selector's choices in place. The skydome list only exists once the world
+    // has loaded, so its entry is built with "Automatic" alone and filled in later; the
+    // cursor is kept on whatever is selected now if that choice survives the change.
+    bool setOptions(const std::string& label, std::vector<std::string> options);
     // The text of an Input entry, set from the renderer while it is being typed in and
     // from a selector when one fills it in.
     bool setInputText(const std::string& label, std::string text);
@@ -110,9 +114,28 @@ struct DebugHooks {
     std::vector<std::string> noclipSpeeds;         // "1x" .. "8x"; empty: no speed entry
     std::function<std::string(const std::string&)> setNoclipSpeed;
 
-    // World.
+    // World. The weather is a continuous 0..2 amount in the game, so the presets are only
+    // shortcuts to interesting points of it; the sliders below cover everything between.
     std::vector<std::string> weatherPresets;
     std::function<std::string(const std::string&)> setWeather;
+    // Rain amount 0..2. Present only when the weather object can be reached, which is why
+    // every weather control below is gated on its own hook rather than on the presets.
+    std::function<std::string(float)> setWeatherAmount;
+    std::function<std::string(float)> setWeatherChance;    // 0..1
+    std::function<std::string(float)> setWeatherWetness;   // 0..1
+    std::function<std::string(int)> setWeatherInterval;    // seconds between changes
+    std::function<std::string(bool)> setWeatherLock;       // stop the game changing it
+    std::function<float()> weatherAmount;                  // for the sliders' start position
+    std::function<float()> weatherChance;
+    std::function<float()> weatherWetness;
+    std::function<bool()> weatherLocked;
+
+    // Skybox: the game's own skydome list. Empty until the world has loaded, so the entry
+    // is refreshed from syncState with Menu::setOptions.
+    std::vector<std::string> skydomes;
+    std::function<std::string(int)> setSkydome;            // index into skydomes
+    std::function<int()> skydomeCurrent;
+
     std::vector<std::string> shaderPresets;
     std::function<std::string(const std::string&)> setShader;
 

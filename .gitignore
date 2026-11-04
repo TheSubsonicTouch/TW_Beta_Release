@@ -15,3 +15,10 @@ __pycache__/
 # the player's own profile and the server's log - never shipped, never committed
 LocalServer/state.json
 LocalServer/logs/
+
+# the game itself - never committed, only used by the RE tools
+TriadWars.exe
+TriadWars.exe.orig
+
+# twre.py's disassembly cache, rebuilt on demand
+LocalServer/tools/re_cache.pkl

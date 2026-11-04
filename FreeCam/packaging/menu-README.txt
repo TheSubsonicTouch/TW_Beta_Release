@@ -104,6 +104,21 @@ game carries on from its own camera and not from where you flew to.
 WHAT CHANGED IN THIS BUILD
 --------------------------
 
+  - Build 23. The menu owns the weather and the skybox.
+
+    - Weather used to be four presets, because the old code only wrote one number.
+      That number is a continuous 0..2 amount the game clamps itself, so it is now a
+      slider - every value between dry and the cap - with the presets kept as
+      shortcuts and three more of them added above what used to be the top.
+    - Four more weather controls, each one a field the game's own script bindings
+      read and write: rain chance (how likely the weather system is to rain on its
+      own), surface wetness override, the interval between the game's own weather
+      changes, and a lock that stops it changing at all.
+    - Skybox (skydome): the menu lists the skydomes the running game actually has,
+      read out of its own skydome table, and switches between them. "Automatic"
+      hands the choice back to the weather. The list only exists once the world has
+      loaded, so the entry starts with Automatic and fills in on its own.
+
   - Build 22. V turns noclip on and off with the free camera switched off, and the
     menu entry does the same.
 

@@ -24,6 +24,7 @@
 #include "freecam_noclip.h"
 #include "freecam_spawn.h"
 #include "freecam_unlock.h"
+#include "freecam_weather.h"
 #include "input_block.h"
 #include "log.h"
 #include "spawn_guard.h"
@@ -170,7 +171,20 @@ std::function<void()> g_syncState;   // see DebugHooks::syncState
 // Only the work that has to happen on the game thread: the three actions that call into
 // the game or write a save file. Everything the camera does is hotkeyed and runs on its
 // own thread (freecam_game.cpp), so it does not pass through here.
-enum JobKind { JobWeather, JobLevel, JobShader };
+enum JobKind {
+    JobWeather,
+    JobLevel,
+    JobShader,
+    // The weather sliders and the skybox. Every one of them is a field write or a
+    // call into the game, so like the weather preset above they run here, on the
+    // game thread, rather than from the input path.
+    JobWeatherAmount,
+    JobWeatherChance,
+    JobWeatherWetness,
+    JobWeatherInterval,
+    JobWeatherLock,
+    JobSkydome,
+};
 
 struct Job {
     JobKind kind = JobWeather;
@@ -202,6 +216,24 @@ void runJob(const Job& j) {
         break;
     case JobShader:
         g_menu.setStatus(tw::game::SetShader(j.text));
+        break;
+    case JobWeatherAmount:
+        g_menu.setStatus(tw::game::WeatherApplyAmount(j.value));
+        break;
+    case JobWeatherChance:
+        g_menu.setStatus(tw::game::WeatherSetChance(j.value));
+        break;
+    case JobWeatherWetness:
+        g_menu.setStatus(tw::game::WeatherSetWetness(j.value));
+        break;
+    case JobWeatherInterval:
+        g_menu.setStatus(tw::game::WeatherSetInterval(static_cast<int>(j.value + 0.5f)));
+        break;
+    case JobWeatherLock:
+        g_menu.setStatus(tw::game::WeatherSetLocked(j.flag));
+        break;
+    case JobSkydome:
+        g_menu.setStatus(tw::game::SkydomeSetIndex(static_cast<int>(j.value + 0.5f)));
         break;
     }
 }
@@ -886,7 +918,9 @@ void buildMenu() {
     // Only what the menu still offers. The camera, the spawner and noclip keep their
     // hotkeys (see freecam_game.cpp); the menu is for the things that are easier to read
     // than to remember, and for the actions that write a save file.
-    hooks.weatherPresets = tw::game::WeatherPresets();
+    // The weather is a continuous 0..2 amount in the game, so the presets are shortcuts
+    // and the sliders are the real control (see freecam_weather.h).
+    hooks.weatherPresets = tw::game::WeatherModePresets();
     hooks.levelTargets = tw::game::LevelTargets();
     hooks.shaderPresets = tw::game::ShaderPresets();
 
@@ -894,6 +928,41 @@ void buildMenu() {
         pushJob(Job{JobWeather, n, 0.0f, false});
         return std::string("Weather: queued");
     };
+    hooks.setWeatherAmount = [](float v) {
+        pushJob(Job{JobWeatherAmount, std::string(), v, false});
+        return std::string("Rain amount: queued");
+    };
+    hooks.setWeatherChance = [](float v) {
+        pushJob(Job{JobWeatherChance, std::string(), v, false});
+        return std::string("Rain chance: queued");
+    };
+    hooks.setWeatherWetness = [](float v) {
+        pushJob(Job{JobWeatherWetness, std::string(), v, false});
+        return std::string("Wetness: queued");
+    };
+    hooks.setWeatherInterval = [](int seconds) {
+        pushJob(Job{JobWeatherInterval, std::string(), static_cast<float>(seconds), false});
+        return std::string("Weather interval: queued");
+    };
+    hooks.setWeatherLock = [](bool on) {
+        pushJob(Job{JobWeatherLock, std::string(), 0.0f, on});
+        return std::string("Weather lock: queued");
+    };
+    // The values the sliders start at, so the menu opens showing what the game is
+    // actually doing rather than zero.
+    hooks.weatherAmount = []() { return tw::game::WeatherAmount(); };
+    hooks.weatherChance = []() { return tw::game::WeatherChance(); };
+    hooks.weatherWetness = []() { return tw::game::WeatherWetness(); };
+    hooks.weatherLocked = []() { return tw::game::WeatherLocked(); };
+    // Skybox: the game's own skydome list. It is empty until the world has loaded,
+    // so the options are refreshed in syncState below and the entry starts with the
+    // one choice that is always valid.
+    hooks.skydomes = tw::game::SkydomeNames();
+    hooks.setSkydome = [](int index) {
+        pushJob(Job{JobSkydome, std::string(), static_cast<float>(index), false});
+        return std::string("Skybox: queued");
+    };
+    hooks.skydomeCurrent = []() { return tw::game::SkydomeCurrentMenuIndex(); };
     hooks.setFreeCam = [](bool on) { return tw::game::FreeCamSetActive(on); };
     hooks.setLevel = [](const std::string& t, int l) {
         pushJob(Job{JobLevel, t, static_cast<float>(l), false});
@@ -975,6 +1044,14 @@ void buildMenu() {
                                               tw::game::FreeCamPlayerFree());
         g_menu.setToggled("Noclip (fly the player)", tw::game::NoclipActive());
         g_menu.setOptionIndex("Noclip speed", static_cast<std::size_t>(tw::game::NoclipSpeedIndex()));
+        // The weather has its own controls outside the menu - the preset selector and
+        // the sliders write the same fields the game reads - so keep the lock toggle
+        // honest. The skydome list only exists once the world has loaded, and
+        // setOptions is a no-op once it matches, so this costs nothing per frame.
+        g_menu.setToggled("Lock weather", tw::game::WeatherLocked());
+        g_menu.setOptions("Skybox (skydome)", tw::game::SkydomeNames());
+        g_menu.setOptionIndex("Skybox (skydome)",
+                              static_cast<std::size_t>(tw::game::SkydomeCurrentMenuIndex()));
     };
 
     tw::buildDebugMenu(g_menu, hooks);
