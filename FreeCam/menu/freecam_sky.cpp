@@ -407,7 +407,12 @@ void SkyTick() {
     // of them, so the nudge comes after the paint - and for a few ticks, in case the world
     // was mid-change when the first one landed.
     static int nudgeLeft = 0;
-    if (newColour) nudgeLeft = 3;
+    static bool wasOn = false;
+    const bool switchedOn = s.enabled() && !wasOn;
+    wasOn = s.enabled();
+    // Switching the override on has to rebuild the copy as well: the variant it takes is
+    // set before the first paint, so the colours the game copies at that moment are its own.
+    if (newColour || switchedOn) nudgeLeft = 3;
     if (nudgeLeft > 0) {
         --nudgeLeft;
         NudgeSky(s);
