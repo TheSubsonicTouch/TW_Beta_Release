@@ -928,8 +928,8 @@ void buildDebugMenu(Menu& menu, const DebugHooks& hooks) {
 
     // ---- Sky -------------------------------------------------------------
     // One switch, the variant it holds and the colour it paints. The rows write the
-    // settings object directly; the renderer's own tick (freecam_sky.cpp) is what touches
-    // the game, so nothing here queues a job or blocks a frame.
+    // settings object directly; freecam_sky.cpp holds the skydome and win_menu.cpp draws
+    // the paint, so nothing here queues a job or blocks a frame.
     if (hooks.sky) {
         SkySettings* sky = hooks.sky;
         header("SKY");
@@ -951,7 +951,7 @@ void buildDebugMenu(Menu& menu, const DebugHooks& hooks) {
                                              ? row->options[index]
                                              : std::string("Automatic");
                 menu.setStatus("Sky override: on - holding " + name + ", painted " +
-                               sky->describe());
+                               sky->describe() + " over the sky");
             };
             menu.addItem(on);
         }
