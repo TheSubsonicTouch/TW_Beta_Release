@@ -622,6 +622,8 @@ const char* rowValue(const tw::MenuItem& it) {
     case tw::ItemKind::Selector:
         if (it.options.empty()) return "-";
         return it.options[it.optionIndex < it.options.size() ? it.optionIndex : 0].c_str();
+    case tw::ItemKind::Info:
+        return it.text.c_str();
     default:
         return "";
     }
@@ -698,6 +700,22 @@ void renderMenu() {
             dl->AddLine(ImVec2(p.x, p.y + 1.0f), ImVec2(p.x + rowWidth, p.y + 1.0f),
                         ImGui::GetColorU32(ImVec4(0.55f, 0.32f, 0.14f, 0.55f)), 1.0f);
             ImGui::Dummy(ImVec2(1.0f, 2.0f));
+            continue;
+        }
+
+        // A value the game owns and the menu only shows. No selection bar, no hover, no
+        // click: the cursor steps over it, so it cannot be "used" by accident.
+        if (it.kind == tw::ItemKind::Info) {
+            const ImVec2 p = ImGui::GetCursorScreenPos();
+            ImGui::Dummy(ImVec2(rowWidth, rowHeight));
+            const float textY = p.y + (rowHeight - ImGui::GetTextLineHeight()) * 0.5f;
+            dl->AddText(ImVec2(p.x + 12.0f, textY),
+                        ImGui::GetColorU32(ImVec4(0.70f, 0.68f, 0.64f, 1.0f)), it.label.c_str());
+            if (!it.text.empty()) {
+                const ImVec2 size = ImGui::CalcTextSize(it.text.c_str());
+                dl->AddText(ImVec2(p.x + rowWidth - size.x - 12.0f, textY),
+                            ImGui::GetColorU32(ImVec4(0.55f, 0.85f, 0.92f, 1.0f)), it.text.c_str());
+            }
             continue;
         }
 
@@ -914,6 +932,12 @@ HRESULT STDMETHODCALLTYPE hkPresent(IDXGISwapChain* sc, UINT sync, UINT flags) {
         // the camera, spawn the hotkey ped and toggle noclip.
         tw::game::FreeCamSetMenuOpen(g_menu.visible());
         drainJobs();   // run queued actions on the game thread, then show results
+        // Camera actions are carried out by the camera thread, so their answer arrives on
+        // its own schedule; whenever one lands it takes the status line.
+        {
+            std::string why;
+            if (tw::game::FreeCamTakeActionStatus(&why) && !why.empty()) g_menu.setStatus(why);
+        }
         renderFrame();
     }
     return oPresent(sc, sync, flags);
@@ -1080,9 +1104,17 @@ void buildMenu() {
     hooks.spawnPed = [](const std::string& model) {
         // Spawning sets the hotkey model as well, so B spawns what the menu just did.
         tw::game::SpawnSelectByName(model);
-        tw::game::SpawnRequest(model, tw::game::SpawnHostile());
-        return "Spawn Ped: " + model + (tw::game::SpawnHostile() ? " (hostile)" : " (friendly)") +
-               " - queued, see the corner display";
+        // The distance the preview is standing at, so moving that slider moves the figure
+        // and the NPC together - a preview that stayed at 3 m while the spawn went further
+        // would be worse than no preview.
+        const float metres = tw::game::HologramDistance();
+        tw::game::SpawnRequestAt(model, tw::game::SpawnHostile(), metres);
+        char line[160];
+        std::snprintf(line, sizeof line,
+                      "Spawn Ped: %s (%s, %.0f m ahead) - queued, see the corner display",
+                      model.c_str(), tw::game::SpawnHostile() ? "hostile" : "friendly",
+                      static_cast<double>(metres));
+        return std::string(line);
     };
     // The side is the same flag the H key flips, so the toggle and the hotkey are one
     // setting rather than two that can drift.
@@ -1111,6 +1143,19 @@ void buildMenu() {
         return std::string(buf);
     };
     hooks.hologramDistance = []() { return tw::game::HologramDistance(); };
+
+    // The spawner's own state, so a spawner that has switched itself off after a fault is
+    // visible in the menu instead of only in the log.
+    hooks.spawnerStatus = []() {
+        if (tw::game::SpawnBlocked()) return std::string("blocked - R resets");
+        const std::string& s = tw::game::SpawnStatus();
+        return s.empty() ? std::string("ready") : s;
+    };
+    hooks.resetSpawner = []() {
+        tw::game::SpawnClearFault();
+        return tw::game::SpawnBlocked() ? std::string("Spawner: still blocked")
+                                        : std::string("Spawner: reset - one more spawn allowed");
+    };
 
     // The player's own controls: U, or the menu entry. The camera has to be on for it
     // to mean anything - with it off the player has the controls already - and the
@@ -1144,6 +1189,62 @@ void buildMenu() {
         return std::string("Noclip speed: ") + label;
     };
 
+    // The camera's other modes. Every one of them is state the camera thread owns, so the
+    // menu queues the same action its hotkey runs; the answer comes back through
+    // FreeCamTakeActionStatus and lands in the status line a frame later.
+    hooks.setFreeze = [](bool on) {
+        tw::game::FreeCamRequestAction(on ? tw::game::kFreeCamFreezeOn
+                                          : tw::game::kFreeCamFreezeOff);
+        return std::string(on ? "Freeze: queued" : "Unfreeze: queued");
+    };
+    hooks.frozen = []() { return tw::game::FreeCamFrozen(); };
+    hooks.setFollow = [](bool on) {
+        tw::game::FreeCamRequestAction(on ? tw::game::kFreeCamFollowOn
+                                          : tw::game::kFreeCamFollowOff);
+        return std::string(on ? "Follow: queued" : "Stop following: queued");
+    };
+    hooks.following = []() { return tw::game::FreeCamFollowing(); };
+    hooks.setLookAtPlayer = [](bool on) {
+        tw::game::FreeCamRequestAction(on ? tw::game::kFreeCamLookOn : tw::game::kFreeCamLookOff);
+        return std::string(on ? "Look at player: queued" : "Hold still: queued");
+    };
+    hooks.lookingAtPlayer = []() { return tw::game::FreeCamLookingAt(); };
+    hooks.setFlySpeed = [](float metres) {
+        tw::game::FreeCamRequestAction(tw::game::kFreeCamSetFlySpeed,
+                                       static_cast<int>(metres + 0.5f));
+        char buf[64];
+        std::snprintf(buf, sizeof buf, "Fly speed: %.0f m/s queued", static_cast<double>(metres));
+        return std::string(buf);
+    };
+    hooks.flySpeed = []() { return tw::game::FreeCamSpeed(); };
+
+    // The path: record, play, stop and forget, plus the speed ladder the arrows walk. The
+    // labels are built from the core's own ladder, so the menu cannot offer a speed the
+    // playback code does not have.
+    hooks.recordKeyframe = []() {
+        tw::game::FreeCamRequestAction(tw::game::kFreeCamKeyframe);
+        return std::string("Keyframe: queued");
+    };
+    hooks.setPathPlaying = [](bool on) {
+        tw::game::FreeCamRequestAction(on ? tw::game::kFreeCamPlay : tw::game::kFreeCamStop);
+        return std::string(on ? "Playback: queued" : "Stop: queued");
+    };
+    hooks.pathPlaying = []() { return tw::game::FreeCamPlaying(); };
+    hooks.clearPath = []() {
+        tw::game::FreeCamRequestAction(tw::game::kFreeCamClearPath);
+        return std::string("Clear path: queued");
+    };
+    for (int i = 0; i < tw::game::FreeCamPlaySpeedCount(); ++i) {
+        char buf[24];
+        std::snprintf(buf, sizeof buf, "%gx", static_cast<double>(tw::game::FreeCamPlaySpeedAt(i)));
+        hooks.playbackSpeeds.push_back(buf);
+    }
+    hooks.setPlaybackSpeed = [](int index) {
+        tw::game::FreeCamRequestAction(tw::game::kFreeCamSetPlaySpeed, index);
+        return std::string("Playback speed: queued");
+    };
+    hooks.keyframeCount = []() { return tw::game::FreeCamKeyframeCount(); };
+
     // Keys pressed in game and the menu have to agree: U frees and freezes the player,
     // V turns noclip on, [ and ] move the speed picker, and the camera can be switched
     // off from its own hotkeys (or by F10). One pass per frame keeps what is drawn
@@ -1152,7 +1253,26 @@ void buildMenu() {
         g_menu.setToggled("Free Camera", tw::game::FreeCamActive());
         g_menu.setToggled("Player free (U)", tw::game::FreeCamActive() &&
                                               tw::game::FreeCamPlayerFree());
-        g_menu.setToggled("Noclip (fly the player)", tw::game::NoclipActive());
+        g_menu.setToggled("Noclip (V)", tw::game::NoclipActive());
+        // The camera's modes and the path: all of them can be changed by a hotkey while
+        // the menu is open (or before it was opened), so every row reads the truth.
+        g_menu.setToggled("Freeze camera (O)", tw::game::FreeCamFrozen());
+        g_menu.setToggled("Follow player (P)", tw::game::FreeCamFollowing());
+        g_menu.setToggled("Look at player (P)", tw::game::FreeCamLookingAt());
+        g_menu.setToggled("Play path (J)", tw::game::FreeCamPlaying());
+        g_menu.setOptionIndex("Playback speed",
+                              static_cast<std::size_t>(tw::game::FreeCamPlaySpeedIndex()));
+        {
+            char buf[64];
+            std::snprintf(buf, sizeof buf, "%d recorded", tw::game::FreeCamKeyframeCount());
+            g_menu.setInfo("Keyframes", buf);
+            const std::string spawner = tw::game::SpawnBlocked()
+                                            ? std::string("blocked - R resets")
+                                            : (tw::game::SpawnStatus().empty()
+                                                   ? std::string("ready")
+                                                   : tw::game::SpawnStatus());
+            g_menu.setInfo("Spawner", spawner);
+        }
         g_menu.setOptionIndex("Noclip speed", static_cast<std::size_t>(tw::game::NoclipSpeedIndex()));
         // The weather has its own controls outside the menu - the preset selector and
         // the sliders write the same fields the game reads - so keep the lock toggle

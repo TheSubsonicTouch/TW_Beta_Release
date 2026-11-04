@@ -1267,6 +1267,46 @@ static void test_project(void)
           "a zero-width view has no pixels");
 }
 
+/* The ladder the left and right arrows walk, exposed so the debug menu can offer it by
+ * name. The menu shows a rung index and expects setting it to land back on the same rung,
+ * so the round trip is the thing worth checking. */
+static void test_play_speed_ladder(void)
+{
+    fc_state st;
+    fc_config cfg;
+    int n, i, bad = 0;
+
+    fc_config_defaults(&cfg);
+    fc_init(&st, &cfg);
+
+    n = fc_play_speed_count();
+    CHECK(n == 12, "the ladder has twelve rungs, got %d", n);
+    CHECK(NEAR(fc_play_speed_at(0), 0.1f, 1e-4f), "the slowest is 0.1x");
+    CHECK(NEAR(fc_play_speed_at(n - 1), 4.0f, 1e-4f), "the fastest is 4x");
+    /* An index off either end is still a speed rather than undefined behaviour: the menu
+     * clamps what it sends, but a stale index must not become 0x. */
+    CHECK(NEAR(fc_play_speed_at(-3), 0.1f, 1e-4f), "below the ladder clamps to the slowest");
+    CHECK(NEAR(fc_play_speed_at(999), 4.0f, 1e-4f), "above it clamps to the fastest");
+
+    /* A state that has never played is at 1x, and 1x is the rung the menu should show. */
+    CHECK(NEAR(fc_play_speed(&st), 1.0f, 1e-4f), "a new state plays at 1x");
+    CHECK(fc_play_speed_index(&st) == 6, "which is rung 6, got %d", fc_play_speed_index(&st));
+
+    /* Every rung round trips: set at(i), ask which rung, get i back. */
+    for (i = 0; i < n; i++) {
+        fc_play_set_speed(&st, fc_play_speed_at(i));
+        if (fc_play_speed_index(&st) != i) bad++;
+    }
+    CHECK(bad == 0, "%d rung(s) did not round trip", bad);
+
+    /* A speed set by hand still lights up the nearest rung. */
+    fc_play_set_speed(&st, 2.1f);
+    CHECK(fc_play_speed_index(&st) == 9, "2.1x is nearest 2x, rung 9, got %d",
+          fc_play_speed_index(&st));
+    /* And a null state is the default speed, not a crash. */
+    CHECK(fc_play_speed_index(NULL) == 6, "no state still answers with 1x");
+}
+
 /* The pose a view matrix was built from. Note that a world matrix also round trips
  * as *some* view matrix - a view matrix is the same basis with a different row 3 - so
  * the only real test is that the answer rebuilds the matrix it came from. */
@@ -1371,6 +1411,7 @@ int main(void)
     test_world_view_pair();
     test_projection();
     test_project();
+    test_play_speed_ladder();
     test_pose_from_view();
     test_init_aliasing();
     test_transpose();

@@ -1109,6 +1109,26 @@ float fc_play_speed(const fc_state *st)
     return st->play_speed;
 }
 
+int fc_play_speed_count(void) { return FC_PLAY_SPEED_STEPS; }
+
+float fc_play_speed_at(int index)
+{
+    if (index < 0) index = 0;
+    if (index > FC_PLAY_SPEED_STEPS - 1) index = FC_PLAY_SPEED_STEPS - 1;
+    return kPlaySpeeds[index];
+}
+
+int fc_play_speed_index(const fc_state *st)
+{
+    float now = fc_play_speed(st);
+    int i, at = 0;
+
+    for (i = 1; i < FC_PLAY_SPEED_STEPS; i++) {
+        if (fabsf(now - kPlaySpeeds[i]) < fabsf(now - kPlaySpeeds[at])) at = i;
+    }
+    return at;
+}
+
 float fc_play_speed_shift(fc_state *st, int faster)
 {
     float now;

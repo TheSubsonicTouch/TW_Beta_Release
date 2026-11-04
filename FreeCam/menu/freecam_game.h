@@ -73,6 +73,49 @@ void FreeCamTick();
 void FreeCamSetSpeed(float unitsPerSecond);
 float FreeCamSpeed();
 
+// --- what the debug menu can ask the camera to do ----------------------------
+// Every mode the keys reach is also an entry in the menu, and both go through one
+// implementation. The camera thread owns the flight state, so the menu does not write it:
+// it queues an action, the camera thread runs it on its next tick, and the answer is
+// handed back once:
+//
+//     FreeCamRequestAction(kFreeCamFreezeOn);
+//     ...
+//     std::string why;
+//     if (FreeCamTakeActionStatus(&why)) menu.setStatus(why);
+//
+// The two "set" actions carry a number: a playback-speed rung, and the flying speed.
+enum FreeCamAction {
+    kFreeCamFreezeOn = 0,
+    kFreeCamFreezeOff,
+    kFreeCamFollowOn,
+    kFreeCamFollowOff,
+    kFreeCamLookOn,
+    kFreeCamLookOff,
+    kFreeCamKeyframe,
+    kFreeCamPlay,
+    kFreeCamStop,
+    kFreeCamClearPath,
+    kFreeCamSetPlaySpeed,     // arg: index into FreeCamPlaySpeedAt
+    kFreeCamSetFlySpeed,      // arg: metres per second
+    kFreeCamActionCount
+};
+void FreeCamRequestAction(int action, int arg = 0);          // any thread
+bool FreeCamTakeActionStatus(std::string *out);              // true once per result
+
+// Where the camera is, for the menu to show. Plain reads of state the camera thread owns:
+// a toggle that is one tick behind is fine, a stale copy kept by the menu is not.
+bool FreeCamFrozen();
+bool FreeCamFollowing();
+bool FreeCamLookingAt();
+bool FreeCamPlaying();
+int  FreeCamKeyframeCount();
+
+// The playback-speed ladder, and which rung the camera is on.
+int   FreeCamPlaySpeedCount();
+float FreeCamPlaySpeedAt(int index);
+int   FreeCamPlaySpeedIndex();
+
 // The camera's own view and projection matrices, for anything drawn over the game view
 // (the spawn hologram). Returns false until the camera thread has found a camera; the
 // caller transposes when *transposed is set, because the engine keeps some builds

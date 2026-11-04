@@ -280,4 +280,12 @@ float fc_play_speed(const fc_state *st);
  * speed it landed on. Slowing down and speeding up again comes back to the same place. */
 float fc_play_speed_shift(fc_state *st, int faster);
 
+/* The rungs that ladder is made of, for a menu that offers them by name: how many there
+ * are, the one at an index (clamped, so an out-of-range index is still a sane speed), and
+ * which rung the state is nearest to now - the nearest, not the exact one, so a speed set
+ * by hand still lights up a rung. */
+int   fc_play_speed_count(void);
+float fc_play_speed_at(int index);
+int   fc_play_speed_index(const fc_state *st);
+
 #endif /* FREECAM_H */

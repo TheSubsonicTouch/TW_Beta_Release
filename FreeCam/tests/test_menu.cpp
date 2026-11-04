@@ -138,6 +138,55 @@ tw::DebugHooks fullHooks(int* toggles, int* picks, int* levels,
         return "Spawn preview: " + std::to_string(static_cast<int>(m)) + " m";
     };
     hooks.hologramDistance = [] { return 3.0f; };
+
+    // The camera's other modes and the path. Each is the same action its hotkey runs, so
+    // here they only have to reach the right hook.
+    hooks.setFreeze = [toggles](bool on) {
+        ++*toggles;
+        return std::string(on ? "camera frozen" : "camera flying");
+    };
+    hooks.frozen = [] { return false; };
+    hooks.setFollow = [toggles](bool on) {
+        ++*toggles;
+        return std::string(on ? "following" : "not following");
+    };
+    hooks.following = [] { return false; };
+    hooks.setLookAtPlayer = [toggles](bool on) {
+        ++*toggles;
+        return std::string(on ? "looking at the player" : "holding still");
+    };
+    hooks.lookingAtPlayer = [] { return false; };
+    hooks.setFlySpeed = [picks](float v) {
+        ++*picks;
+        return "Fly speed: " + std::to_string(static_cast<int>(v));
+    };
+    hooks.flySpeed = [] { return 30.0f; };
+
+    hooks.recordKeyframe = [picks] {
+        ++*picks;
+        return std::string("keyframe 1 recorded");
+    };
+    hooks.setPathPlaying = [toggles](bool on) {
+        ++*toggles;
+        return std::string(on ? "playing" : "playback stopped");
+    };
+    hooks.pathPlaying = [] { return false; };
+    hooks.clearPath = [picks] {
+        ++*picks;
+        return std::string("cleared 1 keyframe");
+    };
+    hooks.playbackSpeeds = { "0.1x", "0.5x", "1x", "2x", "4x" };
+    hooks.setPlaybackSpeed = [picks](int index) {
+        ++*picks;
+        return "Playback speed: index " + std::to_string(index);
+    };
+    hooks.keyframeCount = [] { return 3; };
+
+    hooks.spawnerStatus = [] { return std::string("ready"); };
+    hooks.resetSpawner = [picks] {
+        ++*picks;
+        return std::string("Spawner: reset");
+    };
     return hooks;
 }
 
@@ -154,7 +203,7 @@ void testStructure() {
     // What the menu offers, and in which order.
     check(hasLabel(menu, "Free Camera"), "Free Camera is there");
     check(hasLabel(menu, "Player free (U)"), "the player's control toggle is there");
-    check(hasLabel(menu, "Noclip (fly the player)"), "noclip is there");
+    check(hasLabel(menu, "Noclip (V)"), "noclip is there");
     check(hasLabel(menu, "Noclip speed"), "the noclip speed picker is there");
     check(hasLabel(menu, "Weather"), "weather is there");
     check(hasLabel(menu, "Rain amount"), "the rain amount slider is there");
@@ -175,6 +224,20 @@ void testStructure() {
     check(hasLabel(menu, "Hostile NPC"), "the side toggle is there");
     check(hasLabel(menu, "Spawn preview"), "the hologram toggle is there");
     check(hasLabel(menu, "Preview distance"), "and the distance that places it");
+    check(hasLabel(menu, "Spawner"), "the spawner's own state is shown");
+    check(hasLabel(menu, "Reset spawner (R)"), "and R has an entry");
+
+    // Every camera mode the keys reach has an entry, and every entry names its key: a
+    // feature that only exists on the keyboard is a feature the menu does not have.
+    check(hasLabel(menu, "Freeze camera (O)"), "freeze is in the menu");
+    check(hasLabel(menu, "Follow player (P)"), "follow is in the menu");
+    check(hasLabel(menu, "Look at player (P)"), "aiming from a freeze is in the menu");
+    check(hasLabel(menu, "Fly speed"), "the flying speed is in the menu");
+    check(hasLabel(menu, "Record keyframe (L)"), "recording is in the menu");
+    check(hasLabel(menu, "Play path (J)"), "playback is in the menu");
+    check(hasLabel(menu, "Clear path (M)"), "clearing the path is in the menu");
+    check(hasLabel(menu, "Playback speed"), "the playback speed is a picker");
+    check(hasLabel(menu, "Keyframes"), "and how many are recorded is shown");
 
     check(hasHeader(menu, "CAMERA") && hasHeader(menu, "SPAWN") &&
               hasHeader(menu, "WORLD") && hasHeader(menu, "PROGRESSION"),
@@ -207,8 +270,11 @@ void testCursorSkipsHeaders() {
           "the cursor starts on Free Camera");
 
     const std::size_t total = menu.items().size();
+    // "Usable" is what the cursor can land on: not a section title, and not an Info row
+    // (which is shown but never selected).
     int usable = 0;
-    for (const auto& item : menu.items()) if (!item.header) ++usable;
+    for (const auto& item : menu.items())
+        if (!item.header && item.kind != tw::ItemKind::Info) ++usable;
 
     // Walking down the whole list must visit every usable entry once and never a title.
     std::vector<std::string> visited;
@@ -230,9 +296,9 @@ void testCursorSkipsHeaders() {
 
     int titles = 0;
     for (const auto& item : menu.items()) if (item.header) ++titles;
-    check(total == static_cast<std::size_t>(usable + titles),
-          "the list is the usable entries plus the section titles");
-    check(titles == 4, "CAMERA, SPAWN, WORLD, PROGRESSION");
+    check(total == static_cast<std::size_t>(usable + titles + 2),
+          "the list is the usable entries plus the section titles and the two info rows");
+    check(titles == 5, "CAMERA, PATH, SPAWN, WORLD, PROGRESSION");
 }
 
 void testActions() {
@@ -266,10 +332,23 @@ void testActions() {
     // think they have changed when they have not.
     menu.handleKey(tw::Key::Down);   // Noclip speed
     check(menu.items()[menu.selectedIndex()].label == "Noclip speed", "the speed picker follows");
-    menu.handleKey(tw::Key::Down);   // Spawn Ped
+    // The rest of the camera, then the PATH section (whose header the cursor steps over).
+    menu.handleKey(tw::Key::Down);   // Freeze camera (O)
+    menu.handleKey(tw::Key::Down);   // Follow player (P)
+    menu.handleKey(tw::Key::Down);   // Look at player (P)
+    menu.handleKey(tw::Key::Down);   // Fly speed
+    check(menu.items()[menu.selectedIndex()].label == "Fly speed",
+          "the camera's modes come before the path");
+    menu.handleKey(tw::Key::Down);   // Record keyframe (L), over the PATH header
+    check(menu.items()[menu.selectedIndex()].label == "Record keyframe (L)",
+          "then the path section");
+    menu.handleKey(tw::Key::Down);   // Play path (J)
+    menu.handleKey(tw::Key::Down);   // Clear path (M)
+    menu.handleKey(tw::Key::Down);   // Playback speed
+    menu.handleKey(tw::Key::Down);   // Spawn Ped, over the Keyframes info row
     check(menu.items()[menu.selectedIndex()].label == "Spawn Ped", "then the spawn section");
-    // Down through what the spawn section now holds: the list, the side, the preview and
-    // its distance, and only then the next section.
+    // Down through what the spawn section now holds: the list, the side, the preview, the
+    // distance and the spawner's state, and only then the next section.
     menu.handleKey(tw::Key::Down);   // Ped model (list)
     check(menu.items()[menu.selectedIndex()].label == "Ped model (list)",
           "then the model list");
@@ -278,6 +357,9 @@ void testActions() {
     menu.handleKey(tw::Key::Down);   // Preview distance
     check(menu.items()[menu.selectedIndex()].label == "Preview distance",
           "the preview controls sit at the end of the spawn section");
+    menu.handleKey(tw::Key::Down);   // Reset spawner (R), over the Spawner info row
+    check(menu.items()[menu.selectedIndex()].label == "Reset spawner (R)",
+          "the reset is the last spawn entry");
     menu.handleKey(tw::Key::Down);   // Weather
     check(menu.items()[menu.selectedIndex()].label == "Weather", "down again reaches Weather");
     const std::size_t before = menu.items()[menu.selectedIndex()].optionIndex;
@@ -436,12 +518,12 @@ void testNoclip() {
         return "Noclip speed: " + s;
     };
     hooks.syncState = [&menu, &noclipOn, &speedIndex] {
-        menu.setToggled("Noclip (fly the player)", noclipOn);
+        menu.setToggled("Noclip (V)", noclipOn);
         menu.setOptionIndex("Noclip speed", static_cast<std::size_t>(speedIndex));
     };
     tw::buildDebugMenu(menu, hooks);
 
-    selectLabel(menu, "Noclip (fly the player)");
+    selectLabel(menu, "Noclip (V)");
     menu.handleKey(tw::Key::Select);
     check(noclipOn, "Enter on the noclip toggle turns it on");
     check(menu.items()[menu.selectedIndex()].toggled, "and the row says ON");
@@ -718,9 +800,9 @@ void testSparseHooks() {
     check(hasLabel(menu, "Free Camera"), "Free Camera is still listed");
     // Noclip flies the character, not a camera: it must be offered even when the build
     // has no free camera hook at all, because the two are independent modes.
-    check(hasLabel(menu, "Noclip (fly the player)"),
+    check(hasLabel(menu, "Noclip (V)"),
           "noclip is offered without a free camera hook");
-    selectLabel(menu, "Noclip (fly the player)");
+    selectLabel(menu, "Noclip (V)");
     menu.handleKey(tw::Key::Select);
     check(menu.items()[menu.selectedIndex()].toggled, "and it toggles on its own");
     check(menu.status() == "noclip", "its hook answered");
@@ -869,6 +951,111 @@ void testHologram() {
           "without the spawner the preview entries are not built");
 }
 
+// Every camera mode the keys have is also an entry, and each entry reaches its own hook.
+// This is the "all features are in the menu" test: one check per feature, so a mode that
+// quietly loses its entry fails here rather than being noticed in game.
+void testCameraModes() {
+    int toggles = 0, picks = 0, levels = 0;
+    std::vector<std::string> spawned;
+    tw::Menu menu;
+    menu.setVisible(true);
+    tw::buildDebugMenu(menu, fullHooks(&toggles, &picks, &levels, &spawned));
+
+    // Freeze: a toggle, like the modes above it.
+    const tw::MenuItem* freeze = menu.item("Freeze camera (O)");
+    check(freeze && freeze->kind == tw::ItemKind::Toggle, "freeze is a toggle");
+    check(freeze && !freeze->toggled, "and it opens on what the camera is doing");
+    selectLabel(menu, "Freeze camera (O)");
+    int before = toggles;
+    menu.handleKey(tw::Key::Select);
+    check(toggles == before + 1, "freezing calls its hook");
+    check(menu.item("Freeze camera (O)")->toggled, "the row switches on");
+    check(menu.status() == "camera frozen", "and the hook's answer is the status");
+
+    // Follow and look-at are the two halves of P, kept apart so the menu never has to
+    // guess which one a press meant.
+    selectLabel(menu, "Follow player (P)");
+    before = toggles;
+    menu.handleKey(tw::Key::Select);
+    check(toggles == before + 1, "follow calls its hook");
+    check(menu.status() == "following", "with its own answer");
+    selectLabel(menu, "Look at player (P)");
+    before = toggles;
+    menu.handleKey(tw::Key::Select);
+    check(toggles == before + 1, "look-at calls its own hook");
+    check(menu.status() == "looking at the player", "with its own answer");
+
+    // The flying speed is a slider over the range FreeCamSetSpeed accepts, opening on the
+    // speed the camera is actually using.
+    const tw::MenuItem* fly = menu.item("Fly speed");
+    check(fly && fly->kind == tw::ItemKind::Slider, "fly speed is a slider");
+    check(fly && fly->value == 30.0f, "opening on the camera's own 30 m/s");
+    check(fly && fly->minValue == 1.0f && fly->maxValue == 60.0f, "1 to 60 m/s");
+    selectLabel(menu, "Fly speed");
+    before = picks;
+    menu.handleKey(tw::Key::Right);
+    check(picks == before + 1, "moving it calls its hook");
+    check(menu.status() == "Fly speed: 31", "with the speed it moved to");
+
+    // The path: record, play, clear, and the speed ladder.
+    selectLabel(menu, "Record keyframe (L)");
+    before = picks;
+    menu.handleKey(tw::Key::Select);
+    check(picks == before + 1, "recording calls its hook");
+    check(menu.status() == "keyframe 1 recorded", "and reports the count");
+
+    const tw::MenuItem* play = menu.item("Play path (J)");
+    check(play && play->kind == tw::ItemKind::Toggle, "playback is a toggle, so it shows state");
+    selectLabel(menu, "Play path (J)");
+    before = toggles;
+    menu.handleKey(tw::Key::Select);
+    check(toggles == before + 1, "playing calls its hook");
+    check(menu.status() == "playing", "and says so");
+
+    selectLabel(menu, "Clear path (M)");
+    before = picks;
+    menu.handleKey(tw::Key::Select);
+    check(picks == before + 1, "clearing calls its hook");
+    check(menu.status() == "cleared 1 keyframe", "with what it cleared");
+
+    const tw::MenuItem* speed = menu.item("Playback speed");
+    check(speed && speed->kind == tw::ItemKind::Selector, "the playback speed is a picker");
+    check(speed && speed->options.size() == 5, "with every rung on offer");
+    selectLabel(menu, "Playback speed");
+    before = picks;
+    menu.handleKey(tw::Key::Right);          // 0.1x -> 0.5x
+    check(picks == before + 1, "changing it applies at once");
+    check(menu.status() == "Playback speed: index 1", "and reports the rung it landed on");
+
+    // A play toggle that could not start (too few keyframes, camera off) is put back by
+    // syncState rather than leaving the row saying ON over a camera that is not moving.
+    menu.setToggled("Play path (J)", true);
+    check(menu.item("Play path (J)")->toggled, "the row can be set from the state");
+    menu.setToggled("Play path (J)", false);
+    check(!menu.item("Play path (J)")->toggled, "and cleared again when it stops");
+
+    // The two Info rows: shown, never selectable, and updated without churn.
+    const tw::MenuItem* frames = menu.item("Keyframes");
+    check(frames && frames->kind == tw::ItemKind::Info, "the keyframe count is an Info row");
+    check(frames && frames->text == "3 recorded", "showing what the camera says");
+    check(menu.setInfo("Keyframes", "4 recorded"), "an Info row can be updated");
+    check(!menu.setInfo("No such row", "x"), "and an unknown label is refused");
+    const tw::MenuItem* spawner = menu.item("Spawner");
+    check(spawner && spawner->kind == tw::ItemKind::Info, "so is the spawner's state");
+    check(spawner && spawner->text == "ready", "which opens on ready");
+
+    // The cursor refuses to land on either of them, by walk or by click.
+    for (std::size_t i = 0; i < menu.items().size(); ++i) {
+        if (menu.items()[i].kind != tw::ItemKind::Info) continue;
+        menu.select(i);
+        check(menu.items()[menu.selectedIndex()].kind != tw::ItemKind::Info,
+              "the cursor steps over an info row");
+    }
+    selectLabel(menu, "Keyframes");            // resolves to the row after it
+    check(menu.items()[menu.selectedIndex()].kind != tw::ItemKind::Info,
+          "selecting an info row lands on the next entry");
+}
+
 }  // namespace
 
 int main() {
@@ -882,6 +1069,7 @@ int main() {
     testWeatherControls();
     testSkydome();
     testHologram();
+    testCameraModes();
     testUnlockCatalog();
     testUnlockProfile();
     testUnlockKeepsProgress();

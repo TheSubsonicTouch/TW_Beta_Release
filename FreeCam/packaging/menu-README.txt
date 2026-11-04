@@ -104,6 +104,29 @@ game carries on from its own camera and not from where you flew to.
 WHAT CHANGED IN THIS BUILD
 --------------------------
 
+  - Build 25. Every feature is in the menu, and every row says which key it is.
+
+    - The camera's other modes are entries now: "Freeze camera (O)", "Follow player (P)"
+      and "Look at player (P)" - the frozen camera panning to keep you in frame - plus
+      "Fly speed", how many metres a second the camera travels, 1 to 60.
+    - The recorded path has a section of its own: "Record keyframe (L)", "Play path (J)"
+      as a toggle that shows when a playback is running, "Clear path (M)", the "Playback
+      speed" picker with every rung the arrow keys walk (0.1x to 4x), and a "Keyframes"
+      row saying how many are recorded - the one number needed to know whether a playback
+      can start at all.
+    - The spawner shows its own state - ready, waiting, or blocked after a fault - and
+      "Reset spawner (R)" is an entry, so the one way back on after a fault is no longer
+      only a key nobody would guess.
+    - "Spawn Ped" now puts the NPC at the "Preview distance" the hologram is standing at
+      instead of always three metres: move the slider and the figure and the NPC move
+      together. The B key still spawns at three metres.
+    - None of this writes the flight state from the render thread. The menu queues the
+      action its key runs, the camera thread carries it out at the top of its next tick,
+      and the answer comes back as the menu's own status line - the same sentence the
+      corner display shows.
+    - Rows the menu can show but not set ("Keyframes", "Spawner") are Info rows: the
+      cursor steps over them, so Enter can never land on a row that does nothing.
+
   - Build 24. The spawner has a hologram: where the NPC will stand, and which one, before
     anything is spawned.
 

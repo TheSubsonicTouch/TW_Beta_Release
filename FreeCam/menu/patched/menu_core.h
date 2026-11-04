@@ -10,7 +10,11 @@ namespace tw {
 
 enum class Key { None, Up, Down, Left, Right, Select, Back, Toggle };
 
-enum class ItemKind { Action, Toggle, Slider, Selector, Input };
+// Info is a row that shows something and does nothing: a value the game owns, which the
+// menu can see but not set (how many keyframes are recorded, whether the spawner is
+// blocked). The cursor steps over it exactly as it steps over a section title, so Up and
+// Down still move from one usable entry to the next.
+enum class ItemKind { Action, Toggle, Slider, Selector, Input, Info };
 
 struct MenuItem {
     std::string label;
@@ -23,7 +27,7 @@ struct MenuItem {
     float minValue = 0.0f;
     float maxValue = 1.0f;
     float step = 0.1f;
-    std::string text;                 // for Input: the text being edited
+    std::string text;                 // Input: the text being edited; Info: the value shown
     std::vector<std::string> options; // for Selector
     std::size_t optionIndex = 0;      // for Selector
     std::function<void()> onAction;   // Action: runs on Select
@@ -51,14 +55,17 @@ public:
     void toggleVisible() { visible_ = !visible_; }
 
     std::size_t selectedIndex() const { return selected_; }
-    // Selecting a section title lands on the next real item instead, so the cursor is
-    // always on something that can be used.
+    // Selecting a section title, or an Info row, lands on the next entry that can be used
+    // instead, so the cursor is never on something that is only there to be read.
     void select(std::size_t i) {
         if (i >= items_.size()) return;
         for (std::size_t k = i; k < items_.size(); ++k) {
-            if (!items_[k].header) { selected_ = k; return; }
+            if (!items_[k].header && items_[k].kind != ItemKind::Info) {
+                selected_ = k;
+                return;
+            }
         }
-        if (items_[i].header) return;
+        if (items_[i].header || items_[i].kind == ItemKind::Info) return;
         selected_ = i;
     }
     const std::vector<MenuItem>& items() const { return items_; }
@@ -85,6 +92,9 @@ public:
     // The text of an Input entry, set from the renderer while it is being typed in and
     // from a selector when one fills it in.
     bool setInputText(const std::string& label, std::string text);
+    // The value of an Info row. Called every frame from syncState, so it must be free of
+    // side effects when the text has not changed - it returns false when there was no row.
+    bool setInfo(const std::string& label, std::string text);
     const std::string* inputText(const std::string& label) const;
 
 private:
@@ -113,6 +123,30 @@ struct DebugHooks {
     std::function<std::string(bool)> setNoclip;    // fly the player themselves
     std::vector<std::string> noclipSpeeds;         // "1x" .. "8x"; empty: no speed entry
     std::function<std::string(const std::string&)> setNoclipSpeed;
+
+    // The rest of the camera. Freeze holds it in place while the player moves, follow pans
+    // it along with the player, look-at aims it at the player from a freeze, and the fly
+    // speed is how many metres a second it travels. Every one of these is state the camera
+    // thread owns, so the hook queues the change and the row is kept honest by syncState.
+    std::function<std::string(bool)> setFreeze;
+    std::function<bool()> frozen;
+    std::function<std::string(bool)> setFollow;
+    std::function<bool()> following;
+    std::function<std::string(bool)> setLookAtPlayer;
+    std::function<bool()> lookingAtPlayer;
+    std::function<std::string(float)> setFlySpeed;
+    std::function<float()> flySpeed;
+
+    // The recorded path. "Record" takes the camera's current pose, "play" flies the path
+    // back over the time it was recorded, and "clear" forgets it. The speeds are the same
+    // ladder the left and right arrows walk.
+    std::function<std::string()> recordKeyframe;
+    std::function<std::string(bool)> setPathPlaying;
+    std::function<bool()> pathPlaying;
+    std::function<std::string()> clearPath;
+    std::vector<std::string> playbackSpeeds;            // "0.1x" .. "4x"
+    std::function<std::string(int)> setPlaybackSpeed;   // index into playbackSpeeds
+    std::function<int()> keyframeCount;                 // for the Info row
 
     // World. The weather is a continuous 0..2 amount in the game, so the presets are only
     // shortcuts to interesting points of it; the sliders below cover everything between.
@@ -156,6 +190,11 @@ struct DebugHooks {
     std::function<bool()> hologramPreviewActive;
     std::function<std::string(float)> setHologramDistance;   // 0..10 metres ahead
     std::function<float()> hologramDistance;
+
+    // What the spawner is doing, shown rather than set: ready, blocked after a fault, or
+    // the result of the last spawn. Reset is R.
+    std::function<std::string()> spawnerStatus;
+    std::function<std::string()> resetSpawner;
 
     // Progression.
     std::vector<std::string> levelTargets;          // Enforcer/Rackets/Triad/Rivals

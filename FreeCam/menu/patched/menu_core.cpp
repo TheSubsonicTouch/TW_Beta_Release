@@ -12,15 +12,21 @@ void Menu::clear() {
     selected_ = 0;
 }
 
-// Section titles are not selectable, so Up and Down step over them. A menu that is
-// only titles (or empty) leaves the cursor alone.
+// Section titles and Info rows are not selectable, so Up and Down step over both. A menu
+// that is only titles (or empty) leaves the cursor alone.
+namespace {
+bool passive(const MenuItem& it) {
+    return it.header || it.kind == ItemKind::Info;
+}
+}  // namespace
+
 void Menu::step(int delta) {
     if (items_.empty()) return;
     const int n = static_cast<int>(items_.size());
     int i = static_cast<int>(selected_);
     for (int guard = 0; guard < n; ++guard) {
         i = (i + delta + n) % n;
-        if (!items_[i].header) {
+        if (!passive(items_[i])) {
             selected_ = static_cast<std::size_t>(i);
             return;
         }
@@ -36,7 +42,7 @@ bool Menu::handleKey(Key key) {
     // The first entry can be a section title; put the cursor on a real item before any
     // key is acted on.
     if (selected_ >= items_.size()) selected_ = 0;
-    if (items_[selected_].header) step(1);
+    if (passive(items_[selected_])) step(1);
 
     switch (key) {
     case Key::Up:
@@ -50,7 +56,7 @@ bool Menu::handleKey(Key key) {
         MenuItem& it = items_[selected_];
         // An Input's text is edited with the keyboard itself, so the arrows are the
         // caret's while it is being typed in - not a value to step.
-        if (it.header || it.kind == ItemKind::Input) return true;
+        if (it.header || it.kind == ItemKind::Input || it.kind == ItemKind::Info) return true;
         float dir = (key == Key::Right) ? 1.0f : -1.0f;
         if (it.kind == ItemKind::Slider) {
             it.value = std::clamp(it.value + dir * it.step, it.minValue, it.maxValue);
@@ -71,7 +77,7 @@ bool Menu::handleKey(Key key) {
     }
     case Key::Select: {
         MenuItem& it = items_[selected_];
-        if (it.header) return true;
+        if (passive(it)) return true;
         switch (it.kind) {
         case ItemKind::Action:
         case ItemKind::Input:
@@ -91,6 +97,8 @@ bool Menu::handleKey(Key key) {
                 if (!status.empty()) status_ = std::move(status);
             }
             break;
+        case ItemKind::Info:
+            break;        // nothing to run, and it is not selectable anyway
         }
         return true;
     }
@@ -136,6 +144,11 @@ std::vector<std::string> Menu::renderLines() const {
             std::snprintf(buf, sizeof buf, "%s%s: %s", prefix, it.label.c_str(),
                           it.text.empty() ? "(type a name)" : it.text.c_str());
             break;
+        case ItemKind::Info:
+            // No cursor marker: it is never the selected row.
+            std::snprintf(buf, sizeof buf, "  %s: %s", it.label.c_str(),
+                          it.text.empty() ? "-" : it.text.c_str());
+            break;
         }
         lines.emplace_back(buf);
     }
@@ -160,6 +173,17 @@ const std::string* Menu::inputText(const std::string& label) const {
     for (const MenuItem& it : items_)
         if (!it.header && it.label == label && it.kind == ItemKind::Input) return &it.text;
     return nullptr;
+}
+
+bool Menu::setInfo(const std::string& label, std::string text) {
+    for (MenuItem& it : items_) {
+        if (!it.header && it.label == label && it.kind == ItemKind::Info) {
+            if (it.text == text) return true;      // called every frame: no churn when equal
+            it.text = std::move(text);
+            return true;
+        }
+    }
+    return false;
 }
 
 bool Menu::setToggled(const std::string& label, bool on) {
@@ -256,7 +280,7 @@ void buildDebugMenu(Menu& menu, const DebugHooks& hooks) {
 
     if (hooks.setNoclip) {
         MenuItem noclip;
-        noclip.label = "Noclip (fly the player)";
+        noclip.label = "Noclip (V)";
         noclip.kind = ItemKind::Toggle;
         noclip.onToggle = [&menu, fn = hooks.setNoclip](bool on) { menu.setStatus(fn(on)); };
         menu.addItem(noclip);
@@ -266,6 +290,106 @@ void buildDebugMenu(Menu& menu, const DebugHooks& hooks) {
                                       hooks.setNoclipSpeed);
         speed.applyOnChange = true;   // the speed applies as it is browsed
         menu.addItem(speed);
+    }
+
+    // The other three camera modes, each the same action its hotkey runs. Freeze is the
+    // one that hands the player the controls while the view holds still; follow is the
+    // camera panning with them; look-at is a frozen camera turning to keep them in frame.
+    if (hooks.setFreeze) {
+        MenuItem freeze;
+        freeze.label = "Freeze camera (O)";
+        freeze.kind = ItemKind::Toggle;
+        freeze.toggled = hooks.frozen ? hooks.frozen() : false;
+        freeze.onToggle = [&menu, fn = hooks.setFreeze](bool on) { menu.setStatus(fn(on)); };
+        menu.addItem(freeze);
+    }
+    if (hooks.setFollow) {
+        MenuItem follow;
+        follow.label = "Follow player (P)";
+        follow.kind = ItemKind::Toggle;
+        follow.toggled = hooks.following ? hooks.following() : false;
+        follow.onToggle = [&menu, fn = hooks.setFollow](bool on) { menu.setStatus(fn(on)); };
+        menu.addItem(follow);
+    }
+    if (hooks.setLookAtPlayer) {
+        MenuItem look;
+        look.label = "Look at player (P)";
+        look.kind = ItemKind::Toggle;
+        look.toggled = hooks.lookingAtPlayer ? hooks.lookingAtPlayer() : false;
+        look.onToggle = [&menu, fn = hooks.setLookAtPlayer](bool on) { menu.setStatus(fn(on)); };
+        menu.addItem(look);
+    }
+    if (hooks.setFlySpeed) {
+        MenuItem fly;
+        fly.label = "Fly speed";
+        fly.kind = ItemKind::Slider;
+        fly.minValue = 1.0f;
+        fly.maxValue = 60.0f;
+        fly.step = 1.0f;
+        fly.value = hooks.flySpeed ? hooks.flySpeed() : 30.0f;
+        fly.onChange = [&menu, fn = hooks.setFlySpeed](float v) { menu.setStatus(fn(v)); };
+        menu.addItem(fly);
+    }
+
+    // ---- Path -------------------------------------------------------------
+    // What the camera flew, played back: the same three keys (L/J/M) as entries, plus the
+    // speed ladder the arrows walk. The Info row is the count, which is the one thing
+    // needed to know whether a playback is possible at all.
+    const bool anyPath = hooks.recordKeyframe || hooks.setPathPlaying || hooks.clearPath ||
+                         !hooks.playbackSpeeds.empty() || hooks.keyframeCount;
+    if (anyPath) {
+        header("PATH");
+
+        if (hooks.recordKeyframe) {
+            MenuItem record;
+            record.label = "Record keyframe (L)";
+            record.kind = ItemKind::Action;
+            record.onAction = [&menu, fn = hooks.recordKeyframe]() { menu.setStatus(fn()); };
+            menu.addItem(record);
+        }
+        if (hooks.setPathPlaying) {
+            MenuItem play;
+            play.label = "Play path (J)";
+            play.kind = ItemKind::Toggle;
+            play.toggled = hooks.pathPlaying ? hooks.pathPlaying() : false;
+            play.onToggle = [&menu, fn = hooks.setPathPlaying](bool on) {
+                menu.setStatus(fn(on));
+            };
+            menu.addItem(play);
+        }
+        if (hooks.clearPath) {
+            MenuItem clear;
+            clear.label = "Clear path (M)";
+            clear.kind = ItemKind::Action;
+            clear.onAction = [&menu, fn = hooks.clearPath]() { menu.setStatus(fn()); };
+            menu.addItem(clear);
+        }
+        if (!hooks.playbackSpeeds.empty()) {
+            // applyOnChange: a speed is a setting, and hearing the shot at the new pace is
+            // the whole point of changing it.
+            MenuItem speeds = makeSelector("Playback speed", hooks.playbackSpeeds,
+                                           [&menu, fn = hooks.setPlaybackSpeed,
+                                            options = hooks.playbackSpeeds]
+                                           (const std::string& label) -> std::string {
+                                               if (!fn) return "Playback speed: not available";
+                                               for (std::size_t i = 0; i < options.size(); ++i) {
+                                                   if (options[i] == label) return fn(static_cast<int>(i));
+                                               }
+                                               return "Playback speed: " + label;
+                                           });
+            speeds.applyOnChange = true;
+            menu.addItem(speeds);
+        }
+        if (hooks.keyframeCount) {
+            MenuItem count;
+            count.label = "Keyframes";
+            count.kind = ItemKind::Info;
+            const int n = hooks.keyframeCount();
+            char buf[64];
+            std::snprintf(buf, sizeof buf, "%d recorded", n);
+            count.text = buf;
+            menu.addItem(count);
+        }
     }
 
     // ---- Spawn -----------------------------------------------------------
@@ -346,6 +470,25 @@ void buildDebugMenu(Menu& menu, const DebugHooks& hooks) {
                 menu.setStatus(fn(v));
             };
             menu.addItem(dist);
+        }
+
+        // What the spawner is doing - ready, waiting, or switched off after a fault - and
+        // R, which is the only way back on after a fault. The status is shown rather than
+        // guessed at, because a spawner that quietly does nothing is the worst state it
+        // can be in.
+        if (hooks.spawnerStatus) {
+            MenuItem state;
+            state.label = "Spawner";
+            state.kind = ItemKind::Info;
+            state.text = hooks.spawnerStatus();
+            menu.addItem(state);
+        }
+        if (hooks.resetSpawner) {
+            MenuItem reset;
+            reset.label = "Reset spawner (R)";
+            reset.kind = ItemKind::Action;
+            reset.onAction = [&menu, fn = hooks.resetSpawner]() { menu.setStatus(fn()); };
+            menu.addItem(reset);
         }
     }
 

@@ -1396,9 +1396,218 @@ void HandleNoclipKeys() {
     }
 }
 
+// --- what the keys and the menu both do --------------------------------------
+//
+// One implementation per action, used by the hotkey path and by the queue the debug menu
+// writes to. `why` always ends up with a sentence that suits both the corner display and
+// the menu's status row, so the two cannot describe the same press differently.
+//
+// The functions assume they are running on the camera thread: they touch the flight state
+// that thread owns. The menu reaches them through the queue below.
+
+// Why the flight state cannot be touched yet. The two cases are different and both are
+// worth saying plainly: the camera can be off, or on and still looking for the camera.
+const char *NotFlying() {
+    return g_want ? "the free camera is on, but has not found the camera yet"
+                  : "the free camera is off - switch it on first";
+}
+
+bool CamLookAtPlayer(bool on, std::string *why) {
+    if (!g_live) { *why = NotFlying(); return false; }
+    if (!fc_frozen(&g_state)) {
+        *why = "only a frozen camera can pan - O freezes it";
+        return false;
+    }
+    fc_look_at(&g_state, on ? 1 : 0);
+    *why = on ? "the camera pans to keep the player in the picture"
+              : "the camera holds still again";
+    return true;
+}
+
+bool CamFreeze(bool frozen, std::string *why) {
+    if (!g_live) { *why = NotFlying(); return false; }
+    if (frozen) {
+        if (fc_frozen(&g_state)) { *why = "the camera is already frozen"; return true; }
+        // following would keep dragging the frozen view along with the player
+        if (fc_following(&g_state)) fc_follow(&g_state, g_state.pos, 0);
+        fc_freeze(&g_state, 1);
+        *why = "camera frozen - move, fight and interact; P pans it";
+    } else {
+        if (!fc_frozen(&g_state)) { *why = "the camera is already flying"; return true; }
+        fc_freeze(&g_state, 0);      // also stops the aiming
+        g_playerFree = 0;            // U's free player ends with the freeze
+        *why = "camera flying again - the player's controls are held";
+    }
+    return true;
+}
+
+bool CamFollow(bool follow, std::string *why) {
+    if (!g_live) { *why = NotFlying(); return false; }
+    if (fc_frozen(&g_state)) {
+        *why = "the camera is frozen - P aims it at the player instead";
+        return false;
+    }
+    if (fc_playing(&g_state)) {
+        *why = "the path is playing - stop it first (J)";
+        return false;
+    }
+    if (follow) {
+        float player[3];
+        if (!PlayerPosition(player)) {
+            *why = "the player's transform is not readable yet";
+            return false;
+        }
+        fc_follow(&g_state, player, 1);
+        *why = "following the player - the camera pans with them";
+    } else {
+        if (!fc_following(&g_state)) { *why = "the camera is not following anyone"; return true; }
+        fc_follow(&g_state, g_state.pos, 0);
+        g_playerFree = 0;            // the camera is the one being flown again
+        *why = "not following any more - the camera stays where it is";
+    }
+    return true;
+}
+
+bool CamRecordKeyframe(std::string *why) {
+    if (!g_live) { *why = NotFlying(); return false; }
+    if (fc_playing(&g_state)) { *why = "recording is off while the path is playing"; return false; }
+    const int n = fc_key_add(&g_state, g_flightClock);
+    if (n == 0) {
+        char buf[120];
+        std::snprintf(buf, sizeof buf,
+                      "the path is full (%d keyframes) - switch free cam off and on to clear it",
+                      FC_MAX_KEYS);
+        *why = buf;
+        return false;
+    }
+    char buf[96];
+    std::snprintf(buf, sizeof buf, "keyframe %d recorded - move, then record another", n);
+    *why = buf;
+    return true;
+}
+
+bool CamPlayPath(bool play, std::string *why) {
+    if (!g_live) { *why = NotFlying(); return false; }
+    if (!play) {
+        if (!fc_playing(&g_state)) { *why = "nothing is playing"; return true; }
+        fc_play_stop(&g_state);
+        *why = "playback stopped - the camera stays where the path reached";
+        return true;
+    }
+    if (fc_playing(&g_state)) { *why = "the path is already playing"; return true; }
+    // A playback is the camera moving, so it cannot happen behind a freeze. Thaw and play
+    // rather than refusing: this means "show me the shot".
+    if (fc_frozen(&g_state)) fc_freeze(&g_state, 0);
+    if (!fc_play_start(&g_state)) {
+        char buf[120];
+        std::snprintf(buf, sizeof buf,
+                      "nothing to play - %d keyframe(s); a path needs two, recorded with L",
+                      g_state.path_count);
+        *why = buf;
+        return false;
+    }
+    char buf[96];
+    std::snprintf(buf, sizeof buf, "playing %d keyframes at %.2fx (J stops it)",
+                  g_state.path_count, static_cast<double>(fc_play_speed(&g_state)));
+    *why = buf;
+    return true;
+}
+
+bool CamClearPath(std::string *why) {
+    const int had = g_state.path_count;
+    fc_path_clear(&g_state);
+    g_savedPathCount = 0;
+    char buf[80];
+    if (had > 0) {
+        std::snprintf(buf, sizeof buf, "cleared %d keyframe%s", had, had == 1 ? "" : "s");
+    } else {
+        std::snprintf(buf, sizeof buf, "the path was already empty");
+    }
+    *why = buf;
+    return had > 0;
+}
+
+// --- the queue the menu writes to --------------------------------------------
+
+// The menu runs on the render thread and the flight state belongs to the camera thread, so
+// an entry queues its action and the camera thread drains the queue at the top of its tick
+// - the same shape as the spawner's request and pump. The lock is held for a few
+// increments at a time; the camera thread never waits on the render thread for anything
+// longer than that.
+struct ActionBox {
+    CRITICAL_SECTION cs;
+    ActionBox() { InitializeCriticalSection(&cs); }
+    ~ActionBox() { DeleteCriticalSection(&cs); }
+};
+
+ActionBox g_actBox;
+bool g_actQueued[kFreeCamActionCount];
+int g_actArg[kFreeCamActionCount];
+std::string g_actStatus;
+bool g_actStatusNew = false;
+
+void ActLock() { EnterCriticalSection(&g_actBox.cs); }
+void ActUnlock() { LeaveCriticalSection(&g_actBox.cs); }
+
+void ApplyMenuAction(int action, int arg, std::string *why) {
+    switch (action) {
+    case kFreeCamFreezeOn:  CamFreeze(true, why); return;
+    case kFreeCamFreezeOff: CamFreeze(false, why); return;
+    case kFreeCamFollowOn:  CamFollow(true, why); return;
+    case kFreeCamFollowOff: CamFollow(false, why); return;
+    case kFreeCamLookOn:    CamLookAtPlayer(true, why); return;
+    case kFreeCamLookOff:   CamLookAtPlayer(false, why); return;
+    case kFreeCamKeyframe:  CamRecordKeyframe(why); return;
+    case kFreeCamPlay:      CamPlayPath(true, why); return;
+    case kFreeCamStop:      CamPlayPath(false, why); return;
+    case kFreeCamClearPath: CamClearPath(why); return;
+    case kFreeCamSetPlaySpeed: {
+        // The state may not be live yet; the speed is a setting either way, and it is kept
+        // across switching the camera on and off in g_playSpeed.
+        const float speed = fc_play_speed_at(arg);
+        g_playSpeed = speed;
+        fc_play_set_speed(&g_state, speed);
+        char buf[64];
+        std::snprintf(buf, sizeof buf, "playback speed %.2fx", static_cast<double>(speed));
+        *why = buf;
+        return;
+    }
+    case kFreeCamSetFlySpeed: {
+        FreeCamSetSpeed(static_cast<float>(arg));
+        char buf[64];
+        std::snprintf(buf, sizeof buf, "flying speed %d m/s", arg);
+        *why = buf;
+        return;
+    }
+    default:
+        *why = "that action is not one the camera knows";
+        return;
+    }
+}
+
+// Called once a tick on the camera thread, before anything else looks at the flight state.
+void DrainMenuActions() {
+    for (int id = 0; id < kFreeCamActionCount; ++id) {
+        ActLock();
+        const bool queued = g_actQueued[id];
+        const int arg = g_actArg[id];
+        g_actQueued[id] = false;
+        ActUnlock();
+        if (!queued) continue;
+
+        std::string why;
+        ApplyMenuAction(id, arg, &why);
+        TW_Log("FreeCam: menu action %d: %s", id, why.c_str());
+        ActLock();
+        g_actStatus = why;
+        g_actStatusNew = true;
+        ActUnlock();
+    }
+}
+
 // P - follow the player, L - keyframe, J - play the path back, M - forget the path,
 // O - freeze, left/right - how fast the path plays, V - noclip.
-void HandleHotkeys(const float player[3], bool havePlayer) {
+void HandleHotkeys() {
     // The menu has the keyboard while it is open. These keys are read straight from
     // GetAsyncKeyState, so the menu's window messages do not stop them: without this,
     // typing "before" into a name field would also spawn the hotkey ped (B), walk the
@@ -1487,131 +1696,55 @@ void HandleHotkeys(const float player[3], bool havePlayer) {
 
     // Pressed() latches its answer for the frame, so reading a key more than once in a
     // tick is safe - but each key is still asked once here, for clarity.
+    // Each key below is the same action the debug menu queues, so there is one
+    // implementation of each and the two cannot describe the same press differently. The
+    // corner display shows the same sentence the menu puts in its status row.
+    std::string why;
+
+    // P means the useful thing for the mode the camera is in: aim at the player while
+    // frozen, follow them while flying.
     if (g_followKey.Pressed()) {
         if (fc_frozen(&g_state)) {
-            // Frozen: the camera stays exactly where it is and only pans, so the player
-            // is kept in the middle of the picture as they walk, drive and fight.
-            if (fc_looking_at(&g_state)) {
-                fc_look_at(&g_state, 0);
-                Hud("P", "look at player off");
-                TW_Log("FreeCam: not aiming at the player any more; the frozen camera holds still");
-            } else if (!havePlayer) {
-                TW_Log("FreeCam: cannot aim at the player - its transform is not readable yet");
-            } else {
-                fc_look_at(&g_state, 1);
-                Hud("P", "camera looks at player");
-                TW_Log("FreeCam: frozen, so the camera only pans: it stays at %.1f %.1f %.1f and "
-                       "turns to keep the player (%.1f %.1f %.1f) in the picture; P again to hold "
-                       "still", g_state.pos[0], g_state.pos[1], g_state.pos[2],
-                       player[0], player[1], player[2]);
-            }
-        } else if (fc_playing(&g_state)) {
-            TW_Log("FreeCam: following cannot be changed while the path is playing (J to stop)");
-        } else if (fc_following(&g_state)) {
-            fc_follow(&g_state, player, 0);
-            g_playerFree = 0;    // the camera is the one being flown again
-            TW_Log("FreeCam: no longer following the player; the camera stays here and the "
-                   "player's controls are held again");
-            Hud("P", "follow off");
-        } else if (!havePlayer) {
-            TW_Log("FreeCam: cannot follow the player - its transform is not readable yet");
+            const bool on = !fc_looking_at(&g_state);
+            if (CamLookAtPlayer(on, &why)) Hud("P", on ? "camera looks at player" : "look at player off");
         } else {
-            fc_follow(&g_state, player, 1);
-            Hud("P", "follow on");
-            TW_Log("FreeCam: following the player (%.1f %.1f %.1f) - the camera keeps its framing "
-                   "and pans with them; P again to stay put", player[0], player[1], player[2]);
+            const bool on = !fc_following(&g_state);
+            if (CamFollow(on, &why)) Hud("P", on ? "follow on" : "follow off");
         }
+        TW_Log("FreeCam: %s", why.c_str());
     }
 
     if (g_freezeKey.Pressed()) {
-        if (fc_frozen(&g_state)) {
-            fc_freeze(&g_state, 0);      // also stops the aiming
-            g_playerFree = 0;            // U's free player ends with the freeze
-            TW_Log("FreeCam: camera unfrozen; the player's controls are held again and the camera "
-                   "flies from %.1f %.1f %.1f", g_state.pos[0], g_state.pos[1], g_state.pos[2]);
-            Hud("O", "camera flying");
-        } else {
-            // following would keep dragging the frozen view along with the player
-            if (fc_following(&g_state)) {
-                fc_follow(&g_state, player, 0);
-                TW_Log("FreeCam: no longer following the player (the camera is being frozen)");
-            }
-            fc_freeze(&g_state, 1);
-            TW_Log("FreeCam: camera frozen at %.1f %.1f %.1f - the player can move, fight and "
-                   "interact, P makes the camera pan to follow them, O to fly again",
-                   g_state.pos[0], g_state.pos[1], g_state.pos[2]);
-            Hud("O", "camera frozen");
-        }
+        const bool frozen = fc_frozen(&g_state) != 0;
+        if (CamFreeze(!frozen, &why)) Hud("O", frozen ? "camera flying" : "camera frozen");
+        TW_Log("FreeCam: %s", why.c_str());
     }
 
     HandlePlaybackSpeed();
 
     if (g_clearKey.Pressed()) {
-        // M: forget every keyframe, so the next ones are a new scene rather than an
-        // addition to the old one
         const int had = g_state.path_count;
-        fc_path_clear(&g_state);
-        g_savedPathCount = 0;
-        if (had > 0) {
+        if (CamClearPath(&why)) {
             char text[44];
             std::snprintf(text, sizeof(text), "cleared %d keyframe%s", had, had == 1 ? "" : "s");
             Hud("M", text);
-            TW_Log("FreeCam: %d keyframe(s) cleared - the next L starts a new path", had);
-        } else {
-            Hud("M", "no keyframes to clear");
-            TW_Log("FreeCam: M pressed but the path was already empty");
         }
+        TW_Log("FreeCam: %s", why.c_str());
     }
 
     if (g_keyKey.Pressed()) {
-        if (fc_playing(&g_state)) {
-            TW_Log("FreeCam: recording is off while the path is playing (J to stop)");
-        } else {
-            const int n = fc_key_add(&g_state, g_flightClock);
-            if (n == 0) {
-                TW_Log("FreeCam: the path is full (%d keyframes) - switch free cam off and on to clear it",
-                       FC_MAX_KEYS);
-            } else {
-                TW_Log("FreeCam: keyframe %d recorded (up to %d per path) at %.1f %.1f %.1f "
-                       "(yaw %.0f, pitch %.0f)%s",
-                       n, FC_MAX_KEYS, g_state.pos[0], g_state.pos[1], g_state.pos[2],
-                       g_state.yaw * 57.2957795f, g_state.pitch * 57.2957795f,
-                       n == 1 ? " - move the camera, then press L again" : "");
-                if (n == 2) TW_Log("FreeCam: press J to play the path back, in the time it was flown");
-                {
-                    char line[44];
-                    std::snprintf(line, sizeof(line), "keyframe %d", n);
-                    Hud("L", line);
-                }
-            }
+        if (CamRecordKeyframe(&why)) {
+            char text[44];
+            std::snprintf(text, sizeof(text), "keyframe %d", g_state.path_count);
+            Hud("L", text);
         }
+        TW_Log("FreeCam: %s", why.c_str());
     }
 
     if (g_playKey.Pressed()) {
-        if (fc_frozen(&g_state)) {
-            // A playback is the camera moving, so it cannot happen behind a freeze. Thaw
-            // and play rather than refusing: J means "show me the shot".
-            fc_freeze(&g_state, 0);
-            TW_Log("FreeCam: J on a frozen camera - thawing it first, so the playback can be seen");
-        }
-        if (fc_playing(&g_state)) {
-            fc_play_stop(&g_state);
-            TW_Log("FreeCam: playback stopped; the camera stays where the path reached");
-            Hud("J", "playback stopped");
-        } else if (fc_play_start(&g_state)) {
-            g_lastPlayReport = GetTickCount64();
-            TW_Log("FreeCam: playing %d keyframes over %.1f seconds at %.2fx, key to key (J stops it)",
-                   g_state.path_count, g_state.path[g_state.path_count - 1].time,
-                   static_cast<double>(fc_play_speed(&g_state)));
-            {
-                char line[44];
-                std::snprintf(line, sizeof(line), "playing %d keyframes", g_state.path_count);
-                Hud("J", line);
-            }
-        } else {
-            TW_Log("FreeCam: nothing to play - the path has %d keyframe(s) and needs at least two, "
-                   "recorded with L", g_state.path_count);
-        }
+        const bool playing = fc_playing(&g_state) != 0;
+        if (CamPlayPath(!playing, &why)) Hud("J", playing ? "playback stopped" : "playing");
+        TW_Log("FreeCam: %s", why.c_str());
     }
 }
 
@@ -1797,7 +1930,7 @@ DWORD WINAPI Loop(LPVOID) {
 
     // The 1 ms timer is raised in StartFlying and lowered in StopFlying: a thread that is
     // only alive so the menu can spawn something must not hold the system timer down.
-    TW_Log("FreeCam: camera thread up (build 24: U hands the player the controls and takes them back, V noclip with or without the camera; B spawns an NPC 3 m ahead, N picks the model, H the side; the spawn preview draws where it will stand, and the menu owns the weather and the skybox)");
+    TW_Log("FreeCam: camera thread up (build 25: U hands the player the controls and takes them back, V noclip with or without the camera; B spawns an NPC 3 m ahead, N picks the model, H the side; the spawn preview draws where it will stand, and every feature has a menu entry)");
 
     for (;;) {
         if (g_quit) break;
@@ -1806,6 +1939,10 @@ DWORD WINAPI Loop(LPVOID) {
         // the spawn hologram. Cheap (128 bytes) and done before any continue, so a tick
         // that skips the rest of the loop still refreshes it.
         PublishCameraMatrices();
+
+        // Anything the debug menu asked the camera to do is done here, on the thread that
+        // owns the flight state, before the rest of the tick looks at it.
+        DrainMenuActions();
 
         // A spawn asked for from the menu is carried out here and nowhere else: this
         // thread is the one that has run the game's per-thread allocator init, and the
@@ -1938,13 +2075,14 @@ DWORD WINAPI Loop(LPVOID) {
         float mx, my;
         PollInput(&mx, &my);
 
+        // The follow step below needs the player's position; the hotkeys fetch their own,
+        // because each of them fetches it only when it actually runs.
         float player[3] = { 0.0f, 0.0f, 0.0f };
-        bool havePlayer = false;
-        if (fc_following(&g_state) || g_followKey.Peek()) havePlayer = PlayerPosition(player);
+        if (fc_following(&g_state) || g_followKey.Peek()) PlayerPosition(player);
 
         g_flightClock += dt;
         BeginHotkeyFrame();
-        HandleHotkeys(player, havePlayer);
+        HandleHotkeys();
 
         // The player only keeps control while the camera is frozen (O) or following (P).
         const bool blockNow = g_live && !PlayerHasControl();
@@ -2112,6 +2250,41 @@ void FreeCamSetSpeed(float unitsPerSecond) {
 }
 
 float FreeCamSpeed() { return g_speed; }
+
+// --- the menu's side of the actions ------------------------------------------
+
+void FreeCamRequestAction(int action, int arg) {
+    if (action < 0 || action >= kFreeCamActionCount) return;
+    ActLock();
+    g_actQueued[action] = true;
+    g_actArg[action] = arg;
+    ActUnlock();
+    // The camera thread is what drains this, and it may not be up yet: the menu can be
+    // opened, and an entry used, before anything has ever flown.
+    FreeCamEnsureThread();
+}
+
+bool FreeCamTakeActionStatus(std::string *out) {
+    bool have = false;
+    ActLock();
+    if (g_actStatusNew) {
+        if (out) *out = g_actStatus;
+        g_actStatusNew = false;
+        have = true;
+    }
+    ActUnlock();
+    return have;
+}
+
+bool FreeCamFrozen() { return g_live != 0 && fc_frozen(&g_state) != 0; }
+bool FreeCamFollowing() { return g_live != 0 && fc_following(&g_state) != 0; }
+bool FreeCamLookingAt() { return g_live != 0 && fc_looking_at(&g_state) != 0; }
+bool FreeCamPlaying() { return g_live != 0 && fc_playing(&g_state) != 0; }
+int FreeCamKeyframeCount() { return g_state.path_count; }
+
+int FreeCamPlaySpeedCount() { return fc_play_speed_count(); }
+float FreeCamPlaySpeedAt(int index) { return fc_play_speed_at(index); }
+int FreeCamPlaySpeedIndex() { return fc_play_speed_index(&g_state); }
 
 bool FreeCamCameraMatrices(fc_mat *view, fc_mat *proj, int *transposed) {
     if (!view || !proj) return false;
