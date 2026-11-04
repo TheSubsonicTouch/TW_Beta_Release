@@ -104,7 +104,37 @@ game carries on from its own camera and not from where you flew to.
 WHAT CHANGED IN THIS BUILD
 --------------------------
 
-  - Build 30. The sky really changes colour, and the model list holds the game's own NPCs.
+  - Build 31. The sky colour is painted, and the picker holds the game's own skydomes.
+
+    - Build 30 wrote the colour into the game's sky memory and reported that the sky had
+      "really changed colour". It had not. The build's own log is the proof: the line that
+      says how many colour blocks were found never appeared, which means none were - the
+      sky's colours are inside a .perm.bin resource that the game's resource system loads
+      and hands to its renderer, with no field outside it to write. Writing to the places
+      they were believed to be was writing to nothing.
+    - So the colour is drawn now instead of written. The top of the frame is painted in the
+      colour the SKY section picked, strongest at the horizon of the picture and faded out
+      by about 60% of the way down, so it colours the sky and the tops of the towers and
+      leaves the street and the HUD alone. It is drawn with the menu's own renderer, so it
+      needs nothing installed alongside the game and cannot touch its memory.
+    - "Sky colour", "Sky colour strength" and the three tint channels drive it exactly as
+      before; the "Sky" line says what it is doing, and says "painted over the sky" so it is
+      never mistaken for the game's own colours changing.
+    - "Sky variant" and "Next sky" are unchanged and are the real thing: they read the
+      SkyMarshall's own skydome list (count at +0x9fd8, entries at +0x9fe0, stride 0x60,
+      the id at the front of each) and call the game's set_skydome with an id taken from it,
+      which is the call its weather makes. The game fades to the chosen sky and this build
+      asks for it again whenever the weather moves off it.
+    - The log now names the skydomes it found, once, the first time the override is on:
+      "sky: N skydome(s) in the game's list: ...". A list of one entry is the answer to a
+      picker that appears to do nothing.
+    - The whole memory-colour path is gone - the block discovery, the page writes and the
+      re-apply call - rather than left in to look busy. Nothing in this build writes to the
+      game's memory to change its appearance.
+    - A still of the section is in packaging/menu-build31-preview.png.
+
+  - Build 30. The model list is read out of the game files. (The sky colour claim in this
+    block was wrong - see build 31 above.)
 
     - The sky's colours were being written to pages the game had made read-only, and a
       write to a read-only page is dropped without a word: the row moved, the number
@@ -135,7 +165,7 @@ WHAT CHANGED IN THIS BUILD
     - Stats and parameter property sets are dropped as they are found: they hash to a
       stat block, not a character, and a list that offers them is a list that spawns
       nothing.
-    - A still of the section is in packaging/menu-build30-preview.png, rendered from the
+    - A still of the section is in packaging/menu-build31-preview.png, rendered from the
       same row list and colour table this build uses.
 
   - Build 29. The skybox is a part of the menu, and only of the menu.
@@ -166,9 +196,9 @@ WHAT CHANGED IN THIS BUILD
       to the weather is not a sky anybody chose.
     - "Sky colour": eleven presets - the sky unchanged, golden hour, warm amber, rose
       dusk, violet, arctic, emerald, sepia, crimson, moonlight, acid - and Custom.
-    - "Sky colour strength": how far toward that colour the sky is taken. It scales the
-      sky's own colours rather than replacing them, so a sunset still reads as a sunset.
-      At 0% the override holds the variant and changes no colour at all.
+    - "Sky colour strength": how far toward that colour the sky is taken. (Builds 28-30
+      described this as scaling the sky's own colours; build 31 paints the top of the frame
+      instead, which is the version that is visible. At 0% nothing is painted at all.)
     - "Tint red", "Tint green", "Tint blue": a colour of your own. Moving any of the three
       switches the picker to Custom, so the row never claims a preset it is not using.
     - The "Sky" line underneath says what the override is doing - which sky it is holding
