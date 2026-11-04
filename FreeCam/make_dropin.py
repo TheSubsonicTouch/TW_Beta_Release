@@ -254,6 +254,11 @@ def main():
         raise SystemExit("missing %s - build it with ./menu/build_menu.sh first" % DLL)
 
     os.makedirs(OUT_DIR, exist_ok=True)
+    # The folder is committed, so anything left in it from an older run would be shipped
+    # as well. Keep exactly the four files this script writes.
+    for name in os.listdir(OUT_DIR):
+        if name not in ("START-HERE.txt", "dinput8.dll", "README.txt", "SHA256SUMS.txt"):
+            os.remove(os.path.join(OUT_DIR, name))
     readme = build_readme()
 
     dll_out = os.path.join(OUT_DIR, "dinput8.dll")
