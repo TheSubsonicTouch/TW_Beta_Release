@@ -104,6 +104,38 @@ game carries on from its own camera and not from where you flew to.
 WHAT CHANGED IN THIS BUILD
 --------------------------
 
+  - Build 28. The skybox can be held still, and painted.
+
+    - WORLD, "Sky override (K)": switch it on and the sky stops being the weather's
+      business. The game changes its sky on its own - when the rain starts, when the
+      mission moves you across the island - and a sky picked in a menu was gone the next
+      time it did. With the override on, the sky stays where it was put.
+    - WORLD, "Sky variant": every skydome this installation actually has, read out of the
+      game's own sky list, so the names are the ones the game uses and not a guess. The
+      first entry is Automatic - the game chooses again - and the rest are held.
+    - "Next sky (Y)", or Y on the keyboard: the same thing without opening the menu.
+      Picking a sky switches the override on, because a sky that is picked and then left
+      to the weather is not a sky anybody chose.
+    - "Sky colour": eleven presets - the sky unchanged, golden hour, warm amber, rose
+      dusk, violet, arctic, emerald, sepia, crimson, moonlight, acid - and Custom.
+    - "Sky colour strength": how far toward that colour the sky is taken. It scales the
+      sky's own colours rather than replacing them, so a sunset still reads as a sunset.
+      At 0% the override holds the variant and changes no colour at all.
+    - "Tint red", "Tint green", "Tint blue": a colour of your own. Moving any of the three
+      switches the picker to Custom, so the row never claims a preset it is not using.
+    - The "Sky" line underneath says what the override is doing - which sky it is holding
+      and at what strength - and says so plainly when the world has not loaded yet.
+    - K takes the sky and gives it back. Switched off, every colour value this build
+      borrowed is written back exactly as it was found: the game gets the sky it had, not
+      a painted-over version of it.
+    - Nothing here writes through a pointer it has not checked. The sky's colours sit
+      behind three pointers inside the game, so each one is verified before it is read,
+      the block at the end has to look like a colour block before it is believed, and a
+      build whose sky is not shaped the way this one is simply finds nothing, says so in
+      the Sky line, and leaves the memory alone. The variant half works either way.
+    - A still of the section is in packaging/menu-build28-preview.png, rendered from the
+      same row list and colour table this build uses.
+
   - Build 27. The menu can be restyled, and it opens on the dragon.
 
     - Background: the full-size dragon the menu was always meant to have, drawn behind
@@ -496,6 +528,10 @@ CONTROLS
                         "Noclip (fly the player)")
     [ / ]               noclip speed down / up, 1x to 8x (only while noclip is on)
     R                   allow one more spawn after the spawner stopped itself
+    K                   hold the skybox: keep the variant chosen in the menu, and paint it
+                        with the colour chosen there. K again hands the sky back to the
+                        weather
+    Y                   next skybox variant, and hold it
 
 The mouse is natural: push it forward and you look up, pull it back and you look down.
 Moving it right turns right.

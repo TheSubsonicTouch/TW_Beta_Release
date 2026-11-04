@@ -58,6 +58,7 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include <vector>
 
 extern "C" {
 #include "../src/freecam.h"
@@ -66,6 +67,8 @@ extern "C" {
 #include "freecam_game.h"
 #include "freecam_hologram.h"
 #include "freecam_noclip.h"
+#include "menu_core.h"      // tw::SkySettings, for the K and Y keys
+#include "freecam_sky.h"
 #include "freecam_spawn.h"
 #include "log.h"
 
@@ -1207,6 +1210,11 @@ Hotkey g_noclipKey{ 'V' };        // V - fly the player themselves
 Hotkey g_faultKey{ 'R' };         // R - allow one more spawn after a fault
 Hotkey g_noclipSlower{ VK_OEM_4 };  // [ - noclip speed down
 Hotkey g_noclipFaster{ VK_OEM_6 };  // ] - noclip speed up
+// The sky. K takes the sky off the game and holds what the menu chose; Y walks the
+// variants. Both write the same settings object the menu's rows do, so the two cannot
+// end up describing different skies.
+Hotkey g_skyKey{ 'K' };
+Hotkey g_skyNextKey{ 'Y' };
 
 // Start a new frame for every hotkey. One call per tick, before anything reads a key.
 void BeginHotkeyFrame() {
@@ -1225,6 +1233,8 @@ void BeginHotkeyFrame() {
     g_faultKey.NewFrame();
     g_noclipSlower.NewFrame();
     g_noclipFaster.NewFrame();
+    g_skyKey.NewFrame();
+    g_skyNextKey.NewFrame();
 }
 
 // The player's controls while the free camera is on.
@@ -1393,6 +1403,37 @@ void HandleNoclipKeys() {
             Hud("]", (std::string("noclip speed ") +
                       tw::game::NoclipSpeedLabels()[tw::game::NoclipSpeedIndex()]).c_str());
         }
+    }
+}
+
+// K and Y: the sky override, on the same terms as V and the noclip row. Nothing here
+// touches the game's memory - it only sets what the override should be - so it is safe
+// on this thread even while the renderer is repainting the sky.
+void HandleSkyKeys() {
+    if (FreeCamMenuOpen()) return;
+
+    if (g_skyKey.Pressed()) {
+        tw::SkySettings& sky = tw::game::Sky();
+        const bool on = !sky.enabled();
+        sky.setEnabled(on);
+        if (on) {
+            Hud("K", ("sky override on - " + sky.describe()).c_str());
+        } else {
+            Hud("K", "sky override off - the game has its sky back");
+        }
+        TW_Log("FreeCam: sky override %s (%s)", on ? "on" : "off", sky.describe().c_str());
+    }
+
+    if (g_skyNextKey.Pressed()) {
+        tw::SkySettings& sky = tw::game::Sky();
+        sky.nextVariant();
+        sky.setEnabled(true);          // picking a sky and not holding it is not a choice
+        const std::vector<std::string> names = tw::game::SkyVariantNames();
+        const std::size_t index = static_cast<std::size_t>(sky.variant());
+        const std::string name =
+            index < names.size() ? names[index] : std::string("Automatic");
+        Hud("Y", ("sky " + name).c_str());
+        TW_Log("FreeCam: sky variant %s", name.c_str());
     }
 }
 
@@ -1660,6 +1701,7 @@ void HandleHotkeys() {
     // The noclip keys are the same ones the idle half of the loop reads, so the two modes
     // cannot disagree about what V means.
     HandleNoclipKeys();
+    HandleSkyKeys();
 
     // U - the player. With the camera flying, the game's controls are held back, so the
     // keys only fly the view. U gives them to the character instead: walk, fight, interact,
@@ -1930,7 +1972,7 @@ DWORD WINAPI Loop(LPVOID) {
 
     // The 1 ms timer is raised in StartFlying and lowered in StopFlying: a thread that is
     // only alive so the menu can spawn something must not hold the system timer down.
-    TW_Log("FreeCam: camera thread up (build 27: U hands the player the controls and takes them back, V noclip with or without the camera; B spawns an NPC 3 m ahead, N picks the model, H the side; the spawn preview draws where it will stand, every feature has a menu entry, and the menu can be restyled)");
+    TW_Log("FreeCam: camera thread up (build 28: U hands the player the controls and takes them back, V noclip with or without the camera; B spawns an NPC 3 m ahead, N picks the model, H the side; the spawn preview draws where it will stand, every feature has a menu entry, and the sky can be held and painted)");
 
     for (;;) {
         if (g_quit) break;
@@ -1967,6 +2009,7 @@ DWORD WINAPI Loop(LPVOID) {
             // that is the state the game is in unless someone has flown.
             BeginHotkeyFrame();
             HandleNoclipKeys();
+    HandleSkyKeys();
             // The spawn hologram does not fly anything: with the camera off it still needs
             // to know where the renderer's camera is looking, so it keeps a camera of its
             // own here - adopted, read, never written.

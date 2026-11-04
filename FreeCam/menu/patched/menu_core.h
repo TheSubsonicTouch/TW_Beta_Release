@@ -114,6 +114,67 @@ private:
     float scale_ = 1.0f;
 };
 
+// ---------------------------------------------------------------------------
+// The skybox override.
+// ---------------------------------------------------------------------------
+// Also a plain value object, and for the same reason: the rows that set the sky, the K
+// and Y hotkeys that switch it, and the renderer that paints it are three writers of one
+// set of numbers. Nothing here touches the game - it only says what the sky should be -
+// so the tests can check the clamps and the wrapping without a running Triad Wars.
+class SkySettings {
+public:
+    SkySettings();
+
+    // The switch. Off means the game owns its sky and whatever this module borrowed has
+    // been put back.
+    bool enabled() const { return enabled_; }
+    void setEnabled(bool on) { enabled_ = on; }
+
+    // Which of the game's skydomes to hold. 0 is "Automatic" - the game's own choice -
+    // and 1..variantCount()-1 are the entries of its own list. The count arrives from the
+    // game once the world has loaded, which is why it is set from outside.
+    int variant() const { return variant_; }
+    void setVariant(int i);
+    int variantCount() const { return variantCount_; }
+    void setVariantCount(int n);
+    void nextVariant();                       // wraps, and wraps past Automatic too
+
+    // Index into SkyColourName(). Moving a channel below selects Custom by itself.
+    int colour() const { return colour_; }
+    void setColour(int i);
+
+    // How far toward the colour the sky is taken: 0 leaves it alone, 1 is all tint.
+    float strength() const { return strength_; }
+    void setStrength(float s);
+
+    // The custom colour, 0..1 per channel.
+    float channel(int i) const;
+    void setChannel(int i, float v);
+
+    // The colour to paint with: the preset's, or the custom channels'.
+    void tint(float* r, float* g, float* b) const;
+
+    static int ColourCount();
+    static const char* ColourName(int i);
+    static bool IsCustom(int i);              // the last entry of the list
+    static void PresetTint(int i, float* r, float* g, float* b);
+
+    static constexpr float kMinStrength = 0.0f;
+    static constexpr float kMaxStrength = 1.0f;
+
+    // "Golden hour at 45%", "custom 1.00/0.62/0.30 at 20%": one line for the menu's own
+    // status, kept stable because the tests read it.
+    std::string describe() const;
+
+private:
+    bool enabled_ = false;
+    int variant_ = 0;          // Automatic
+    int variantCount_ = 0;
+    int colour_ = 1;           // Golden hour, so switching it on shows something at once
+    float strength_ = 0.45f;
+    float rgb_[3] = { 1.0f, 0.78f, 0.48f };
+};
+
 class Menu {
 public:
     // Adds a submenu-free item list. Items keep insertion order.
@@ -242,12 +303,6 @@ struct DebugHooks {
     std::function<float()> weatherWetness;
     std::function<bool()> weatherLocked;
 
-    // Skybox: the game's own skydome list. Empty until the world has loaded, so the entry
-    // is refreshed from syncState with Menu::setOptions.
-    std::vector<std::string> skydomes;
-    std::function<std::string(int)> setSkydome;            // index into skydomes
-    std::function<int()> skydomeCurrent;
-
     std::vector<std::string> shaderPresets;
     std::function<std::string(const std::string&)> setShader;
 
@@ -277,6 +332,14 @@ struct DebugHooks {
     // The menu's own appearance, when this build can draw more than one look. The rows
     // write it directly, so the next frame is drawn with the new setting.
     MenuStyle* style = nullptr;
+
+    // The sky. The settings object is the same one the K and Y hotkeys and the renderer
+    // read (see freecam_sky.h), so the menu and the keys cannot disagree. The variant
+    // names are the game's own skydome list, which is empty until the world has loaded;
+    // the rows are refreshed from syncState once it is not.
+    SkySettings* sky = nullptr;
+    std::vector<std::string> skyVariants;      // "Automatic" then the game's skydomes
+    std::function<std::string()> skyState;     // what the override is doing, for the Info row
 
     // Progression.
     std::vector<std::string> levelTargets;          // Enforcer/Rackets/Triad/Rivals

@@ -57,6 +57,10 @@ bool anyLabelContains(const tw::Menu& menu, const std::string& needle) {
     return false;
 }
 
+// The sky settings the full menu writes into. One per process, reset by every test that
+// builds the full menu, so one test's sky cannot leak into the next one's.
+tw::SkySettings g_sky;
+
 // A full set of hooks: everything this build can actually do.
 tw::DebugHooks fullHooks(int* toggles, int* picks, int* levels,
                          std::vector<std::string>* spawned) {
@@ -115,12 +119,11 @@ tw::DebugHooks fullHooks(int* toggles, int* picks, int* levels,
     hooks.weatherChance = [] { return 0.25f; };
     hooks.weatherWetness = [] { return 0.0f; };
     hooks.weatherLocked = [] { return false; };
-    hooks.skydomes = { "Automatic", "Sunny", "Cloudy", "Stormy", "Custom" };
-    hooks.setSkydome = [picks](int index) {
-        ++*picks;
-        return "Skybox: index " + std::to_string(index);
-    };
-    hooks.skydomeCurrent = [] { return 2; };
+    // The sky. The settings object is the one the rows write and the renderer applies;
+    // the variant list is the game's own skydome list, as it arrives once the world loads.
+    hooks.sky = &g_sky;
+    hooks.skyVariants = { "Automatic", "Sunny", "Cloudy", "Stormy", "Custom" };
+    hooks.skyState = [] { return std::string("off - the game's own sky"); };
     // The spawn side and the hologram. The preview is off to start with, which is the
     // state the menu has to open in: nothing is drawn until it is asked for.
     hooks.setSpawnHostile = [toggles](bool on) {
@@ -194,6 +197,7 @@ void testStructure() {
     int toggles = 0, picks = 0, levels = 0;
     std::vector<std::string> spawned;
     tw::Menu menu;
+    g_sky = tw::SkySettings();
     menu.setVisible(true);
     tw::buildDebugMenu(menu, fullHooks(&toggles, &picks, &levels, &spawned));
 
@@ -211,7 +215,15 @@ void testStructure() {
     check(hasLabel(menu, "Wetness override"), "the wetness slider is there");
     check(hasLabel(menu, "Weather change interval"), "the interval slider is there");
     check(hasLabel(menu, "Lock weather"), "the weather lock is there");
-    check(hasLabel(menu, "Skybox (skydome)"), "the skybox picker is there");
+    check(hasLabel(menu, "Sky override (K)"), "the sky override switch is there");
+    check(hasLabel(menu, "Sky variant"), "and the variants it holds");
+    check(hasLabel(menu, "Next sky (Y)"), "and a way to walk them without the menu");
+    check(hasLabel(menu, "Sky colour"), "the sky colour presets are there");
+    check(hasLabel(menu, "Sky colour strength"), "and how far to push them");
+    check(hasLabel(menu, "Tint red") && hasLabel(menu, "Tint green") &&
+              hasLabel(menu, "Tint blue"),
+          "and the three channels that make a colour of your own");
+    check(hasLabel(menu, "Sky"), "the sky line says what it is doing");
     check(hasLabel(menu, "ReShade preset"), "the ReShade preset picker is there");
     check(hasLabel(menu, "Level target"), "the level target is there");
     check(hasLabel(menu, "Level value"), "the level slider is there");
@@ -239,9 +251,9 @@ void testStructure() {
     check(hasLabel(menu, "Playback speed"), "the playback speed is a picker");
     check(hasLabel(menu, "Keyframes"), "and how many are recorded is shown");
 
-    check(hasHeader(menu, "CAMERA") && hasHeader(menu, "SPAWN") &&
-              hasHeader(menu, "WORLD") && hasHeader(menu, "PROGRESSION"),
-          "the four sections are there");
+    check(hasHeader(menu, "CAMERA") && hasHeader(menu, "SPAWN") && hasHeader(menu, "WORLD") &&
+              hasHeader(menu, "SKY") && hasHeader(menu, "PROGRESSION"),
+          "the five sections this build has hooks for are there");
 
     // What was taken out must stay out: those entries either could not work or were
     // replaced by hotkeys, and a menu that offers them is worse than a short one.
@@ -261,6 +273,7 @@ void testCursorSkipsHeaders() {
     int toggles = 0, picks = 0, levels = 0;
     std::vector<std::string> spawned;
     tw::Menu menu;
+    g_sky = tw::SkySettings();
     menu.setVisible(true);
     tw::buildDebugMenu(menu, fullHooks(&toggles, &picks, &levels, &spawned));
 
@@ -295,10 +308,17 @@ void testCursorSkipsHeaders() {
           "Up wraps round to the last entry");
 
     int titles = 0;
-    for (const auto& item : menu.items()) if (item.header) ++titles;
-    check(total == static_cast<std::size_t>(usable + titles + 2),
-          "the list is the usable entries plus the section titles and the two info rows");
-    check(titles == 5, "CAMERA, SPAWN, PATH, WORLD, PROGRESSION");
+    int infos = 0;
+    for (const auto& item : menu.items()) {
+        if (item.header) ++titles;
+        if (item.kind == tw::ItemKind::Info) ++infos;
+    }
+    check(total == static_cast<std::size_t>(usable + titles + infos),
+          "the list is the usable entries, the section titles and the info rows");
+    check(infos == 3, "Keyframes, Spawner and Sky are the read-only lines");
+    // APPEARANCE is not in this one: the style object is attached by its own test, and a
+    // build with no style has nothing to put in a section about it.
+    check(titles == 6, "CAMERA, SPAWN, PATH, WORLD, SKY, PROGRESSION");
     // And in that order, so the section jumps below can be checked against something.
     {
         std::string order;
@@ -307,7 +327,8 @@ void testCursorSkipsHeaders() {
             order += item.label;
             order += ' ';
         }
-        check(order == "CAMERA SPAWN PATH WORLD PROGRESSION ", "the sections are in order: " + order);
+        check(order == "CAMERA SPAWN PATH WORLD SKY PROGRESSION ",
+              "the sections are in order: " + order);
     }
 }
 
@@ -315,6 +336,7 @@ void testActions() {
     int toggles = 0, picks = 0, levels = 0;
     std::vector<std::string> spawned;
     tw::Menu menu;
+    g_sky = tw::SkySettings();
     menu.setVisible(true);
     tw::buildDebugMenu(menu, fullHooks(&toggles, &picks, &levels, &spawned));
 
@@ -408,6 +430,7 @@ void testSpawnPed() {
     int toggles = 0, picks = 0, levels = 0;
     std::vector<std::string> spawned;
     tw::Menu menu;
+    g_sky = tw::SkySettings();
     menu.setVisible(true);
     tw::buildDebugMenu(menu, fullHooks(&toggles, &picks, &levels, &spawned));
 
@@ -837,6 +860,7 @@ void testWeatherControls() {
     int toggles = 0, picks = 0, levels = 0;
     std::vector<std::string> spawned;
     tw::Menu menu;
+    g_sky = tw::SkySettings();
     menu.setVisible(true);
     tw::buildDebugMenu(menu, fullHooks(&toggles, &picks, &levels, &spawned));
 
@@ -870,44 +894,178 @@ void testWeatherControls() {
 
 // The skybox list is empty until the world loads, so the entry is built with "Automatic"
 // and filled in later; picking one has to reach setSkydome with the index that was chosen.
-void testSkydome() {
+// The skybox override: a switch, the variant it holds and the colour it paints. The
+// settings object is where all three live, so most of this is checked on the object - the
+// rows only have to put what was picked into it and say so.
+void testSkyOverride() {
     int toggles = 0, picks = 0, levels = 0;
     std::vector<std::string> spawned;
-    tw::Menu menu;
-    menu.setVisible(true);
-    tw::buildDebugMenu(menu, fullHooks(&toggles, &picks, &levels, &spawned));
 
-    const tw::MenuItem* sky = menu.item("Skybox (skydome)");
-    check(sky && sky->options.size() == 5, "every skydome is offered");
-    check(sky && sky->optionIndex == 2, "and the menu opens on the one in use");
+    // --- the settings object on its own -----------------------------------
+    {
+        tw::SkySettings sky;
+        check(!sky.enabled(), "the override ships off - the game keeps its sky");
+        check(sky.variant() == 0, "and on Automatic");
+        check(sky.colour() == 1, "with a colour that does something when it is switched on");
+        check(sky.strength() > 0.0f && sky.strength() <= 1.0f, "at a sensible strength");
 
-    selectLabel(menu, "Skybox (skydome)");
-    int before = picks;
-    menu.handleKey(tw::Key::Right);          // Cloudy -> Stormy
-    check(picks == before + 1, "picking a skydome calls its hook");
-    check(menu.status() == "Skybox: index 3", "with the index that was picked");
+        // The variant list arrives from the game; before it does, a choice cannot be
+        // clamped against a list that does not exist yet.
+        sky.setVariant(4);
+        check(sky.variant() == 4, "with no list yet the choice is kept as it was made");
+        sky.setVariantCount(5);
+        check(sky.variantCount() == 5, "the game's list sets the count");
+        sky.setVariant(9);
+        check(sky.variant() == 4, "and a choice past the end lands on the last sky");
 
-    // An empty list still leaves exactly one usable choice.
-    tw::DebugHooks bare = fullHooks(&toggles, &picks, &levels, &spawned);
-    bare.skydomes.clear();
-    bare.skydomeCurrent = nullptr;
-    tw::Menu second;
-    tw::buildDebugMenu(second, bare);
-    const tw::MenuItem* only = second.item("Skybox (skydome)");
-    check(only && only->options.size() == 1 && only->options[0] == "Automatic",
-          "an unloaded world still offers Automatic");
+        sky.setVariant(0);
+        sky.nextVariant();
+        check(sky.variant() == 1, "next walks to the first real sky");
+        sky.setVariant(4);
+        sky.nextVariant();
+        check(sky.variant() == 0, "and wraps round to Automatic");
+        sky.nextVariant();
+        check(sky.variant() == 1, "and on again");
 
-    // setOptions refreshes the list without moving a selection that survives.
-    tw::Menu third;
-    tw::buildDebugMenu(third, fullHooks(&toggles, &picks, &levels, &spawned));
-    third.setOptionIndex("Skybox (skydome)", 3);
-    check(third.setOptions("Skybox (skydome)",
-                           { "Automatic", "Sunny", "Cloudy", "Stormy", "Custom", "Night" }),
-          "the list can be refreshed");
-    check(third.item("Skybox (skydome)")->optionIndex == 3, "the choice is kept across a refresh");
-    check(third.setOptions("Skybox (skydome)", { "Automatic", "Sunny" }),
-          "and a shorter list is accepted");
-    check(third.item("Skybox (skydome)")->optionIndex == 0, "with the cursor back on Automatic");
+        // Shrinking the list (a different world) must not leave the cursor past its end.
+        sky.setVariant(4);
+        sky.setVariantCount(2);
+        check(sky.variant() == 1, "a shorter list pulls the choice back into range");
+        sky.setVariantCount(0);
+        check(sky.variant() >= 0, "and no list at all still leaves a valid index");
+    }
+
+    // --- the colours -------------------------------------------------------
+    {
+        tw::SkySettings sky;
+        check(tw::SkySettings::ColourCount() >= 6, "there are enough presets to choose from");
+        check(std::string(tw::SkySettings::ColourName(0)) == "Natural",
+              "the first preset is the sky as it is");
+        check(tw::SkySettings::IsCustom(tw::SkySettings::ColourCount() - 1),
+              "and the last one is Custom");
+
+        float r = 0, g = 0, b = 0;
+        sky.setColour(0);
+        sky.tint(&r, &g, &b);
+        check(r == 1.0f && g == 1.0f && b == 1.0f, "Natural is a tint of 1,1,1: no change");
+
+        sky.setColour(2);
+        const float preset[3] = { r, g, b };
+        (void)preset;
+        tw::SkySettings::PresetTint(2, &r, &g, &b);
+        float tr = 0, tg = 0, tb = 0;
+        sky.tint(&tr, &tg, &tb);
+        check(tr == r && tg == g && tb == b, "a preset hands its own colour to the renderer");
+
+        // Moving a slider is a custom colour, and the picker says so.
+        sky.setChannel(0, 0.5f);
+        check(sky.colour() == tw::SkySettings::ColourCount() - 1,
+              "moving a channel selects Custom");
+        sky.tint(&r, &g, &b);
+        check(r == 0.5f, "and the custom value is what the sky is painted with");
+        check(sky.describe().rfind("custom 0.50/", 0) == 0,
+              "the description says it is a custom colour: " + sky.describe());
+
+        // Clamps: a slider dragged past its end, or a channel written by hand.
+        sky.setChannel(1, 5.0f);
+        sky.setChannel(2, -2.0f);
+        check(sky.channel(1) == 1.0f && sky.channel(2) == 0.0f, "the channels clamp to 0..1");
+        sky.setChannel(9, 0.5f);
+        check(sky.channel(2) == 0.5f, "an out-of-range channel index is clamped, not read past the end");
+
+        sky.setStrength(-1.0f);
+        check(sky.strength() == 0.0f, "strength clamps at 0");
+        sky.setStrength(4.0f);
+        check(sky.strength() == 1.0f, "and at 1");
+        sky.setStrength(0.35f);
+        check(sky.describe().find("35%") != std::string::npos,
+              "the description carries the strength: " + sky.describe());
+    }
+
+    // --- the rows ---------------------------------------------------------
+    {
+        tw::Menu menu;
+        g_sky = tw::SkySettings();
+        menu.setVisible(true);
+        tw::buildDebugMenu(menu, fullHooks(&toggles, &picks, &levels, &spawned));
+
+        const tw::MenuItem* variant = menu.item("Sky variant");
+        check(variant && variant->options.size() == 5, "every sky the game has is offered");
+        check(variant && variant->optionIndex == 0, "and the row starts on Automatic");
+
+        // The switch.
+        selectLabel(menu, "Sky override (K)");
+        menu.handleKey(tw::Key::Select);
+        check(g_sky.enabled(), "the row switches the override on");
+        check(menu.status().rfind("Sky override: on", 0) == 0,
+              "and says what it is holding: " + menu.status());
+        menu.handleKey(tw::Key::Select);
+        check(!g_sky.enabled(), "and off again");
+        check(menu.status() == "Sky override: off - the game has its sky back",
+              "with the game's sky handed back: " + menu.status());
+
+        // Picking a variant holds it: a variant that is picked and then left to the
+        // weather is not a variant anybody chose.
+        selectLabel(menu, "Sky variant");
+        menu.handleKey(tw::Key::Right);
+        check(g_sky.variant() == 1, "the picker moves the variant");
+        check(g_sky.enabled(), "picking a sky switches the override on");
+        check(menu.status() == "Sky variant: Sunny - override on, so it stays",
+              "and the status line says so: " + menu.status());
+
+        // The button: the same thing the Y key does.
+        selectLabel(menu, "Next sky (Y)");
+        menu.handleKey(tw::Key::Select);
+        check(g_sky.variant() == 2, "Next sky walks to the next one");
+        check(menu.status() == "Sky variant: Cloudy", "and names it: " + menu.status());
+
+        // The colour picker and the three channels.
+        selectLabel(menu, "Sky colour");
+        menu.handleKey(tw::Key::Right);
+        check(g_sky.colour() == 2, "the colour picker moves the preset");
+        check(menu.item("Sky colour")->optionIndex == 2, "and the row follows it");
+        check(menu.status().rfind("Sky colour: Warm amber", 0) == 0, "status: " + menu.status());
+
+        selectLabel(menu, "Tint red");
+        menu.handleKey(tw::Key::Right);
+        check(g_sky.channel(0) > 0.0f, "a channel slider moves the colour");
+        check(g_sky.colour() == tw::SkySettings::ColourCount() - 1,
+              "and the picker shows Custom afterwards");
+        check(menu.status().find("custom colour") != std::string::npos, "status: " + menu.status());
+
+        selectLabel(menu, "Sky colour strength");
+        menu.handleKey(tw::Key::Right);
+        check(g_sky.strength() > 0.0f, "the strength slider moves");
+        check(menu.status().rfind("Sky colour strength:", 0) == 0, "status: " + menu.status());
+
+        // The info row is filled from the hook, not made up by the menu.
+        const tw::MenuItem* state = menu.item("Sky");
+        check(state && state->kind == tw::ItemKind::Info, "the Sky row is a read-only line");
+        check(state && state->text == "off - the game's own sky", "showing what the game hook said");
+    }
+
+    // --- a build whose world has not loaded -------------------------------
+    {
+        tw::DebugHooks bare = fullHooks(&toggles, &picks, &levels, &spawned);
+        bare.skyVariants.clear();
+        tw::Menu menu;
+        g_sky = tw::SkySettings();
+        tw::buildDebugMenu(menu, bare);
+        const tw::MenuItem* only = menu.item("Sky variant");
+        check(only && only->options.size() == 1 && only->options[0] == "Automatic",
+              "an unloaded world still offers Automatic");
+        check(hasLabel(menu, "Sky override (K)"),
+              "and the switch is still there, so the feature is never a row that vanished");
+    }
+
+    // --- a build with no sky object at all --------------------------------
+    {
+        tw::DebugHooks bare = fullHooks(&toggles, &picks, &levels, &spawned);
+        bare.sky = nullptr;
+        tw::Menu menu;
+        tw::buildDebugMenu(menu, bare);
+        check(!hasHeader(menu, "SKY"), "no settings object, no sky section");
+    }
 }
 
 // The hologram entries. They are a drawing, not a spawn: the toggle only switches the
@@ -917,6 +1075,7 @@ void testHologram() {
     int toggles = 0, picks = 0, levels = 0;
     std::vector<std::string> spawned;
     tw::Menu menu;
+    g_sky = tw::SkySettings();
     menu.setVisible(true);
     tw::buildDebugMenu(menu, fullHooks(&toggles, &picks, &levels, &spawned));
 
@@ -976,6 +1135,7 @@ void testCameraModes() {
     int toggles = 0, picks = 0, levels = 0;
     std::vector<std::string> spawned;
     tw::Menu menu;
+    g_sky = tw::SkySettings();
     menu.setVisible(true);
     tw::buildDebugMenu(menu, fullHooks(&toggles, &picks, &levels, &spawned));
 
@@ -1080,14 +1240,15 @@ void testSectionJump() {
     int toggles = 0, picks = 0, levels = 0;
     std::vector<std::string> spawned;
     tw::Menu menu;
+    g_sky = tw::SkySettings();
     menu.setVisible(true);
     tw::buildDebugMenu(menu, fullHooks(&toggles, &picks, &levels, &spawned));
 
     menu.select(0);
     check(menu.items()[menu.selectedIndex()].label == "Free Camera", "the jump starts at CAMERA");
 
-    const char* forward[] = { "Spawn Ped", "Record keyframe (L)", "Weather", "Level target",
-                              "Free Camera" };
+    const char* forward[] = { "Spawn Ped", "Record keyframe (L)", "Weather",
+                              "Sky override (K)", "Level target", "Free Camera" };
     for (const char* want : forward) {
         menu.jumpSection(1);
         const std::string got = menu.items()[menu.selectedIndex()].label;
@@ -1101,6 +1262,8 @@ void testSectionJump() {
     menu.jumpSection(-1);
     check(menu.items()[menu.selectedIndex()].label == "Level target",
           "PageUp from CAMERA wraps to the last section");
+    menu.jumpSection(-1);
+    check(menu.items()[menu.selectedIndex()].label == "Sky override (K)", "and then to SKY");
     menu.jumpSection(-1);
     check(menu.items()[menu.selectedIndex()].label == "Weather", "and then to WORLD");
     menu.jumpSection(-1);
@@ -1312,7 +1475,7 @@ int main() {
     testNoclip();
     testSparseHooks();
     testWeatherControls();
-    testSkydome();
+    testSkyOverride();
     testHologram();
     testCameraModes();
     testSectionJump();

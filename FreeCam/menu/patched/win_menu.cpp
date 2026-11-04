@@ -28,6 +28,7 @@
 #include "freecam_spawn.h"
 #include "freecam_unlock.h"
 #include "freecam_weather.h"
+#include "freecam_sky.h"
 #include "input_block.h"
 #include "log.h"
 #include "spawn_guard.h"
@@ -192,7 +193,6 @@ enum JobKind {
     JobWeatherWetness,
     JobWeatherInterval,
     JobWeatherLock,
-    JobSkydome,
 };
 
 struct Job {
@@ -240,9 +240,6 @@ void runJob(const Job& j) {
         break;
     case JobWeatherLock:
         g_menu.setStatus(tw::game::WeatherSetLocked(j.flag));
-        break;
-    case JobSkydome:
-        g_menu.setStatus(tw::game::SkydomeSetIndex(static_cast<int>(j.value + 0.5f)));
         break;
     }
 }
@@ -1132,6 +1129,10 @@ HRESULT STDMETHODCALLTYPE hkPresent(IDXGISwapChain* sc, UINT sync, UINT flags) {
         // the camera, spawn the hotkey ped and toggle noclip.
         tw::game::FreeCamSetMenuOpen(g_menu.visible());
         drainJobs();   // run queued actions on the game thread, then show results
+        // The sky override is a per-frame job rather than a queued one: it has to keep
+        // holding the variant and repaint the colour every frame, and it has to put the
+        // borrowed values back the frame it is switched off.
+        tw::game::SkyTick();
         // Camera actions are carried out by the camera thread, so their answer arrives on
         // its own schedule; whenever one lands it takes the status line.
         {
@@ -1262,15 +1263,13 @@ void buildMenu() {
     hooks.weatherChance = []() { return tw::game::WeatherChance(); };
     hooks.weatherWetness = []() { return tw::game::WeatherWetness(); };
     hooks.weatherLocked = []() { return tw::game::WeatherLocked(); };
-    // Skybox: the game's own skydome list. It is empty until the world has loaded,
-    // so the options are refreshed in syncState below and the entry starts with the
-    // one choice that is always valid.
-    hooks.skydomes = tw::game::SkydomeNames();
-    hooks.setSkydome = [](int index) {
-        pushJob(Job{JobSkydome, std::string(), static_cast<float>(index), false});
-        return std::string("Skybox: queued");
-    };
-    hooks.skydomeCurrent = []() { return tw::game::SkydomeCurrentMenuIndex(); };
+    // The sky. The settings object is shared with the K and Y hotkeys and with the tick
+    // in freecam_sky.cpp, so a switch made in the menu and one made on the keyboard are
+    // the same switch. The variant list is the game's own skydome list, empty until the
+    // world loads, which syncState fills in.
+    hooks.sky = &tw::game::Sky();
+    hooks.skyVariants = tw::game::SkyVariantNames();
+    hooks.skyState = []() { return tw::game::SkyStateLine(); };
     hooks.setFreeCam = [](bool on) { return tw::game::FreeCamSetActive(on); };
     hooks.setLevel = [](const std::string& t, int l) {
         pushJob(Job{JobLevel, t, static_cast<float>(l), false});
@@ -1496,9 +1495,25 @@ void buildMenu() {
         // honest. The skydome list only exists once the world has loaded, and
         // setOptions is a no-op once it matches, so this costs nothing per frame.
         g_menu.setToggled("Lock weather", tw::game::WeatherLocked());
-        g_menu.setOptions("Skybox (skydome)", tw::game::SkydomeNames());
-        g_menu.setOptionIndex("Skybox (skydome)",
-                              static_cast<std::size_t>(tw::game::SkydomeCurrentMenuIndex()));
+        // The sky: the keys switch the override and cycle the variants, and the list only
+        // exists once the world has loaded. setOptions and setToggled are no-ops when the
+        // value already matches, so this costs nothing on a quiet frame.
+        {
+            tw::SkySettings& sky = tw::game::Sky();
+            g_menu.setToggled("Sky override (K)", sky.enabled());
+            g_menu.setOptions("Sky variant", tw::game::SkyVariantNames());
+            g_menu.setOptionIndex("Sky variant", static_cast<std::size_t>(sky.variant()));
+            g_menu.setOptionIndex("Sky colour", static_cast<std::size_t>(sky.colour()));
+            // The sliders are moved by the presets and by the settings themselves, so
+            // their positions follow the truth rather than only the last drag.
+            if (tw::MenuItem* strength = g_menu.item("Sky colour strength"))
+                strength->value = sky.strength();
+            static const char* const kChannels[3] = { "Tint red", "Tint green", "Tint blue" };
+            for (int c = 0; c < 3; ++c) {
+                if (tw::MenuItem* row = g_menu.item(kChannels[c])) row->value = sky.channel(c);
+            }
+            g_menu.setInfo("Sky", tw::game::SkyStateLine());
+        }
         // H flips the side in game and the preview toggle can be switched by the same
         // hand that read it last frame; both entries follow the truth.
         g_menu.setToggled("Hostile NPC", tw::game::SpawnHostile());

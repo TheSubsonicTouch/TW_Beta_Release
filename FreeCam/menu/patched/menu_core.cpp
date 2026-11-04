@@ -75,6 +75,121 @@ const char* const* MenuBackgroundNames() { return kBackgroundNames; }
 
 int MenuBackgroundCount() { return static_cast<int>(MenuBackground::Count); }
 
+// ---- the skybox override -------------------------------------------------
+
+// The presets are named after what they do to a sky rather than after a colour chip: the
+// sky underneath is not white, so "golden" is a direction to move it in, not a colour to
+// replace it with. "Custom" is last, and is what the tint sliders select.
+struct SkyColour {
+    const char* name;
+    float r, g, b;
+};
+const SkyColour kSkyColours[] = {
+    { "Natural",     1.00f, 1.00f, 1.00f },   // the sky as the game draws it
+    { "Golden hour", 1.00f, 0.78f, 0.48f },
+    { "Warm amber",  1.00f, 0.62f, 0.30f },
+    { "Rose dusk",   1.00f, 0.55f, 0.62f },
+    { "Violet",      0.72f, 0.55f, 1.00f },
+    { "Arctic",      0.62f, 0.85f, 1.00f },
+    { "Emerald",     0.55f, 1.00f, 0.72f },
+    { "Sepia",       0.92f, 0.86f, 0.72f },
+    { "Crimson",     1.00f, 0.40f, 0.38f },
+    { "Moonlight",   0.65f, 0.72f, 1.00f },
+    { "Acid",        0.80f, 1.00f, 0.45f },
+    { "Custom",      1.00f, 1.00f, 1.00f },   // the tint sliders; their values are used
+};
+const int kSkyColourCount = static_cast<int>(sizeof kSkyColours / sizeof kSkyColours[0]);
+
+SkySettings::SkySettings() = default;
+
+void SkySettings::setVariant(int i) {
+    if (i < 0) i = 0;
+    // Before the world has loaded there is no list to clamp to; the count is only trusted
+    // once the game has handed one over.
+    if (variantCount_ > 0 && i >= variantCount_) i = variantCount_ - 1;
+    variant_ = i;
+}
+
+void SkySettings::setVariantCount(int n) {
+    variantCount_ = n < 0 ? 0 : n;
+    if (variantCount_ > 0 && variant_ >= variantCount_) variant_ = variantCount_ - 1;
+    if (variant_ < 0) variant_ = 0;
+}
+
+void SkySettings::nextVariant() {
+    // Automatic is a choice like any other, so the cycle runs -1, 0, 1, ... and wraps.
+    // With no list yet there is nothing to cycle through.
+    const int count = variantCount_ > 0 ? variantCount_ : 1;
+    variant_ = (variant_ + 1) % count;
+}
+
+void SkySettings::setColour(int i) {
+    if (i < 0) i = 0;
+    if (i >= kSkyColourCount) i = kSkyColourCount - 1;
+    colour_ = i;
+    if (!IsCustom(i)) PresetTint(i, &rgb_[0], &rgb_[1], &rgb_[2]);
+}
+
+void SkySettings::setStrength(float s) { strength_ = clampf(s, kMinStrength, kMaxStrength); }
+
+float SkySettings::channel(int i) const {
+    if (i < 0) i = 0;
+    if (i > 2) i = 2;
+    return rgb_[i];
+}
+
+void SkySettings::setChannel(int i, float v) {
+    if (i < 0) i = 0;
+    if (i > 2) i = 2;
+    rgb_[i] = clampf(v, 0.0f, 1.0f);
+    // Moving a slider is asking for a colour the presets do not have, so the picker says
+    // so rather than claiming the sky is still "Golden hour" at values that are not.
+    colour_ = kSkyColourCount - 1;
+}
+
+void SkySettings::tint(float* r, float* g, float* b) const {
+    const float* src = rgb_;
+    float preset[3] = { 1.0f, 1.0f, 1.0f };
+    if (!IsCustom(colour_)) {
+        PresetTint(colour_, &preset[0], &preset[1], &preset[2]);
+        src = preset;
+    }
+    if (r) *r = clampf(src[0], 0.0f, 1.0f);
+    if (g) *g = clampf(src[1], 0.0f, 1.0f);
+    if (b) *b = clampf(src[2], 0.0f, 1.0f);
+}
+
+int SkySettings::ColourCount() { return kSkyColourCount; }
+
+const char* SkySettings::ColourName(int i) {
+    if (i < 0) i = 0;
+    if (i >= kSkyColourCount) i = kSkyColourCount - 1;
+    return kSkyColours[i].name;
+}
+
+bool SkySettings::IsCustom(int i) { return i == kSkyColourCount - 1; }
+
+void SkySettings::PresetTint(int i, float* r, float* g, float* b) {
+    if (i < 0) i = 0;
+    if (i >= kSkyColourCount) i = kSkyColourCount - 1;
+    if (r) *r = kSkyColours[i].r;
+    if (g) *g = kSkyColours[i].g;
+    if (b) *b = kSkyColours[i].b;
+}
+
+std::string SkySettings::describe() const {
+    char buf[128];
+    if (IsCustom(colour_)) {
+        std::snprintf(buf, sizeof buf, "custom %.2f/%.2f/%.2f at %.0f%%",
+                      static_cast<double>(rgb_[0]), static_cast<double>(rgb_[1]),
+                      static_cast<double>(rgb_[2]), static_cast<double>(strength_ * 100.0f));
+    } else {
+        std::snprintf(buf, sizeof buf, "%s at %.0f%%", ColourName(colour_),
+                      static_cast<double>(strength_ * 100.0f));
+    }
+    return buf;
+}
+
 MenuStyle::MenuStyle() = default;
 
 void MenuStyle::setThemeIndex(int i) {
@@ -709,7 +824,7 @@ void buildDebugMenu(Menu& menu, const DebugHooks& hooks) {
     const bool anyWeather = !hooks.weatherPresets.empty() || hooks.setWeatherAmount ||
                             hooks.setWeatherChance || hooks.setWeatherWetness ||
                             hooks.setWeatherInterval || hooks.setWeatherLock;
-    const bool anyWorld = anyWeather || !hooks.shaderPresets.empty() || hooks.setSkydome;
+    const bool anyWorld = anyWeather || !hooks.shaderPresets.empty();
 
     if (anyWorld) header("WORLD");
 
@@ -788,28 +903,149 @@ void buildDebugMenu(Menu& menu, const DebugHooks& hooks) {
         menu.addItem(lock);
     }
 
-    if (hooks.setSkydome) {
-        // The skydome list is filled in by syncState once the world has loaded, so the
-        // entry starts with the one choice that always works.
-        MenuItem sky;
-        sky.label = "Skybox (skydome)";
-        sky.kind = ItemKind::Selector;
-        sky.options = hooks.skydomes;
-        if (sky.options.empty()) sky.options.push_back("Automatic");
-        sky.optionIndex = hooks.skydomeCurrent ? static_cast<std::size_t>(hooks.skydomeCurrent()) : 0;
-        if (sky.optionIndex >= sky.options.size()) sky.optionIndex = 0;
-        sky.applyOnChange = true;
-        sky.onPick = [&menu, fn = hooks.setSkydome](const std::string& opt) -> std::string {
-            const MenuItem* self = menu.item("Skybox (skydome)");
-            const std::size_t index = self ? self->optionIndex : 0;
-            (void)opt;
-            return fn(static_cast<int>(index));
-        };
-        menu.addItem(sky);
-    }
-
     if (!hooks.shaderPresets.empty()) {
         menu.addItem(makeSelector("ReShade preset", hooks.shaderPresets, hooks.setShader));
+    }
+
+    // ---- Sky -------------------------------------------------------------
+    // One switch, the variant it holds and the colour it paints. The rows write the
+    // settings object directly; the renderer's own tick (freecam_sky.cpp) is what touches
+    // the game, so nothing here queues a job or blocks a frame.
+    if (hooks.sky) {
+        SkySettings* sky = hooks.sky;
+        header("SKY");
+
+        {
+            MenuItem on;
+            on.label = "Sky override (K)";
+            on.kind = ItemKind::Toggle;
+            on.toggled = sky->enabled();
+            on.onToggle = [sky, &menu](bool want) {
+                sky->setEnabled(want);
+                if (!want) {
+                    menu.setStatus("Sky override: off - the game has its sky back");
+                    return;
+                }
+                const MenuItem* row = menu.item("Sky variant");
+                const std::size_t index = static_cast<std::size_t>(sky->variant());
+                const std::string name = (row && index < row->options.size())
+                                             ? row->options[index]
+                                             : std::string("Automatic");
+                menu.setStatus("Sky override: on - holding " + name + ", painted " +
+                               sky->describe());
+            };
+            menu.addItem(on);
+        }
+
+        {
+            MenuItem variant;
+            variant.label = "Sky variant";
+            variant.kind = ItemKind::Selector;
+            variant.options = hooks.skyVariants.empty()
+                                  ? std::vector<std::string>{ "Automatic" }
+                                  : hooks.skyVariants;
+            // The list is the game's, so it also tells the settings how many skies there
+            // are: without it "next" would have nothing to wrap round.
+            sky->setVariantCount(static_cast<int>(variant.options.size()));
+            variant.optionIndex = static_cast<std::size_t>(sky->variant());
+            if (variant.optionIndex >= variant.options.size()) variant.optionIndex = 0;
+            variant.applyOnChange = true;
+            variant.onPick = [sky, &menu](const std::string& opt) -> std::string {
+                const MenuItem* self = menu.item("Sky variant");
+                const std::size_t index = self ? self->optionIndex : 0;
+                sky->setVariant(static_cast<int>(index));
+                // Picking a sky and leaving the override off would be picking it and
+                // watching the weather take it away again, so the pick turns it on.
+                const bool wasOn = sky->enabled();
+                sky->setEnabled(true);
+                return "Sky variant: " + opt + (wasOn ? " - held" : " - override on, so it stays");
+            };
+            menu.addItem(variant);
+        }
+
+        {
+            MenuItem next;
+            next.label = "Next sky (Y)";
+            next.kind = ItemKind::Action;
+            next.onAction = [sky, &menu]() {
+                sky->nextVariant();
+                sky->setEnabled(true);
+                const MenuItem* row = menu.item("Sky variant");
+                const std::size_t index = static_cast<std::size_t>(sky->variant());
+                const std::string name = (row && index < row->options.size())
+                                             ? row->options[index]
+                                             : std::string("Automatic");
+                menu.setStatus("Sky variant: " + name);
+            };
+            menu.addItem(next);
+        }
+
+        {
+            std::vector<std::string> colours;
+            for (int i = 0; i < SkySettings::ColourCount(); ++i)
+                colours.emplace_back(SkySettings::ColourName(i));
+            MenuItem colour = makeSelector(
+                "Sky colour", colours, [sky](const std::string& name) {
+                    for (int i = 0; i < SkySettings::ColourCount(); ++i) {
+                        if (name != SkySettings::ColourName(i)) continue;
+                        sky->setColour(i);
+                        return "Sky colour: " + name +
+                               (sky->enabled() ? std::string()
+                                               : std::string(" - switch Sky override on"));
+                    }
+                    return std::string("Sky colour: ") + name;
+                });
+            colour.optionIndex = static_cast<std::size_t>(sky->colour());
+            colour.applyOnChange = true;
+            menu.addItem(colour);
+        }
+
+        {
+            MenuItem strength;
+            strength.label = "Sky colour strength";
+            strength.kind = ItemKind::Slider;
+            strength.minValue = SkySettings::kMinStrength;
+            strength.maxValue = SkySettings::kMaxStrength;
+            strength.step = 0.05f;
+            strength.value = sky->strength();
+            strength.onChange = [sky, &menu](float v) {
+                sky->setStrength(v);
+                char buf[64];
+                std::snprintf(buf, sizeof buf, "Sky colour strength: %.0f%%",
+                              static_cast<double>(v * 100.0f));
+                menu.setStatus(buf);
+            };
+            menu.addItem(strength);
+        }
+
+        // The three channels. Picking a preset above fills these in; moving one of them
+        // selects "Custom", so what the picker says is always what the sky is doing.
+        static const char* const kChannelLabels[3] = { "Tint red", "Tint green", "Tint blue" };
+        for (int c = 0; c < 3; ++c) {
+            MenuItem channel;
+            channel.label = kChannelLabels[c];
+            channel.kind = ItemKind::Slider;
+            channel.minValue = 0.0f;
+            channel.maxValue = 1.0f;
+            channel.step = 0.05f;
+            channel.value = sky->channel(c);
+            channel.onChange = [sky, &menu, c](float v) {
+                sky->setChannel(c, v);
+                char buf[96];
+                std::snprintf(buf, sizeof buf, "%s: %.0f%% - custom colour", kChannelLabels[c],
+                              static_cast<double>(v * 100.0f));
+                menu.setStatus(buf);
+            };
+            menu.addItem(channel);
+        }
+
+        {
+            MenuItem state;
+            state.label = "Sky";
+            state.kind = ItemKind::Info;
+            state.text = hooks.skyState ? hooks.skyState() : std::string();
+            menu.addItem(state);
+        }
     }
 
     // ---- Progression -----------------------------------------------------
