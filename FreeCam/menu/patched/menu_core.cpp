@@ -703,6 +703,25 @@ void buildDebugMenu(Menu& menu, const DebugHooks& hooks) {
         menu.addItem(list);
     }
 
+    // The model list is only as good as what has been read out of the game, and reading it
+    // is a walk over the installed data that takes a while. So the row starts it in the
+    // background, and the line under it says what the list holds now.
+    if (hooks.rescanPedModels) {
+        MenuItem scan;
+        scan.label = "Rescan models";
+        scan.kind = ItemKind::Action;
+        scan.onAction = [&menu, fn = hooks.rescanPedModels]() { menu.setStatus(fn()); };
+        menu.addItem(scan);
+    }
+
+    if (hooks.pedModelSummary) {
+        MenuItem count;
+        count.label = "Models found";
+        count.kind = ItemKind::Info;
+        count.text = hooks.pedModelSummary();
+        menu.addItem(count);
+    }
+
     if (hooks.setSpawnHostile) {
         MenuItem side;
         side.label = "Hostile NPC";

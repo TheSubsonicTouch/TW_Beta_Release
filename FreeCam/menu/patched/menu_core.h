@@ -329,6 +329,12 @@ struct DebugHooks {
     std::function<std::string()> spawnerStatus;
     std::function<std::string()> resetSpawner;
 
+    // The model list is as long as the game files make it: the executable names a handful
+    // and a scan of the installed data names the rest. The scan runs in the background, so
+    // one row starts it again and another says how many models there are now.
+    std::function<std::string()> rescanPedModels;
+    std::function<std::string()> pedModelSummary;
+
     // The menu's own appearance, when this build can draw more than one look. The rows
     // write it directly, so the next frame is drawn with the new setting.
     MenuStyle* style = nullptr;

@@ -1123,6 +1123,19 @@ HRESULT STDMETHODCALLTYPE hkPresent(IDXGISwapChain* sc, UINT sync, UINT flags) {
     }
     if (g_imguiReady) {
         pollInput();
+        // The model list starts as the executable's handful. A scan of the installed data
+        // is what turns it into the game's own list, so it is started once, a little after
+        // the game is up - early enough to be ready before the menu is first opened, late
+        // enough not to compete with the loading screens for the disk.
+        {
+            static ULONGLONG firstFrame = 0;
+            static bool scanStarted = false;
+            const ULONGLONG now = GetTickCount64();
+            if (!firstFrame) firstFrame = now;
+            if (!scanStarted && now - firstFrame > 8000) {
+                scanStarted = tw::game::SpawnScanAsync() || scanStarted;
+            }
+        }
         if (g_syncState) g_syncState();   // hotkeys can change what the menu shows
         // The camera thread reads the keyboard directly, so it has to be told when the
         // menu is the one using it - otherwise typing a name in Spawn Ped would also fly
@@ -1220,6 +1233,21 @@ DWORD WINAPI installThread(LPVOID) {
 }
 
 // ---------- menu wiring ----------
+
+// One line describing the model list, for the "Models found" row. Free rather than a
+// method so the per-frame sync and the hook that fills the row agree by construction.
+std::string pedModelSummaryText() {
+    char buf[96];
+    const int total = tw::game::SpawnModelCount();
+    const int scanned = tw::game::SpawnScannedModelCount();
+    if (tw::game::SpawnScanRunning())
+        std::snprintf(buf, sizeof buf, "scanning... %d known", total);
+    else if (scanned > 0)
+        std::snprintf(buf, sizeof buf, "%d known, %d from the game files", total, scanned);
+    else
+        std::snprintf(buf, sizeof buf, "%d known - Rescan reads the game files", total);
+    return std::string(buf);
+}
 
 void buildMenu() {
     tw::DebugHooks hooks;
@@ -1363,6 +1391,15 @@ void buildMenu() {
         return tw::game::SpawnBlocked() ? std::string("Spawner: still blocked")
                                         : std::string("Spawner: reset - one more spawn allowed");
     };
+    // The model list: one row starts a scan of the installed game data (in the background,
+    // because it reads a lot), and one shows what the list holds now.
+    hooks.rescanPedModels = []() {
+        if (tw::game::SpawnScanAsync())
+            return std::string("NPC models: scanning the game folder - the list fills in "
+                               "when it is done");
+        return std::string("NPC models: a scan is already running");
+    };
+    hooks.pedModelSummary = []() { return pedModelSummaryText(); };
 
     // The player's own controls: U, or the menu entry. The camera has to be on for it
     // to mean anything - with it off the player has the controls already - and the
@@ -1531,6 +1568,7 @@ void buildMenu() {
                 g_menu.setOptions("Ped model (list)", tw::game::SpawnModels());
             }
         }
+        g_menu.setInfo("Models found", pedModelSummaryText());
     };
 
     tw::buildDebugMenu(g_menu, hooks);
