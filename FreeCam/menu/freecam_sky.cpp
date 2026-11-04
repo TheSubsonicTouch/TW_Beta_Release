@@ -89,9 +89,15 @@ void ShortenFade() {
 // answer to a report that the picker does nothing.
 void LogListOnce() {
     static bool logged = false;
+    static int ticks = 0;
     if (logged) return;
     const std::vector<std::string> names = SkydomeNames();
-    if (names.size() <= 1) return;                   // not loaded yet; try again next tick
+    if (names.size() <= 1) {
+        // Five seconds of an override that is on and a list that is empty is not "still
+        // loading" any more, and it is the answer to a picker that appears to do nothing.
+        if (++ticks == 300) TW_Log("sky: the skydome list is empty - the game has no skies to hold");
+        return;
+    }
     logged = true;
     TW_Log("sky: %d skydome(s) in the game's list: %s%s%s", static_cast<int>(names.size()) - 1,
            names.size() > 1 ? names[1].c_str() : "",
