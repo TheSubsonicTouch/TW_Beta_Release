@@ -52,18 +52,24 @@ constexpr uintptr_t kFadeIn  = 0x9fec;
 constexpr uintptr_t kFadeOut = 0x9ff0;
 constexpr float     kShortFade = 0.20f;
 
-// A block is believed only if every float in it is a plausible colour: finite, and inside
-// a range wide enough for the sky's own (possibly unclamped) units and narrow enough to
-// reject a pointer that landed on a vtable or a string instead. Nothing outside this range
-// is ever written through.
-constexpr float kColourMin = -2.0f;
-constexpr float kColourMax = 16.0f;
+// A block is believed only if its nine floats look like a sky's colours. The sky is lit in
+// linear space, so a sun or a cloud value can be far above 1 - the range has to be wide
+// enough for that and narrow enough to reject a pointer that landed on a vtable or a
+// string, whose bytes read as floats are either denormal or astronomically large.
+constexpr float kColourMin = -16.0f;
+constexpr float kColourMax = 4096.0f;
+// How many of the nine have to be in a sane, non-negative range, and how bright the block
+// as a whole has to be. A block of genuine zeroes is a block that has not been filled in
+// yet: tinting it would paint a sky out of nothing.
+constexpr int   kSaneFloats = 7;
+constexpr float kLitAt = 0.01f;
 
 struct Block {
     uint8_t* base = nullptr;
     float original[9] = { 0.0f };   // what was there before this module touched it
     float written[9] = { 0.0f };    // what this module last put there
     bool tinted = false;            // true while the game's memory holds our colour
+    DWORD oldProtect = 0;           // set when the page had to be opened to be written
 };
 
 Block g_blocks[kMaxBlocks];
@@ -72,7 +78,9 @@ ULONGLONG g_lastLook = 0;
 
 uintptr_t Base() { return reinterpret_cast<uintptr_t>(GetModuleHandleW(nullptr)); }
 
-bool Readable(const void* p, size_t n, bool forWrite) {
+// Reads only: whether the pages can be read for the span asked about. Writing goes
+// through OpenForWrite below, which is a separate question with a separate answer.
+bool Readable(const void* p, size_t n) {
     if (!p) return false;
     const uint8_t* b = static_cast<const uint8_t*>(p);
     MEMORY_BASIC_INFORMATION mbi{};
@@ -80,19 +88,44 @@ bool Readable(const void* p, size_t n, bool forWrite) {
     if (mbi.State != MEM_COMMIT) return false;
     if (mbi.Protect & (PAGE_GUARD | PAGE_NOACCESS)) return false;
     const DWORD prot = mbi.Protect & 0xFF;
-    if (forWrite) {
-        if (prot != PAGE_READWRITE && prot != PAGE_WRITECOPY &&
-            prot != PAGE_EXECUTE_READWRITE && prot != PAGE_EXECUTE_WRITECOPY)
-            return false;
-    } else {
-        const bool ok = prot == PAGE_READONLY || prot == PAGE_READWRITE ||
-                        prot == PAGE_WRITECOPY || prot == PAGE_EXECUTE_READ ||
-                        prot == PAGE_EXECUTE_READWRITE || prot == PAGE_EXECUTE_WRITECOPY;
-        if (!ok) return false;
-    }
+    const bool ok = prot == PAGE_READONLY || prot == PAGE_READWRITE ||
+                    prot == PAGE_WRITECOPY || prot == PAGE_EXECUTE_READ ||
+                    prot == PAGE_EXECUTE_READWRITE || prot == PAGE_EXECUTE_WRITECOPY;
+    if (!ok) return false;
     const uintptr_t start = reinterpret_cast<uintptr_t>(b);
     const uintptr_t end = reinterpret_cast<uintptr_t>(mbi.BaseAddress) + mbi.RegionSize;
     return start + n <= end;
+}
+
+bool Writable(const void* p) {
+    if (!p) return false;
+    MEMORY_BASIC_INFORMATION mbi{};
+    if (VirtualQuery(p, &mbi, sizeof mbi) != sizeof mbi) return false;
+    if (mbi.State != MEM_COMMIT || (mbi.Protect & (PAGE_GUARD | PAGE_NOACCESS))) return false;
+    const DWORD prot = mbi.Protect & 0xFF;
+    return prot == PAGE_READWRITE || prot == PAGE_WRITECOPY ||
+           prot == PAGE_EXECUTE_READWRITE || prot == PAGE_EXECUTE_WRITECOPY;
+}
+
+// The skydome data is loaded out of the game's own bundles, and those are mapped rather
+// than copied: the colour block can be readable and not writable. That is not a reason to
+// give up on it - the game is the only writer of those pages, and asking for write access
+// on the couple of pages that hold the sky's colours is what a texture mod does anyway.
+// The previous protection is remembered per block and handed back when the override goes
+// off, so nothing is left writable that was not writable before.
+bool OpenForWrite(void* p, size_t n, DWORD* old) {
+    *old = 0;
+    if (Writable(p)) return true;
+    DWORD previous = 0;
+    if (!VirtualProtect(p, n, PAGE_READWRITE, &previous)) return false;
+    *old = previous;
+    return true;
+}
+
+void CloseWrite(void* p, size_t n, DWORD old) {
+    if (old == 0) return;               // we never changed it
+    DWORD ignored = 0;
+    VirtualProtect(p, n, old, &ignored);
 }
 
 uint8_t* SkyMarshall() {
@@ -100,7 +133,7 @@ uint8_t* SkyMarshall() {
     if (!base) return nullptr;
     void* obj = reinterpret_cast<void*>(base + kSkyMarshall);
     // The slots are the furthest thing this file touches on the object itself.
-    if (!Readable(obj, kSlots + kSlotCount * kSlotStride, false)) return nullptr;
+    if (!Readable(obj, kSlots + kSlotCount * kSlotStride)) return nullptr;
     return static_cast<uint8_t*>(obj);
 }
 
@@ -111,17 +144,17 @@ bool Finite(float v) { return v == v && v > -1e6f && v < 1e6f; }
 // A block is only believed if all nine floats are colours: finite, not negative, and
 // under kColourMax. Anything else is not the sky's colours and is left alone.
 bool LooksLikeColours(const uint8_t* p) {
-    if (!Readable(p, kColourSpan, true)) return false;
+    if (!Readable(p, kColourSpan)) return false;
     const float* f = reinterpret_cast<const float*>(p + kColourA);
+    int sane = 0;
     bool anyLit = false;
     for (int i = 0; i < 9; ++i) {
         if (!Finite(f[i])) return false;
-        if (f[i] < kColourMin || f[i] > kColourMax) return false;
-        if (f[i] > 0.001f) anyLit = true;
+        if (f[i] >= 0.0f && f[i] <= kColourMax) ++sane;
+        else if (f[i] < kColourMin || f[i] > kColourMax) return false;
+        if (f[i] > kLitAt) anyLit = true;
     }
-    // Nine zeroes is a block that has not been filled in yet; tinting it would make a sky
-    // out of nothing, and there is no telling what it belongs to before it is filled.
-    return anyLit;
+    return anyLit && sane >= kSaneFloats;
 }
 
 bool Known(const uint8_t* base) {
@@ -135,6 +168,7 @@ void Remember(uint8_t* base) {
     Block& b = g_blocks[g_blockCount++];
     b.base = base;
     b.tinted = false;
+    b.oldProtect = 0;
     std::memset(b.written, 0, sizeof b.written);
     std::memcpy(b.original, base + kColourA, sizeof b.original);
 }
@@ -142,31 +176,46 @@ void Remember(uint8_t* base) {
 // Walk the object down to the parameter blocks the renderer reads. Returns how many are
 // known afterwards, which is also the answer to "can this build tint the sky at all".
 int Discover() {
+    static bool logged = false;
     uint8_t* sky = SkyMarshall();
     if (!sky) return 0;
 
     // Drop the blocks whose memory has gone - a reloaded world builds new ones - so the
     // list does not fill up with addresses that can never be written again.
     for (int i = 0; i < g_blockCount;) {
-        if (g_blocks[i].base && Readable(g_blocks[i].base, kColourSpan, true)) { ++i; continue; }
+        if (g_blocks[i].base && Readable(g_blocks[i].base, kColourSpan)) { ++i; continue; }
+        CloseWrite(g_blocks[i].base, kColourSpan, g_blocks[i].oldProtect);
         g_blocks[i] = g_blocks[--g_blockCount];
     }
     for (int slot = 0; slot < kSlotCount; ++slot) {
         uint8_t** holderSlot = reinterpret_cast<uint8_t**>(sky + kSlots + slot * kSlotStride);
-        if (!Readable(holderSlot, sizeof(void*), false)) continue;
+        if (!Readable(holderSlot, sizeof(void*))) continue;
         uint8_t* holder = *holderSlot;
-        if (!Readable(holder, kSlotArray + sizeof(int64_t), false)) continue;
+        if (!Readable(holder, kSlotArray + sizeof(int64_t))) continue;
         const int64_t rel = *reinterpret_cast<int64_t*>(holder + kSlotArray);
         if (rel == 0) continue;                       // this slot is not showing a sky
         // The offset is relative to the field itself, the way the game computes it.
         uint8_t* entries = holder + kSlotArray + rel;
         for (int i = 0; i < kLookEntries; ++i) {
             uint8_t* entry = entries + static_cast<size_t>(i) * kEntryStride;
-            if (!Readable(entry, kEntryParams + sizeof(void*), false)) break;
+            if (!Readable(entry, kEntryParams + sizeof(void*))) break;
             uint8_t* params = *reinterpret_cast<uint8_t**>(entry + kEntryParams);
             if (!params || Known(params) || !LooksLikeColours(params)) continue;
             Remember(params);
         }
+    }
+
+    if (g_blockCount > 0 && !logged) {
+        logged = true;
+        const Block& b = g_blocks[0];
+        TW_Log("sky: tinting %d colour block(s); first = %.3f %.3f %.3f / %.3f %.3f %.3f / "
+               "%.3f %.3f %.3f",
+               g_blockCount,
+               static_cast<double>(b.original[0]), static_cast<double>(b.original[1]),
+               static_cast<double>(b.original[2]), static_cast<double>(b.original[3]),
+               static_cast<double>(b.original[4]), static_cast<double>(b.original[5]),
+               static_cast<double>(b.original[6]), static_cast<double>(b.original[7]),
+               static_cast<double>(b.original[8]));
     }
     return g_blockCount;
 }
@@ -180,8 +229,20 @@ void Restore() {
         // Only what this module actually changed is put back: the originals are kept, so
         // switching the override on and off again cannot drift the sky's own colours.
         if (!b.tinted) continue;
-        if (!Readable(b.base, kColourSpan, true)) { b.tinted = false; continue; }
+        if (!Readable(b.base, kColourSpan)) { b.tinted = false; continue; }
+        DWORD opened = 0;
+        if (!Writable(b.base + kColourA)) {
+            if (!OpenForWrite(b.base + kColourA, kColourSpan - kColourA, &opened)) {
+                b.tinted = false;
+                continue;
+            }
+            b.oldProtect = opened;
+        }
         std::memcpy(b.base + kColourA, b.original, sizeof b.original);
+        // Whatever this block borrowed is given back now: the protection first, so the game
+        // sees the page exactly as it left it, then the colour.
+        if (b.oldProtect) CloseWrite(b.base + kColourA, kColourSpan - kColourA, b.oldProtect);
+        b.oldProtect = 0;
         b.tinted = false;
     }
 }
@@ -207,8 +268,11 @@ void Paint(const tw::SkySettings& s) {
 
     for (int i = 0; i < g_blockCount; ++i) {
         Block& block = g_blocks[i];
-        if (!block.base || !Readable(block.base, kColourSpan, true)) continue;
-        float* live = reinterpret_cast<float*>(block.base + kColourA);
+        if (!block.base || !Readable(block.base, kColourSpan)) continue;
+        uint8_t* colours = block.base + kColourA;
+        if (!Writable(colours) && !OpenForWrite(colours, kColourSpan - kColourA, &block.oldProtect))
+            continue;                       // the page will not take a write; leave it alone
+        float* live = reinterpret_cast<float*>(colours);
 
         // If the block no longer holds what this module put there, the game has written
         // it since - a different skydome, a reloaded world. Ours is not the value to
@@ -228,13 +292,25 @@ void Paint(const tw::SkySettings& s) {
             float factor = 1.0f + (2.0f * wanted - 1.0f) * strength;
             if (factor < 0.0f) factor = 0.0f;
             if (factor > 2.0f) factor = 2.0f;
-            float out = block.original[c] * factor;
+            // A dark sky multiplied by a colour is still dark, and at night nothing would
+            // appear to happen. The tint also adds a little of itself, so a colour with
+            // red in it shows on a near-black sky as well as on a bright one. It is added
+            // rather than mixed in, so the sky keeps its own gradation.
+            const float lift = (wanted > 0.5f ? (wanted - 0.5f) * 0.60f : 0.0f) * strength;
+            float out = block.original[c] * factor + lift;
             if (out < 0.0f) out = 0.0f;
             if (out > kColourMax) out = kColourMax;
             live[c] = out;
         }
         std::memcpy(block.written, live, sizeof block.written);
         block.tinted = true;
+        // The page is handed back as it was found the moment the write is done. The write
+        // is repeated next frame from the original kept above, so nothing depends on the
+        // page staying open - and the game's memory is never left writable by this module.
+        if (block.oldProtect) {
+            CloseWrite(colours, kColourSpan - kColourA, block.oldProtect);
+            block.oldProtect = 0;
+        }
     }
 }
 
@@ -267,14 +343,43 @@ std::string SkyStateLine() {
     const std::vector<std::string> names = SkydomeNames();
     if (names.size() <= 1) return "waiting for the world to load";
     if (!s.enabled()) return "off - the game's own sky";
-    if (g_blockCount <= 0) return "variant held; this build cannot reach the sky colours";
+    if (g_blockCount <= 0)
+        return "variant held; no sky colours found - see TW_MenuLog.txt";
     const std::size_t index = static_cast<std::size_t>(s.variant());
     const std::string name = index < names.size() ? names[index] : std::string("Automatic");
     return name + ", " + s.describe();
 }
 
+// Ask the game for the sky it is already showing. That costs one sky change - short, since
+// the fade is cut down - and in return the game's own setup runs again and builds its copy
+// of the colours from the parameters this module has just tinted. "Automatic" gets the
+// same nudge and is then handed straight back, so the weather still picks what comes next.
+bool g_handBackAutomatic = false;
+
+void NudgeSky(const tw::SkySettings& s) {
+    const int showing = SkydomeCurrentMenuIndex();
+    if (showing <= 0) return;                       // nothing showing: nothing to rebuild
+    if (s.variant() > 0) {
+        if (showing == s.variant()) SkydomeSetIndex(showing);
+        return;                                     // otherwise HoldVariant will set it
+    }
+    SkydomeSetIndex(showing);
+    g_handBackAutomatic = true;
+}
+
 void SkyTick() {
     tw::SkySettings& s = Sky();
+    // The renderer takes its copy of the colours when the game sets a sky up, and draws
+    // from that copy. A colour written into the parameters alone therefore does nothing
+    // until the sky is changed again - which is the report this build answers. So when the
+    // colour itself moves, the game is asked for the same sky once more: its own setup runs,
+    // and it copies back the colours that were just written.
+    float wr = 1.0f, wg = 1.0f, wb = 1.0f;
+    s.tint(&wr, &wg, &wb);
+    const float ws = s.strength();
+    static float lastR = -1.0f, lastG = -1.0f, lastB = -1.0f, lastS = -1.0f;
+    const bool newColour = wr != lastR || wg != lastG || wb != lastB || ws != lastS;
+    lastR = wr; lastG = wg; lastB = wb; lastS = ws;
     const std::vector<std::string> names = SkydomeNames();
     s.setVariantCount(static_cast<int>(names.size()));
 
@@ -288,7 +393,7 @@ void SkyTick() {
     // on, a change is the menu's doing and should be visible now, so the fade is cut down.
     {
         uint8_t* sky = SkyMarshall();
-        if (sky && Readable(sky + kFadeIn, 2 * sizeof(float), true)) {
+        if (sky && Readable(sky + kFadeIn, 2 * sizeof(float))) {
             float* fadeIn = FloatAt(sky, kFadeIn);
             float* fadeOut = FloatAt(sky, kFadeOut);
             if (*fadeIn > kShortFade) *fadeIn = kShortFade;
@@ -297,6 +402,22 @@ void SkyTick() {
     }
 
     Paint(s);
+
+    // The colours have to be in the parameters before the game is asked to build its copy
+    // of them, so the nudge comes after the paint - and for a few ticks, in case the world
+    // was mid-change when the first one landed.
+    static int nudgeLeft = 0;
+    if (newColour) nudgeLeft = 3;
+    if (nudgeLeft > 0) {
+        --nudgeLeft;
+        NudgeSky(s);
+    } else if (g_handBackAutomatic) {
+        // The nudge pinned the sky for a few ticks so it could be rebuilt; this is where
+        // "Automatic" gets the weather back. Not if a variant has been picked in the
+        // meantime - that is a choice, and the weather does not get to undo it.
+        g_handBackAutomatic = false;
+        if (s.variant() == 0) SkydomeSetIndex(0);
+    }
 }
 
 }  // namespace game
