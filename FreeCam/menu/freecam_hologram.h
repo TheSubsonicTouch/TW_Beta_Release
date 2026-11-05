@@ -30,6 +30,12 @@ namespace game {
 // kept here so the render loop can read them without asking the menu.
 bool HologramPreviewActive();
 void HologramSetPreview(bool on);
+
+// Which figure the preview draws: the NPC standing on the spot, or a crate standing there
+// for a prop. One preview at a time - two figures a metre apart would only ask which one is
+// about to be spawned.
+bool HologramPropMode();
+void HologramSetPropMode(bool on);
 float HologramDistance();
 void HologramSetDistance(float metres);
 
@@ -67,6 +73,12 @@ struct HoloFrame {
 // is not in the world, or when the spawn point ends up behind the camera.
 bool HologramBuildFrame(const std::string& model, float screenW, float screenH,
                         HoloFrame* out);
+
+// The same figure for a prop: a crate on the spot, at the same distance, labelled with the
+// prop's name. It shares the preview on/off switch and the distance with the NPC figure,
+// because both answer "what happens if I press the key in front of me".
+bool HologramBuildPropFrame(const std::string& model, float screenW, float screenH,
+                            HoloFrame* out);
 
 }  // namespace game
 }  // namespace tw

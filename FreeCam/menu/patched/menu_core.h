@@ -335,6 +335,20 @@ struct DebugHooks {
     std::function<std::string()> rescanPedModels;
     std::function<std::string()> pedModelSummary;
 
+    // Props and objects. The same spawner as the NPC one with a different list: every
+    // object-* property set the game has that is not a character - vehicles, weapons, and
+    // whatever the game files name. The list row selects, the action spawns, and the
+    // hologram draws a crate on the spot so the size of the placeholder is visible before
+    // anything is created.
+    std::vector<std::string> propNames;         // "Prop model (list)"; empty: no list
+    std::function<std::string(const std::string&)> selectProp;
+    std::function<std::string()> spawnProp;     // spawns the selected prop
+    std::function<std::string()> rescanProps;
+    std::function<std::string()> propSummary;   // how many the list holds, and from where
+    // Which figure "Spawn preview" draws: the crate for props, the person for characters.
+    std::function<std::string(bool)> setPropPreview;
+    std::function<bool()> propPreviewActive;
+
     // The menu's own appearance, when this build can draw more than one look. The rows
     // write it directly, so the next frame is drawn with the new setting.
     MenuStyle* style = nullptr;

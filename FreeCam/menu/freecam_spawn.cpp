@@ -260,6 +260,64 @@ std::vector<std::string> MergeModels(const std::vector<std::string> &scanned) {
     return out;
 }
 
+// --- the prop list -------------------------------------------------------
+// A prop is spawned exactly like a character: the game hashes the property set's name, looks
+// the hash up, and builds the object at a matrix. What changes is which names are worth
+// offering. The executable names a handful of vehicles and weapons (below); the rest are in
+// the game's data files, and the same scan that finds the character sets finds these.
+const char *const kBuiltInProps[] = {
+    "object-physical-vehicle-etalon01",
+    "object-physical-vehicle-klienodcop",
+    "object-physical-vehicle-klienodcop02",
+    "object-physical-vehicle-1100",
+    "object-physical-vehicle-270",
+    "object-physical-vehicle-425",
+    "object-physical-vehicle-600",
+    "object-physical-vehicle-625",
+    "object-physical-vehicle-860",
+    "object-physical-weapon-melee-tireiron",
+    "object-physical-weapon-melee-umbrella",
+    "object-physical-weapon-melee-cleaver_",
+    "object-physical-weapon-firearm-pistol-9mm",
+    "object-physical-weapon-firearm-rifle-assault_dlc",
+    "object-physical-weapon-firearm-smg-45cal_gold",
+};
+
+// FreeCam.props.txt, in file order: the list the scan wrote, which the player can trim.
+std::vector<std::string> ReadPropFile() {
+    std::vector<std::string> out;
+    const std::string folder = ExeFolder();
+    if (folder.empty()) return out;
+    FILE *f = std::fopen((folder + "\\FreeCam.props.txt").c_str(), "r");
+    if (!f) return out;
+    char line[256];
+    while (std::fgets(line, sizeof line, f)) {
+        char *s = line;
+        while (*s == ' ' || *s == '\t') s++;
+        char *end = s + std::strlen(s);
+        while (end > s && (end[-1] == '\n' || end[-1] == '\r' || end[-1] == ' ')) *--end = 0;
+        if (!*s || *s == '#') continue;
+        if (std::strncmp(s, "object-", 7) != 0) continue;
+        out.push_back(s);
+    }
+    std::fclose(f);
+    return out;
+}
+
+std::vector<std::string> MergeProps(const std::vector<std::string> &scanned) {
+    std::vector<std::string> out;
+    const auto add = [&out](const std::string &name) {
+        if (name.size() < 10) return;
+        if (std::find(out.begin(), out.end(), name) == out.end()) out.push_back(name);
+    };
+    for (const char *name : kBuiltInProps) add(name);
+    for (const std::string &name : ReadPropFile()) add(name);
+    for (const std::string &name : scanned) add(name);
+    return out;
+}
+
+std::vector<std::string> LoadProps() { return MergeProps({}); }
+
 std::vector<std::string> LoadModels() {
     const std::vector<std::string> models = MergeModels({});
     if (models.size() > sizeof(kBuiltInModels) / sizeof(kBuiltInModels[0]))
@@ -273,6 +331,11 @@ std::vector<std::string> LoadModels() {
 std::vector<std::string> g_models;
 int g_modelsRev = 0;
 int g_scannedCount = 0;      // how many of the list came out of the game's data files
+std::vector<std::string> g_props;   // the prop list, replaced by a scan
+int g_propRev = 0;
+int g_scannedProps = 0;
+int g_prop = 0;                     // which one G spawns
+volatile LONG g_propBusy = 0;       // a prop scan is running
 volatile LONG g_scanBusy = 0;    // a background scan is reading the game folder
 
 // The list is replaced by a scan (on the game thread) while the camera thread and the
@@ -288,6 +351,15 @@ std::vector<std::string> Models() {
     Lock();
     if (g_models.empty()) g_models = LoadModels();
     const std::vector<std::string> copy = g_models;
+    Unlock();
+    return copy;
+}
+
+// The prop list, copied under the same lock as the NPC one and for the same reason.
+std::vector<std::string> Props() {
+    Lock();
+    if (g_props.empty()) g_props = LoadProps();
+    const std::vector<std::string> copy = g_props;
     Unlock();
     return copy;
 }
@@ -522,6 +594,102 @@ std::string DoSpawn(const std::string &model, bool hostile, float metres, bool *
 }
 
 
+// --- spawning a prop -------------------------------------------------------
+// The same three calls as a character, without the faction half: a crate has no side, and
+// writing one into a weapon or a vehicle would be writing into whatever field happens to be
+// at that offset. The fault switch is this module's own, so a prop that misbehaves leaves
+// the NPC spawner working.
+bool g_propBlocked = false;
+uint32_t g_propBlockedCode = 0;
+bool g_propPending = false;
+Request g_propRequest;
+std::string g_propStatus;
+
+std::string ShortPropName(const std::string &model) {
+    static const char *const kPrefixes[] = {
+        "object-physical-prop-", "object-physical-vehicle-", "object-physical-weapon-",
+        "object-logical-collectibles-", "object-physical-", "object-",
+    };
+    for (const char *prefix : kPrefixes) {
+        const size_t len = std::strlen(prefix);
+        if (model.compare(0, len, prefix) == 0) return model.substr(len);
+    }
+    return model;
+}
+
+std::string DoSpawnProp(const std::string &model, float metres, bool *retry) {
+    if (retry) *retry = false;
+    if (model.empty()) return "Prop: no model selected";
+    if (g_propBlocked) {
+        char buf[120];
+        std::snprintf(buf, sizeof buf,
+                      "Prop spawn is off after a fault (code %08X) - press R to try once more",
+                      g_propBlockedCode);
+        return buf;
+    }
+
+    fc_mat player, spot;
+    if (!PlayerTransform(&player)) {
+        if (retry) *retry = true;
+        return "Prop: waiting for you to be in the world";
+    }
+    if (metres > 0.05f && !fc_spawn_matrix(&spot, &player, metres)) {
+        if (retry) *retry = true;
+        return "Prop: waiting for a usable transform";
+    }
+    if (metres <= 0.05f) spot = player;
+
+    if (!EnsureThreadAllocator()) {
+        if (retry) *retry = true;
+        return "Prop: waiting for the game's allocator";
+    }
+
+    Outcome out;
+    CallSpawnChain(model.c_str(), spot, &out);
+    TW_Log("Prop: '%s' hash=%08X resolved=%d id=%08X -> %p faulted=%d code=%08X at %.2f %.2f %.2f",
+           model.c_str(), out.hash, out.resolved ? 1 : 0, out.id, out.npc, out.faulted ? 1 : 0,
+           out.code, spot.m[12], spot.m[13], spot.m[14]);
+
+    if (out.faulted) {
+        g_propBlocked = true;
+        g_propBlockedCode = out.code;
+        char buf[140];
+        std::snprintf(buf, sizeof buf,
+                      "Prop spawn crashed (code %08X) - prop spawner off, see the log", out.code);
+        return buf;
+    }
+    if (!out.resolved) {
+        return "Prop failed: this build does not know '" + ShortPropName(model) + "'";
+    }
+
+    char whereBuf[32];
+    std::snprintf(whereBuf, sizeof whereBuf, "%.0f m ahead", static_cast<double>(metres));
+    const char *where = metres > 0.05f ? whereBuf : "on you";
+    if (!out.created && metres > 0.05f) {
+        TW_Log("Prop: nothing placed %s, trying the player's own position", where);
+        Outcome again;
+        CallSpawnChain(model.c_str(), player, &again);
+        if (again.faulted) {
+            g_propBlocked = true;
+            g_propBlockedCode = again.code;
+            char buf[140];
+            std::snprintf(buf, sizeof buf,
+                          "Prop spawn crashed (code %08X) - prop spawner off, see the log",
+                          again.code);
+            return buf;
+        }
+        if (again.created) {
+            out = again;
+            where = "on you";
+        }
+    }
+    if (!out.created) {
+        return "Prop failed: the game made no object for '" + ShortPropName(model) + "' (" +
+               where + ")";
+    }
+    return "Spawned " + ShortPropName(model) + " " + where;
+}
+
 // --- finding NPC models in the game's own files ----------------------------
 
 // The executable names only a handful of character property sets; the rest live inside the
@@ -531,6 +699,10 @@ std::string DoSpawn(const std::string &model, bool hostile, float metres, bool *
 // collects every one it can see. It is a read-only scan, bounded in time and bytes, run
 // only when the menu asks for it.
 const char kCharacterPrefix[] = "object-physical-character-";
+// Everything the game can put in the world is an object-* property set; the character ones
+// are the NPC spawner's list and the rest are this file's props. Scanning for the shorter
+// "object-" prefix once and splitting afterwards costs one walk instead of two.
+const char kObjectPrefix[] = "object-";
 
 bool PlausibleNameChar(char c) {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
@@ -568,18 +740,19 @@ bool ReadChunk(const std::wstring &path, unsigned long long offset, size_t len,
 
 // The same names again as UTF-16: some of the game's tables are wide, and a name stored
 // that way is invisible to a byte scan because of the zero after every letter.
-void ScanWide(const std::vector<unsigned char> &data, std::vector<std::string> *found) {
-    const size_t prefix = sizeof kCharacterPrefix - 1;
+void ScanWide(const std::vector<unsigned char> &data, const char *prefixText,
+              std::vector<std::string> *found) {
+    const size_t prefix = std::strlen(prefixText);
     for (int align = 0; align < 2; ++align) {
         for (size_t i = static_cast<size_t>(align); i + 2 * prefix < data.size(); i += 2) {
             bool hit = true;
             for (size_t k = 0; k < prefix && hit; ++k) {
-                if (data[i + 2 * k] != static_cast<unsigned char>(kCharacterPrefix[k]) ||
+                if (data[i + 2 * k] != static_cast<unsigned char>(prefixText[k]) ||
                     data[i + 2 * k + 1] != 0)
                     hit = false;
             }
             if (!hit) continue;
-            std::string name(kCharacterPrefix, prefix);
+            std::string name(prefixText, prefix);
             for (size_t j = i + 2 * prefix; j + 1 < data.size() && data[j + 1] == 0; j += 2) {
                 if (!PlausibleNameChar(static_cast<char>(data[j]))) break;
                 name.push_back(static_cast<char>(data[j]));
@@ -591,11 +764,12 @@ void ScanWide(const std::vector<unsigned char> &data, std::vector<std::string> *
     }
 }
 
-void ScanBuffer(const std::vector<unsigned char> &data, std::vector<std::string> *found) {
-    const size_t prefix = sizeof kCharacterPrefix - 1;
+void ScanBuffer(const std::vector<unsigned char> &data, const char *prefixText,
+                std::vector<std::string> *found) {
+    const size_t prefix = std::strlen(prefixText);
     if (data.size() <= prefix) return;
     for (size_t i = 0; i + prefix < data.size(); ++i) {
-        if (std::memcmp(&data[i], kCharacterPrefix, prefix) != 0) continue;
+        if (std::memcmp(&data[i], prefixText, prefix) != 0) continue;
         size_t j = i + prefix;
         while (j < data.size() && PlausibleNameChar(static_cast<char>(data[j]))) ++j;
         const size_t len = j - (i + prefix);
@@ -631,7 +805,27 @@ bool ReadWholeFile(const std::wstring &path, std::vector<unsigned char> *out, si
 
 // Walks the game folder. Returns how many names it found; writes the list next to the exe
 // so the next launch starts with it, and so the player can edit it.
-int ScanForModels(std::vector<std::string> *found, unsigned long long *bytesRead, int *filesRead) {
+// A prop, a vehicle or a weapon: the groups the game spawns as objects rather than as
+// characters. The executable names a few and the game files name the rest.
+bool IsPropName(const std::string &n) {
+    if (n.size() < 12 || n.size() > 96) return false;
+    if (n.find("-stats-") != std::string::npos) return false;
+    if (n.find("Parameters") != std::string::npos) return false;
+    const size_t characters = sizeof kCharacterPrefix - 1;
+    if (n.compare(0, characters, kCharacterPrefix) == 0) return false;
+    static const char *const kGroups[] = {
+        "object-physical-prop-", "object-physical-vehicle-", "object-physical-weapon-",
+        "object-logical-collectibles-",
+    };
+    for (const char *group : kGroups) {
+        const size_t len = std::strlen(group);
+        if (n.compare(0, len, group) == 0) return n.size() > len;
+    }
+    return false;
+}
+
+int ScanForModels(std::vector<std::string> *found, std::vector<std::string> *props,
+                  unsigned long long *bytesRead, int *filesRead) {
     *bytesRead = 0;
     *filesRead = 0;
     const std::string folder = ExeFolder();
@@ -649,8 +843,8 @@ int ScanForModels(std::vector<std::string> *found, unsigned long long *bytesRead
     std::vector<unsigned char> data;
     std::vector<std::string> names;
     const auto scanBoth = [&names](const std::vector<unsigned char> &data) {
-        ScanBuffer(data, &names);
-        ScanWide(data, &names);
+        ScanBuffer(data, kObjectPrefix, &names);
+        ScanWide(data, kObjectPrefix, &names);
     };
 
     while (!pending.empty() && *filesRead < kMaxFiles && *bytesRead < kByteBudget) {
@@ -712,8 +906,16 @@ int ScanForModels(std::vector<std::string> *found, unsigned long long *bytesRead
                                }),
                 names.end());
     std::sort(names.begin(), names.end());
-    *found = names;
-    return static_cast<int>(names.size());
+    if (props) props->clear();
+    found->clear();
+    for (const std::string &name : names) {
+        if (name.compare(0, sizeof kCharacterPrefix - 1, kCharacterPrefix) == 0) {
+            found->push_back(name);
+        } else if (props && IsPropName(name)) {
+            props->push_back(name);
+        }
+    }
+    return static_cast<int>(found->size());
 }
 
 }  // namespace
@@ -781,10 +983,10 @@ bool SpawnScanAsync() {
 }
 
 std::string SpawnScanGameFiles() {
-    std::vector<std::string> found;
+    std::vector<std::string> found, foundProps;
     unsigned long long bytes = 0;
     int files = 0;
-    const int count = ScanForModels(&found, &bytes, &files);
+    const int count = ScanForModels(&found, &foundProps, &bytes, &files);
     TW_Log("Spawn scan: %d file(s), %.1f MB, %d character model(s)", files, bytes / (1024.0 * 1024.0),
            count);
     if (count == 0) {
@@ -819,9 +1021,29 @@ std::string SpawnScanGameFiles() {
     const int total = static_cast<int>(g_models.size());
     Unlock();
 
-    char buf[140];
-    std::snprintf(buf, sizeof buf, "NPC models: %d in the list, %d read from the game files",
-                  total, count);
+    // The same walk found the props and the vehicles. They are a separate list, written
+    // next to the NPC one so it can be trimmed by hand in the same way.
+    const std::vector<std::string> propList = MergeProps(foundProps);
+    if (!folder.empty()) {
+        FILE *pf = std::fopen((folder + "\\FreeCam.props.txt").c_str(), "w");
+        if (pf) {
+            std::fprintf(pf, "# Props and objects found in the game files by the debug menu.\r\n"
+                             "# One property set per line. Lines starting with # are ignored.\r\n");
+            for (const std::string &name : propList) std::fprintf(pf, "%s\r\n", name.c_str());
+            std::fclose(pf);
+        }
+    }
+    Lock();
+    g_props = propList;
+    ++g_propRev;
+    if (g_prop >= static_cast<int>(g_props.size())) g_prop = 0;
+    const int propTotal = static_cast<int>(g_props.size());
+    g_scannedProps = static_cast<int>(foundProps.size());
+    Unlock();
+
+    char buf[160];
+    std::snprintf(buf, sizeof buf,
+                  "NPC models: %d (%d scanned), props: %d", total, count, propTotal);
     TW_Log("Spawn scan: model list is now %d long", total);
     return buf;
 }
@@ -955,6 +1177,199 @@ bool SpawnPending() {
     const bool pending = g_pending;
     Unlock();
     return pending;
+}
+
+// --- props: the public half ------------------------------------------------
+
+std::string PropShortName(const std::string &model) { return ShortPropName(model); }
+
+std::vector<std::string> PropModels() { return Props(); }
+
+int PropModelsRevision() { return g_propRev; }
+
+int PropModelCount() { return static_cast<int>(Props().size()); }
+
+int PropScannedPropCount() {
+    Lock();
+    const int n = g_scannedProps;
+    Unlock();
+    return n;
+}
+
+void PropSetModel(int index) {
+    const int count = static_cast<int>(Props().size());
+    if (count <= 0) return;
+    if (index < 0) index = 0;
+    if (index >= count) index = count - 1;
+    g_prop = index;
+}
+
+int PropModelIndex() { return g_prop; }
+
+void PropSelectByName(const std::string &model) {
+    const auto props = Props();
+    for (int i = 0; i < static_cast<int>(props.size()); ++i) {
+        if (props[i] == model) {
+            g_prop = i;
+            return;
+        }
+    }
+}
+
+void PropClearFault() {
+    g_propBlocked = false;
+    g_propBlockedCode = 0;
+    TW_Log("Prop: fault cleared, one more attempt allowed");
+}
+
+bool PropBlocked() { return g_propBlocked; }
+
+void PropRequestAt(const std::string &model, float metres) {
+    const bool thread = FreeCamEnsureThread();
+    if (!thread) TW_Log("Prop: could not start the thread that carries out spawns");
+
+    Lock();
+    g_propRequest.model = model;
+    g_propRequest.metres = metres;
+    g_propRequest.firstTry = GetTickCount64();
+    g_propRequest.lastTry = 0;
+    g_propRequest.tries = 0;
+    g_propPending = true;
+    Unlock();
+    TW_Log("Prop: asked for '%s' (%.0f m), the worker thread %s", model.c_str(),
+           static_cast<double>(metres), thread ? "is up" : "is NOT up");
+}
+
+void PropRequest(const std::string &model) { PropRequestAt(model, 3.0f); }
+
+bool PropPump() {
+    Lock();
+    if (!g_propPending) {
+        Unlock();
+        return false;
+    }
+    const ULONGLONG now = GetTickCount64();
+    if (g_propRequest.tries > 0 && now - g_propRequest.lastTry < kRetryGapMs) {
+        Unlock();
+        return false;
+    }
+    Request request = g_propRequest;
+    request.tries = g_propRequest.tries + 1;
+    request.lastTry = now;
+    g_propRequest = request;
+    Unlock();
+
+    bool retry = false;
+    const std::string status = DoSpawnProp(request.model, request.metres, &retry);
+    const bool waiting = retry && (now - request.firstTry) < kRetryForMs;
+
+    Lock();
+    if (waiting) {
+        const bool first = request.tries == 1;
+        if (first) TW_Log("Prop: %s - will keep trying for %llu ms", status.c_str(),
+                          static_cast<unsigned long long>(kRetryForMs));
+        g_propStatus = status;
+        Unlock();
+        return first;
+    }
+    g_propPending = false;
+    g_propStatus = status;
+    Unlock();
+
+    TW_Log("Prop: %s", status.c_str());
+    return true;
+}
+
+std::string PropStatusCopy() {
+    Lock();
+    const std::string copy = g_propStatus;
+    Unlock();
+    return copy;
+}
+
+bool PropPending() {
+    Lock();
+    const bool pending = g_propPending;
+    Unlock();
+    return pending;
+}
+
+bool PropScanRunning() { return InterlockedCompareExchange(&g_propBusy, 1, 1) == 1; }
+
+std::string PropScanGameFiles();   // the shared walk, defined above
+
+// The prop half of the scan: the same walk, so it is the same cost as the NPC one and the
+// two lists can never disagree about what is in the folder.
+struct PropScanArg {
+    bool report;
+};
+
+DWORD WINAPI PropScanThread(LPVOID arg) {
+    const bool report = arg && static_cast<PropScanArg *>(arg)->report;
+    delete static_cast<PropScanArg *>(arg);
+    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_BELOW_NORMAL);
+    const std::string line = PropScanGameFiles();
+    if (report) {
+        Lock();
+        g_propStatus = line;
+        Unlock();
+    }
+    InterlockedExchange(&g_propBusy, 0);
+    return 0;
+}
+
+bool PropScanAsync() {
+    if (InterlockedCompareExchange(&g_propBusy, 1, 0) != 0) return false;
+    PropScanArg *arg = new PropScanArg{ false };
+    HANDLE h = CreateThread(nullptr, 0, PropScanThread, arg, 0, nullptr);
+    if (!h) {
+        delete arg;
+        InterlockedExchange(&g_propBusy, 0);
+        return false;
+    }
+    CloseHandle(h);
+    TW_Log("Prop scan: started in the background");
+    return true;
+}
+
+std::string PropScanGameFiles() {
+    std::vector<std::string> found, foundProps;
+    unsigned long long bytes = 0;
+    int files = 0;
+    const int characters = ScanForModels(&found, &foundProps, &bytes, &files);
+    TW_Log("Prop scan: %d file(s), %.1f MB, %d character model(s), %d prop(s)", files,
+           bytes / (1024.0 * 1024.0), characters, static_cast<int>(foundProps.size()));
+
+    // The NPC list is rebuilt from the same walk, so a prop scan never halves the NPC list.
+    const std::vector<std::string> mergedChars = MergeModels(found);
+    const std::vector<std::string> mergedProps = MergeProps(foundProps);
+    const std::string folder = ExeFolder();
+    if (!folder.empty()) {
+        FILE *f = std::fopen((folder + "\\FreeCam.props.txt").c_str(), "w");
+        if (f) {
+            std::fprintf(f, "# Props and objects found in the game files by the debug menu.\r\n"
+                            "# One property set per line. Lines starting with # are ignored.\r\n");
+            for (const std::string &name : mergedProps) std::fprintf(f, "%s\r\n", name.c_str());
+            std::fclose(f);
+        }
+    }
+
+    Lock();
+    g_props = mergedProps;
+    ++g_propRev;
+    if (g_prop >= static_cast<int>(g_props.size())) g_prop = 0;
+    const int propTotal = static_cast<int>(g_props.size());
+    g_scannedProps = static_cast<int>(foundProps.size());
+    if (mergedChars.size() > g_models.size()) {
+        g_models = mergedChars;
+        ++g_modelsRev;
+    }
+    Unlock();
+
+    char buf[160];
+    std::snprintf(buf, sizeof buf, "Props: %d in the list, %d read from the game files",
+                  propTotal, static_cast<int>(foundProps.size()));
+    return buf;
 }
 
 

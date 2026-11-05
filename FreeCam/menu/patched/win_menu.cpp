@@ -1078,7 +1078,18 @@ void renderSpawnHologram() {
     if (w < 8.0f || h < 8.0f) return;
 
     tw::game::HoloFrame frame;
-    tw::game::HologramBuildFrame(spawnPreviewModel(), w, h, &frame);
+    if (tw::game::HologramPropMode()) {
+        // The prop figure: a crate on the same spot, labelled with the prop's own name, so
+        // the two previews answer the same question for the two spawn keys.
+        const std::vector<std::string> props = tw::game::PropModels();
+        const int index = tw::game::PropModelIndex();
+        const std::string name = (index >= 0 && index < static_cast<int>(props.size()))
+                                     ? props[index]
+                                     : std::string();
+        tw::game::HologramBuildPropFrame(name, w, h, &frame);
+    } else {
+        tw::game::HologramBuildFrame(spawnPreviewModel(), w, h, &frame);
+    }
 
     ImDrawList* dl = ImGui::GetBackgroundDrawList();
     if (!frame.visible) {
@@ -1287,6 +1298,21 @@ std::string pedModelSummaryText() {
     return std::string(buf);
 }
 
+// The same line for the prop list: how many there are, and how many came out of the game
+// files rather than out of the executable's own handful.
+std::string propModelSummaryText() {
+    char buf[96];
+    const int total = tw::game::PropModelCount();
+    const int scanned = tw::game::PropScannedPropCount();
+    if (tw::game::PropScanRunning())
+        std::snprintf(buf, sizeof buf, "scanning... %d known", total);
+    else if (scanned > 0)
+        std::snprintf(buf, sizeof buf, "%d known, %d from the game files", total, scanned);
+    else
+        std::snprintf(buf, sizeof buf, "%d known - Rescan reads the game files", total);
+    return std::string(buf);
+}
+
 void buildMenu() {
     tw::DebugHooks hooks;
     hooks.style = &g_style;         // the APPEARANCE rows write what renderMenu reads
@@ -1454,6 +1480,45 @@ void buildMenu() {
         return std::string("NPC models: a scan is already running");
     };
     hooks.pedModelSummary = []() { return pedModelSummaryText(); };
+
+    // Props: the same spawner, aimed at the game's objects. The list is whatever the
+    // prop side of the scan knows - the vehicles and weapons the executable names, plus
+    // everything FreeCam.props.txt or the game files add.
+    {
+        const std::vector<std::string> props = tw::game::PropModels();
+        hooks.propNames = props;
+    }
+    hooks.selectProp = [](const std::string& model) {
+        tw::game::PropSelectByName(model);
+        return "Prop: " + tw::game::PropShortName(model);
+    };
+    hooks.spawnProp = []() {
+        const std::vector<std::string> props = tw::game::PropModels();
+        const int index = tw::game::PropModelIndex();
+        if (props.empty() || index < 0 || index >= static_cast<int>(props.size()))
+            return std::string("Prop: no prop selected - Rescan props finds the game's objects");
+        const std::string& name = props[index];
+        tw::game::PropRequestAt(name, tw::game::HologramDistance());
+        char line[200];
+        std::snprintf(line, sizeof line, "Prop: %s queued, %.0f m ahead - %s",
+                      tw::game::PropShortName(name).c_str(),
+                      static_cast<double>(tw::game::HologramDistance()),
+                      tw::game::PropPending() ? "waiting for the world" : "on its way");
+        return std::string(line);
+    };
+    hooks.rescanProps = []() {
+        if (tw::game::PropScanAsync())
+            return std::string("Props: scanning the game folder - the list fills in when it is done");
+        return std::string("Props: a scan is already running");
+    };
+    hooks.propSummary = []() { return propModelSummaryText(); };
+    hooks.setPropPreview = [](bool on) {
+        tw::game::HologramSetPropMode(on);
+        if (on && !tw::game::HologramPreviewActive()) tw::game::HologramSetPreview(true);
+        return on ? std::string("Preview: a crate on the spawn spot")
+                  : std::string("Preview: the NPC figure on the spawn spot");
+    };
+    hooks.propPreviewActive = []() { return tw::game::HologramPropMode(); };
 
     // The player's own controls: U, or the menu entry. The camera has to be on for it
     // to mean anything - with it off the player has the controls already - and the
@@ -1623,6 +1688,19 @@ void buildMenu() {
             }
         }
         g_menu.setInfo("Models found", pedModelSummaryText());
+        if (g_menu.item("Prop model (list)")) {
+            static int propRevision = -1;
+            const int rev = tw::game::PropModelsRevision();
+            if (rev != propRevision) {
+                propRevision = rev;
+                g_menu.setOptions("Prop model (list)", tw::game::PropModels());
+            }
+            const int chosen = tw::game::PropModelIndex();
+            const int count = tw::game::PropModelCount();
+            if (chosen >= 0 && chosen < count)
+                g_menu.setOptionIndex("Prop model (list)", static_cast<std::size_t>(chosen));
+            g_menu.setInfo("Props found", propModelSummaryText());
+        }
     };
 
     tw::buildDebugMenu(g_menu, hooks);

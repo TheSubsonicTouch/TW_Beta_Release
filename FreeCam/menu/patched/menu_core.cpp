@@ -778,6 +778,57 @@ void buildDebugMenu(Menu& menu, const DebugHooks& hooks) {
         menu.addItem(reset);
     }
 
+    // ---- Props ------------------------------------------------------------
+    // The same spawner as the section above, pointed at the objects instead of the people:
+    // vehicles, weapons and every prop the game files name. The rows are the NPC ones - a
+    // list, a button, a rescan and a count - because the two do the same thing and should
+    // not have to be learned twice.
+    if (hooks.spawnProp) {
+        header("PROPS");
+
+        if (!hooks.propNames.empty() || hooks.selectProp) {
+            MenuItem list = makeSelector(
+                "Prop model (list)", hooks.propNames, [&menu, fn = hooks.selectProp](const std::string& name) {
+                    return fn ? fn(name) : (std::string("Prop: ") + name);
+                });
+            list.applyOnChange = true;
+            menu.addItem(list);
+        }
+
+        MenuItem spawn;
+        spawn.label = "Spawn prop (G)";
+        spawn.kind = ItemKind::Action;
+        spawn.onAction = [&menu, fn = hooks.spawnProp]() { menu.setStatus(fn()); };
+        menu.addItem(spawn);
+
+        if (hooks.setPropPreview) {
+            MenuItem preview;
+            preview.label = "Preview the prop";
+            preview.kind = ItemKind::Toggle;
+            preview.toggled = hooks.propPreviewActive ? hooks.propPreviewActive() : false;
+            preview.onToggle = [&menu, fn = hooks.setPropPreview](bool on) {
+                menu.setStatus(fn(on));
+            };
+            menu.addItem(preview);
+        }
+
+        if (hooks.rescanProps) {
+            MenuItem scan;
+            scan.label = "Rescan props";
+            scan.kind = ItemKind::Action;
+            scan.onAction = [&menu, fn = hooks.rescanProps]() { menu.setStatus(fn()); };
+            menu.addItem(scan);
+        }
+
+        if (hooks.propSummary) {
+            MenuItem count;
+            count.label = "Props found";
+            count.kind = ItemKind::Info;
+            count.text = hooks.propSummary();
+            menu.addItem(count);
+        }
+    }
+
     // ---- Path -------------------------------------------------------------
     // What the camera flew, played back: the same three keys (L/J/M) as entries, plus the
     // speed ladder the arrows walk. The Info row is the count, which is the one thing

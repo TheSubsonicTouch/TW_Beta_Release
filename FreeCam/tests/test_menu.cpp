@@ -97,6 +97,19 @@ tw::DebugHooks fullHooks(int* toggles, int* picks, int* levels,
         spawned->push_back(model);
         return "Spawn Ped: " + model;
     };
+    hooks.propNames = { "object-physical-vehicle-etalon01", "object-physical-weapon-melee-tireiron" };
+    hooks.selectProp = [](const std::string& name) { return "Prop: " + name; };
+    hooks.spawnProp = [spawned]() {
+        spawned->push_back("prop");
+        return std::string("Prop: queued");
+    };
+    hooks.rescanProps = [] { return std::string("Props: scanning"); };
+    hooks.propSummary = [] { return std::string("2 known"); };
+    hooks.setPropPreview = [](bool on) {
+        return on ? std::string("Preview: a crate on the spawn spot")
+                  : std::string("Preview: the NPC figure on the spawn spot");
+    };
+    hooks.propPreviewActive = [] { return false; };
     hooks.noclipSpeeds = { "1x", "2x", "3x", "4x", "6x", "8x" };
     hooks.setNoclipSpeed = [picks](const std::string& s) {
         ++*picks;
@@ -297,9 +310,9 @@ void testStructure() {
     check(hasLabel(menu, "Playback speed"), "the playback speed is a picker");
     check(hasLabel(menu, "Keyframes"), "and how many are recorded is shown");
 
-    check(hasHeader(menu, "CAMERA") && hasHeader(menu, "SPAWN") && hasHeader(menu, "WORLD") &&
-              hasHeader(menu, "SKY") && hasHeader(menu, "PROGRESSION"),
-          "the five sections this build has hooks for are there");
+    check(hasHeader(menu, "CAMERA") && hasHeader(menu, "SPAWN") && hasHeader(menu, "PROPS") &&
+              hasHeader(menu, "WORLD") && hasHeader(menu, "SKY") && hasHeader(menu, "PROGRESSION"),
+          "the sections this build has hooks for are there");
 
     // What was taken out must stay out: those entries either could not work or were
     // replaced by hotkeys, and a menu that offers them is worse than a short one.
@@ -365,10 +378,11 @@ void testCursorSkipsHeaders() {
     }
     check(total == static_cast<std::size_t>(usable + titles + infos),
           "the list is the usable entries, the section titles and the info rows");
-    check(infos == 5, "Keyframes, Spawner, Models found, Sky and Worn now are the read-only lines");
+    check(infos == 6,
+          "Keyframes, Spawner, Models found, Props found, Sky and Worn now are the read-only lines");
     // APPEARANCE is not in this one: the style object is attached by its own test, and a
     // build with no style has nothing to put in a section about it.
-    check(titles == 7, "CAMERA, SPAWN, PATH, WORLD, SKY, WARDROBE, PROGRESSION");
+    check(titles == 8, "CAMERA, SPAWN, PROPS, PATH, WORLD, SKY, WARDROBE, PROGRESSION");
     // And in that order, so the section jumps below can be checked against something.
     {
         std::string order;
@@ -377,7 +391,7 @@ void testCursorSkipsHeaders() {
             order += item.label;
             order += ' ';
         }
-        check(order == "CAMERA SPAWN PATH WORLD SKY WARDROBE PROGRESSION ",
+        check(order == "CAMERA SPAWN PROPS PATH WORLD SKY WARDROBE PROGRESSION ",
               "the sections are in order: " + order);
     }
 }
@@ -442,6 +456,19 @@ void testActions() {
     menu.handleKey(tw::Key::Down);   // Reset spawner (R), over the Spawner info row
     check(menu.items()[menu.selectedIndex()].label == "Reset spawner (R)",
           "the reset is the last spawn entry");
+    // PROPS: the same four rows as SPAWN, aimed at the objects.
+    menu.handleKey(tw::Key::Down);   // Prop model (list), over the PROPS header
+    check(menu.items()[menu.selectedIndex()].label == "Prop model (list)",
+          "the props section follows the spawner");
+    menu.handleKey(tw::Key::Down);   // Spawn prop (G)
+    check(menu.items()[menu.selectedIndex()].label == "Spawn prop (G)",
+          "and its own spawn button");
+    menu.handleKey(tw::Key::Down);   // Preview the prop
+    check(menu.items()[menu.selectedIndex()].label == "Preview the prop",
+          "and the switch that turns the figure into a crate");
+    menu.handleKey(tw::Key::Down);   // Rescan props, over the Props found info row
+    check(menu.items()[menu.selectedIndex()].label == "Rescan props",
+          "the prop rescan sits under the list it fills");
     menu.handleKey(tw::Key::Down);   // Record keyframe (L), over the PATH header
     check(menu.items()[menu.selectedIndex()].label == "Record keyframe (L)",
           "then the path section");
@@ -508,6 +535,19 @@ void testSpawnPed() {
           "and the spaces around it are trimmed");
 
     // An empty field says so rather than calling the spawner with nothing.
+    // The props button queues one, and selecting a prop in the list is what G will spawn.
+    selectLabel(menu, "Spawn prop (G)");
+    const size_t propsBefore = spawned.size();
+    menu.handleKey(tw::Key::Select);
+    check(spawned.size() == propsBefore + 1 && spawned.back() == "prop",
+          "Spawn prop asks the spawner for the selected object");
+    spawned.pop_back();   // the rest of this test counts the peds it spawns itself
+
+    selectLabel(menu, "Prop model (list)");
+    menu.handleKey(tw::Key::Right);
+    check(menu.item("Prop model (list)")->optionIndex == 1, "the prop list steps to the next object");
+
+    selectLabel(menu, "Spawn Ped");   // back to the field the rest of this test drives
     check(menu.setInputText("Spawn Ped", "   "), "the field can be emptied");
     menu.handleKey(tw::Key::Select);
     check(spawned.size() == 2, "an empty name spawns nothing");
@@ -1304,7 +1344,7 @@ void testSectionJump() {
     menu.select(0);
     check(menu.items()[menu.selectedIndex()].label == "Free Camera", "the jump starts at CAMERA");
 
-    const char* forward[] = { "Spawn Ped", "Record keyframe (L)", "Weather",
+    const char* forward[] = { "Spawn Ped", "Prop model (list)", "Record keyframe (L)", "Weather",
                               "Sky override", "Top", "Level target", "Free Camera" };
     for (const char* want : forward) {
         menu.jumpSection(1);
@@ -1327,6 +1367,8 @@ void testSectionJump() {
     check(menu.items()[menu.selectedIndex()].label == "Weather", "and then to WORLD");
     menu.jumpSection(-1);
     check(menu.items()[menu.selectedIndex()].label == "Record keyframe (L)", "and then to PATH");
+    menu.jumpSection(-1);
+    check(menu.items()[menu.selectedIndex()].label == "Prop model (list)", "and then to PROPS");
 
     // A menu that is only entries (no titles) still moves, one row at a time.
     tw::Menu flat;

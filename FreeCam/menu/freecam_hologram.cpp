@@ -17,7 +17,7 @@
 #include <cstring>
 
 #include "freecam_game.h"    // FreeCamCameraMatrices
-#include "freecam_spawn.h"   // SpawnSpot, SpawnShortName
+#include "freecam_spawn.h"   // SpawnSpot, SpawnShortName, PropShortName
 
 namespace tw {
 namespace game {
@@ -45,6 +45,7 @@ constexpr int   kRingSteps  = 16;
 constexpr int   kHeadSteps  = 10;
 
 bool  g_on = false;
+bool  g_propMode = false;
 float g_metres = 3.0f;
 std::string g_note;
 
@@ -127,6 +128,32 @@ void AddHead(const Build& b) {
     }
 }
 
+// The prop figure: a crate on the same spot. A prop has no silhouette the game tells us
+// about (its mesh lives inside a bundle), so the preview draws the thing every prop has in
+// common - a footprint, a height and a lid - rather than pretending to be the object. The
+// label says which object it is; the box says how big the spot is.
+constexpr float kCrateHalf = 0.35f;   // half the footprint, in metres
+constexpr float kCrateTall = 0.70f;   // its height
+
+void AddCrate(const Build& b) {
+    const float h = kCrateHalf;
+    // Corners, counter-clockwise from the near-bottom-left of the footprint.
+    const float c[8][3] = {
+        { -h, 0.0f, h }, { h, 0.0f, h }, { h, 0.0f, -h }, { -h, 0.0f, -h },
+        { -h, kCrateTall, h }, { h, kCrateTall, h }, { h, kCrateTall, -h }, { -h, kCrateTall, -h },
+    };
+    for (int i = 0; i < 4; ++i) {
+        const int j = (i + 1) % 4;
+        AddSegment(b, c[i][0], c[i][1], c[i][2], c[j][0], c[j][1], c[j][2]);          // base
+        AddSegment(b, c[i + 4][0], c[i + 4][1], c[i + 4][2],
+                   c[j + 4][0], c[j + 4][1], c[j + 4][2]);                              // lid
+        AddSegment(b, c[i][0], c[i][1], c[i][2], c[i + 4][0], c[i + 4][1], c[i + 4][2]); // upright
+    }
+    // An arrow up the middle: which way is up reads at any distance, and it is the one line
+    // that makes a box look placed rather than drawn on the screen.
+    AddSegment(b, 0.0f, kCrateTall, 0.0f, 0.0f, kCrateTall + 0.6f, 0.0f);
+}
+
 void AddBody(const Build& b) {
     // shoulders and spine
     AddSegment(b, -kShoulderX, kShoulderY, 0.0f, kShoulderX, kShoulderY, 0.0f);
@@ -153,6 +180,9 @@ void AddBody(const Build& b) {
 
 bool HologramPreviewActive() { return g_on; }
 
+bool HologramPropMode() { return g_propMode; }
+void HologramSetPropMode(bool on) { g_propMode = on; }
+
 void HologramSetPreview(bool on) {
     // Only the switch is written here: this can be called from the camera thread (F10) while
     // the render thread is building a frame, and a flag is not worth a lock. The note is the
@@ -170,8 +200,8 @@ void HologramSetDistance(float metres) {
 
 const std::string& HologramNote() { return g_note; }
 
-bool HologramBuildFrame(const std::string& model, float screenW, float screenH,
-                        HoloFrame* out) {
+bool BuildHoloFrame(const std::string& model, float metres, bool crate, float screenW,
+                    float screenH, HoloFrame* out) {
     if (!out) return false;
     auto fail = [out](const char* why) {
         out->visible = false;
@@ -197,7 +227,7 @@ bool HologramBuildFrame(const std::string& model, float screenW, float screenH,
     }
 
     float mat[16];
-    if (!SpawnSpot(g_metres, mat))
+    if (!SpawnSpot(metres, mat))
         return fail("spawn preview: waiting for you to be in the world");
 
     Build b{ &view, &proj, mat, screenW, screenH, out };
@@ -236,12 +266,17 @@ bool HologramBuildFrame(const std::string& model, float screenW, float screenH,
     }
 
     AddGroundRing(b);
-    AddBody(b);
-    AddHead(b);
+    if (crate) {
+        AddCrate(b);
+    } else {
+        AddBody(b);
+        AddHead(b);
+    }
 
-    out->height = kHeight;
+    out->height = crate ? kCrateTall : kHeight;
+    const std::string shown = model.empty() ? std::string("(no model named)") : model;
     std::snprintf(out->model, sizeof out->model, "%s",
-                  SpawnShortName(model.empty() ? std::string("(no model named)") : model).c_str());
+                  (crate ? PropShortName(shown) : SpawnShortName(shown)).c_str());
     // No note on success: the overlay writes the figure's own label from `model` and the
     // distance it was built at, and a second line of text would only repeat it.
     out->note[0] = 0;
@@ -255,6 +290,16 @@ bool HologramBuildFrame(const std::string& model, float screenW, float screenH,
         g_note = out->note;
     }
     return out->visible;
+}
+
+bool HologramBuildFrame(const std::string& model, float screenW, float screenH,
+                        HoloFrame* out) {
+    return BuildHoloFrame(model, g_metres, false, screenW, screenH, out);
+}
+
+bool HologramBuildPropFrame(const std::string& model, float screenW, float screenH,
+                            HoloFrame* out) {
+    return BuildHoloFrame(model, g_metres, true, screenW, screenH, out);
 }
 
 }  // namespace game

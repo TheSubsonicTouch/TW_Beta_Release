@@ -105,6 +105,39 @@ bool SpawnPlayerReady();
 // Whether a request is still queued (waiting for the world, or for the allocator).
 bool SpawnPending();
 
+// ---- props and objects -----------------------------------------------------------
+//
+// A prop is spawned through the same three calls as a character (hash, name lookup,
+// SpawnAtXform) and differs only in the names it offers and in not being given a side.
+// The list starts from the vehicles and weapons the executable names, adds
+// FreeCam.props.txt, and grows with whatever the game-file scan finds; a name the game does
+// not know fails with a message and a log line, never a crash.
+std::vector<std::string> PropModels();
+int PropModelCount();
+int PropModelsRevision();          // goes up when the list is replaced
+int PropScannedPropCount();        // how many of those came out of the game files
+void PropSetModel(int index);
+int PropModelIndex();
+void PropSelectByName(const std::string& model);
+std::string PropShortName(const std::string& model);
+
+// Ask for a prop at a distance in front of the player (3 is the normal one, 0 is "on you").
+// Queued like the NPC request and carried out by the camera thread.
+void PropRequest(const std::string& model);
+void PropRequestAt(const std::string& model, float metres);
+bool PropPump();                   // one queued request, on the camera thread
+std::string PropStatusCopy();
+bool PropPending();
+
+// The prop spawner switches itself off after a fault, independently of the NPC one.
+void PropClearFault();
+bool PropBlocked();
+
+// The prop half of the game-file scan, and the background version of it.
+std::string PropScanGameFiles();
+bool PropScanAsync();
+bool PropScanRunning();
+
 // The last result, e.g. "Spawned object-physical-character-police 3 m ahead (hostile)".
 // Empty until something has been spawned. Also written to TW_MenuLog.txt, with the
 // hashes and the faction ids, so a failure can be read back later.

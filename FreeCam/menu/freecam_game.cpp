@@ -1199,6 +1199,8 @@ Hotkey g_freezeKey{ 'O' };
 Hotkey g_clearKey{ 'M' };
 Hotkey g_slowerKey{ VK_LEFT };      // playback speed down
 Hotkey g_spawnKey{ 'B' };          // B - spawn the selected NPC three metres ahead
+Hotkey g_propKey{ 'G' };           // G - spawn the selected prop three metres ahead
+Hotkey g_propModelKey{ 'T' };      // T - next prop model
 Hotkey g_modelKey{ 'N' };          // N - next NPC model
 Hotkey g_sideKey{ 'H' };           // H - hostile / friendly
 Hotkey g_fasterKey{ VK_RIGHT };     // playback speed up
@@ -1651,9 +1653,39 @@ void HandleHotkeys() {
         }
     }
 
+    // Props: T walks the object list, G puts the chosen one down. The list is the game's
+    // own objects (vehicles, weapons and whatever the scan found), so the HUD line is the
+    // name without the "object-physical-prop-" prefix.
+    if (g_propModelKey.Pressed()) {
+        const std::vector<std::string> props = tw::game::PropModels();
+        if (props.empty()) {
+            Hud("T", "no props known");
+        } else {
+            tw::game::PropSetModel((tw::game::PropModelIndex() + 1) % static_cast<int>(props.size()));
+            const std::string& name = props[tw::game::PropModelIndex()];
+            Hud("T", tw::game::PropShortName(name).c_str());
+            TW_Log("FreeCam: prop model %d of %d: %s", tw::game::PropModelIndex() + 1,
+                   static_cast<int>(props.size()), name.c_str());
+        }
+    }
+
+    if (g_propKey.Pressed()) {
+        const std::vector<std::string> props = tw::game::PropModels();
+        if (props.empty()) {
+            Hud("G", "no props to spawn - Rescan props in the menu");
+        } else {
+            const std::string& name = props[tw::game::PropModelIndex()];
+            TW_Log("FreeCam: spawning prop %s three metres ahead", name.c_str());
+            Hud("G", "spawning prop...");
+            tw::game::PropRequestAt(name, tw::game::HologramDistance());
+        }
+    }
+
     if (g_faultKey.Pressed()) {
         tw::game::SpawnClearFault();
-        Hud("R", tw::game::SpawnBlocked() ? "spawner still blocked" : "spawner reset");
+        tw::game::PropClearFault();
+        Hud("R", (tw::game::SpawnBlocked() || tw::game::PropBlocked()) ? "spawner still blocked"
+                                                                      : "spawner reset");
         TW_Log("FreeCam: spawner fault cleared by R");
     }
 
@@ -1930,7 +1962,7 @@ DWORD WINAPI Loop(LPVOID) {
 
     // The 1 ms timer is raised in StartFlying and lowered in StopFlying: a thread that is
     // only alive so the menu can spawn something must not hold the system timer down.
-    TW_Log("FreeCam: camera thread up (build 32: the wardrobe puts any of the game's own tops under any of its pants, noclip tracks every copy of the player position it can find and says whether the game is winning, and the server pays export missions the game's own money and face)");
+    TW_Log("FreeCam: camera thread up (build 33: props and objects spawn from the menu with a crate where they land - G spawns one, T walks the list - while the wardrobe, noclip's copies and the export payouts of build 32 stay as they were)");
 
     for (;;) {
         if (g_quit) break;
@@ -1949,6 +1981,9 @@ DWORD WINAPI Loop(LPVOID) {
         // spawn path allocates. The HUD line belongs to the same tick, so the answer
         // shows up next to the hotkeys.
         if (tw::game::SpawnPump()) Hud("B", tw::game::SpawnStatus().c_str());
+        // The props use the same pump, on the same thread, for the same reason: the spawn
+        // path allocates through the game's per-thread allocator.
+        if (tw::game::PropPump()) Hud("G", tw::game::PropStatusCopy().c_str());
 
         // Noclip moves the player, not the camera, so it runs whether or not the free
         // camera is on - and it keeps its own clock for exactly that reason.
