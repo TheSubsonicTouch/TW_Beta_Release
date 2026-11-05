@@ -29,6 +29,7 @@
 #include "freecam_unlock.h"
 #include "freecam_weather.h"
 #include "freecam_sky.h"
+#include "freecam_wardrobe.h"
 #include "input_block.h"
 #include "log.h"
 #include "spawn_guard.h"
@@ -1357,6 +1358,22 @@ void buildMenu() {
         return content.empty() ? all : all + "   |   " + content;
     };
     hooks.unlockRaids = []() { return tw::game::UnlockRaidsAndEvents(); };
+    // The wardrobe. Every row names a piece from the game's own clothing table (compiled
+    // into this build from the installed data), and wearing one rewrites the profile's
+    // piece list in the slot that was picked - which is the only way to put an outfit's
+    // own trousers under another outfit's top. The client reads the list when it loads
+    // its bags, so the menu says so instead of pretending the next frame changes.
+    hooks.wardrobeTops = tw::game::WardrobeTopNames();
+    hooks.wardrobePants = tw::game::WardrobePantsNames();
+    hooks.wardrobeLooks = tw::game::WardrobeLookNames();
+    hooks.wearTop = [](const std::string& name) { return tw::game::WardrobeWearTop(name); };
+    hooks.wearPants = [](const std::string& name) { return tw::game::WardrobeWearPants(name); };
+    hooks.wearCombo = [](const std::string& top, const std::string& pants) {
+        return tw::game::WardrobeWearCombo(top, pants);
+    };
+    hooks.wearLook = [](const std::string& name) { return tw::game::WardrobeWearLook(name); };
+    hooks.wardrobeUndo = []() { return tw::game::WardrobeUndo(); };
+    hooks.wardrobeStatus = []() { return tw::game::WardrobeStatus(); };
     // Spawn Ped: a character named in the menu, put three metres in front of the player.
     // The names offered in the list are whatever the spawner knows - the built-ins, plus
     // anything in FreeCam.npc.txt - and the field accepts any other property set the game

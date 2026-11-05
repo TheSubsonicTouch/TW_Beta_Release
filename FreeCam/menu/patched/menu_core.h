@@ -347,6 +347,21 @@ struct DebugHooks {
     std::vector<std::string> skyVariants;      // "Automatic" then the game's skydomes
     std::function<std::string()> skyState;     // what the override is doing, for the Info row
 
+    // The wardrobe. Every one of these is the game's own clothing: a piece the client
+    // already draws, never an invented item. The pickers are the pieces worth listing
+    // (one row per garment, tints collapsed); a wear replaces that slot and leaves the
+    // rest of what the player has on alone, which is what "these pants with that top"
+    // needs. Absent hooks mean this build cannot write the profile.
+    std::vector<std::string> wardrobeTops;      // "Top" picker
+    std::vector<std::string> wardrobePants;     // "Pants" picker
+    std::vector<std::string> wardrobeLooks;     // named looks from data/looks.json
+    std::function<std::string(const std::string&)> wearTop;
+    std::function<std::string(const std::string&)> wearPants;
+    std::function<std::string(const std::string&, const std::string&)> wearCombo;
+    std::function<std::string(const std::string&)> wearLook;
+    std::function<std::string()> wardrobeUndo;
+    std::function<std::string()> wardrobeStatus;   // what is on now, for the Info row
+
     // Progression.
     std::vector<std::string> levelTargets;          // Enforcer/Rackets/Triad/Rivals
     std::function<std::string(const std::string&, int)> setLevel;  // target, 1..50

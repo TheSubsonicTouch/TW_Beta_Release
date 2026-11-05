@@ -173,6 +173,9 @@ Report ApplyStateRules(json::Value &state, const Catalog &catalog, const Setting
         json::Value &data = ObjectAt(*player, "PlayerDataBag");
         if (settings.maxXp > 0) data["EnforcerXP"].setInt(settings.maxXp);
         if (settings.triadLevel > 0) data["TriadLevel"].setInt(settings.triadLevel);
+        // Face rank is what the export missions ask for before the map will offer one;
+        // it is paid in tens of points, so this is the whole ladder and then some.
+        if (settings.maxFace > 0) data["Face"].setString(std::to_string(settings.maxFace));
         MaxOutTurf(*player, settings);
 
         // Favours: one instance per upgrade favour definition, which is what the favour
@@ -285,6 +288,122 @@ Report ApplyStateRules(json::Value &state, const Catalog &catalog, const Setting
     }
 
     return report;
+}
+
+// ---- the wardrobe ----------------------------------------------------------------
+
+std::string WardrobeIndex::SlotOf(const std::string &piece) const {
+    for (std::size_t i = 0; i < uid.size() && i < slot.size(); ++i) {
+        if (uid[i] == piece) return slot[i];
+    }
+    return std::string();
+}
+
+namespace {
+
+// The worn list as plain strings. The client parses these as 64-bit ids, so the profile
+// stores them as decimal strings and anything else in the array is dropped.
+std::vector<std::string> WornPieces(const json::Value &custom) {
+    std::vector<std::string> out;
+    const json::Value *list = custom.find("ClothingStoreItemUIDs");
+    if (!list || !list->isArray()) return out;
+    for (const json::Value &item : list->array) {
+        if (!item.isString() || item.str.empty()) continue;
+        if (!Contains(out, item.str)) out.push_back(item.str);
+    }
+    return out;
+}
+
+// A piece in the InventoryBag is what makes the wardrobe list it. Bought outfits already
+// put their pieces there; a piece worn by this file and never bought does not.
+int OwnPiece(json::Value &player, const std::string &piece) {
+    json::Value &bag = ArrayAt(player, "InventoryBag");
+    if (OwnsString(bag, "StoreItemID", piece)) return 0;
+    json::Value entry = NewObject();
+    entry["SecondsElapsed"].setInt(0);
+    entry["TotalSeconds"].setInt(0);
+    entry["StoreItemID"].setString(piece);
+    entry["InventoryItemID"].setString(std::to_string(MaxId(bag, "InventoryItemID", 7000) + 1));
+    std::string account = StringField(ObjectAt(player, "PlayerDataBag"), "AccountID");
+    entry["AccountID"].setString(account.empty() ? std::string("1") : account);
+    bag.array.push_back(std::move(entry));
+    return 1;
+}
+
+// The shared half of both entries: rewrite the list, own what is on it, and stop the last
+// bought outfit from being what the client draws over the top.
+WearReport WriteWorn(json::Value &player, const std::vector<std::string> &worn,
+                     const std::vector<std::string> &pieces) {
+    WearReport report;
+    json::Value &custom = ObjectAt(player, "CustomizationBag");
+
+    std::vector<std::string> before = WornPieces(custom);
+    if (before == worn) return report;
+
+    json::Value &list = ArrayAt(custom, "ClothingStoreItemUIDs");
+    list.array.clear();
+    for (const std::string &piece : worn) {
+        json::Value item;
+        item.setString(piece);
+        list.array.push_back(std::move(item));
+    }
+    // "0" is what a profile that has never worn an outfit carries. Leaving a purchased
+    // outfit in here would draw that outfit's own pieces on top of the mix.
+    custom["ClothingOutfitCortexUID"].setString("0");
+    for (const std::string &piece : pieces) report.owned += OwnPiece(player, piece);
+
+    report.changed = true;
+    report.worn = static_cast<int>(worn.size());
+    return report;
+}
+
+}  // namespace
+
+WearReport ReplaceWornSlot(json::Value &state, const WardrobeIndex &index,
+                           const std::string &slot, const std::string &piece) {
+    WearReport report;
+    if (!state.isObject() || slot.empty()) return report;
+    json::Value *player = state.find("player");
+    if (!player || !player->isObject()) return report;
+
+    const std::vector<std::string> before = WornPieces(ObjectAt(*player, "CustomizationBag"));
+    std::vector<std::string> worn;
+    for (const std::string &w : before) {
+        // A piece this build cannot place is kept: losing the hat because the table has
+        // no entry for it would be worse than leaving it on.
+        if (!index.SlotOf(w).empty() && index.SlotOf(w) == slot) continue;
+        worn.push_back(w);
+    }
+    if (!piece.empty()) {
+        if (!Contains(worn, piece)) worn.push_back(piece);
+    }
+    return WriteWorn(*player, worn, piece.empty() ? std::vector<std::string>()
+                                                  : std::vector<std::string>{ piece });
+}
+
+WearReport WearPieces(json::Value &state, const WardrobeIndex &index,
+                      const std::vector<std::string> &pieces) {
+    WearReport report;
+    if (!state.isObject() || pieces.empty()) return report;
+    json::Value *player = state.find("player");
+    if (!player || !player->isObject()) return report;
+
+    // Each slot the set covers is replaced; the hat, the shoes and the rest stay.
+    std::vector<std::string> replaced;
+    for (const std::string &piece : pieces) {
+        const std::string slot = index.SlotOf(piece);
+        if (!slot.empty() && !Contains(replaced, slot)) replaced.push_back(slot);
+    }
+    const std::vector<std::string> before = WornPieces(ObjectAt(*player, "CustomizationBag"));
+    std::vector<std::string> worn;
+    for (const std::string &piece : before) {
+        if (Contains(replaced, index.SlotOf(piece))) continue;
+        worn.push_back(piece);
+    }
+    for (const std::string &piece : pieces) {
+        if (!Contains(worn, piece)) worn.push_back(piece);
+    }
+    return WriteWorn(*player, worn, pieces);
 }
 
 }  // namespace unlock

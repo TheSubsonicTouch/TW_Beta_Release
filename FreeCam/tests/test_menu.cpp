@@ -203,6 +203,33 @@ tw::DebugHooks fullHooks(int* toggles, int* picks, int* levels,
         return std::string("NPC models: scanning the game folder");
     };
     hooks.pedModelSummary = [] { return std::string("57 known, 53 from the game files"); };
+
+    // The wardrobe: three pieces per slot short of the real table, but the same shape -
+    // names in the pickers, a status line, and every action reporting what it did.
+    hooks.wardrobeTops = { "Deus Ex top", "Swat top" };
+    hooks.wardrobePants = { "Deus Ex pants", "Swat pants" };
+    hooks.wardrobeLooks = { "Corner Boy", "Swat" };
+    hooks.wardrobeStatus = [] { return std::string("Swat top, Swat pants"); };
+    hooks.wearTop = [picks](const std::string& name) {
+        ++*picks;
+        return "Wardrobe: " + name + " on";
+    };
+    hooks.wearPants = [picks](const std::string& name) {
+        ++*picks;
+        return "Wardrobe: " + name + " on";
+    };
+    hooks.wearCombo = [picks](const std::string& top, const std::string& pants) {
+        ++*picks;
+        return "Wardrobe: " + top + " with " + pants + " on";
+    };
+    hooks.wearLook = [picks](const std::string& name) {
+        ++*picks;
+        return "Wardrobe: " + name + " on";
+    };
+    hooks.wardrobeUndo = [picks] {
+        ++*picks;
+        return std::string("Wardrobe: back to what you were wearing");
+    };
     return hooks;
 }
 
@@ -338,10 +365,10 @@ void testCursorSkipsHeaders() {
     }
     check(total == static_cast<std::size_t>(usable + titles + infos),
           "the list is the usable entries, the section titles and the info rows");
-    check(infos == 4, "Keyframes, Spawner, Models found and Sky are the read-only lines");
+    check(infos == 5, "Keyframes, Spawner, Models found, Sky and Worn now are the read-only lines");
     // APPEARANCE is not in this one: the style object is attached by its own test, and a
     // build with no style has nothing to put in a section about it.
-    check(titles == 6, "CAMERA, SPAWN, PATH, WORLD, SKY, PROGRESSION");
+    check(titles == 7, "CAMERA, SPAWN, PATH, WORLD, SKY, WARDROBE, PROGRESSION");
     // And in that order, so the section jumps below can be checked against something.
     {
         std::string order;
@@ -350,7 +377,7 @@ void testCursorSkipsHeaders() {
             order += item.label;
             order += ' ';
         }
-        check(order == "CAMERA SPAWN PATH WORLD SKY PROGRESSION ",
+        check(order == "CAMERA SPAWN PATH WORLD SKY WARDROBE PROGRESSION ",
               "the sections are in order: " + order);
     }
 }
@@ -755,6 +782,10 @@ void testUnlockProfile() {
         check(numberAt(*data, "EnforcerXP") == settings.maxXp, "the enforcer is at the top level");
         check(numberAt(*data, "TriadLevel") == settings.triadLevel,
               "the triad is at the top level");
+        // The export missions' rank gate reads Face, and the game pays face in tens of
+        // points, so the unlock has to clear it rather than nudge it.
+        check(textAt(*data, "Face") == std::to_string(settings.maxFace),
+              "face rank is high enough for the export missions");
 
         const tw::json::Value* turf = at(*player, "TurfBag");
         const long long safehouse =
@@ -1274,7 +1305,7 @@ void testSectionJump() {
     check(menu.items()[menu.selectedIndex()].label == "Free Camera", "the jump starts at CAMERA");
 
     const char* forward[] = { "Spawn Ped", "Record keyframe (L)", "Weather",
-                              "Sky override", "Level target", "Free Camera" };
+                              "Sky override", "Top", "Level target", "Free Camera" };
     for (const char* want : forward) {
         menu.jumpSection(1);
         const std::string got = menu.items()[menu.selectedIndex()].label;
@@ -1288,6 +1319,8 @@ void testSectionJump() {
     menu.jumpSection(-1);
     check(menu.items()[menu.selectedIndex()].label == "Level target",
           "PageUp from CAMERA wraps to the last section");
+    menu.jumpSection(-1);
+    check(menu.items()[menu.selectedIndex()].label == "Top", "and then to WARDROBE");
     menu.jumpSection(-1);
     check(menu.items()[menu.selectedIndex()].label == "Sky override", "and then to SKY");
     menu.jumpSection(-1);
@@ -1490,6 +1523,150 @@ void testMenuStyle() {
     check(!hasHeader(plain, "APPEARANCE"), "no style object, no appearance section");
 }
 
+
+// The wardrobe: the pickers exist, they carry the game's own piece names, and the three
+// actions that write the profile reach the hook with the name the player is looking at.
+void testWardrobe() {
+    int toggles = 0, picks = 0, levels = 0;
+    std::vector<std::string> spawned;
+    tw::Menu menu;
+    menu.setVisible(true);
+    tw::DebugHooks hooks = fullHooks(&toggles, &picks, &levels, &spawned);
+
+    std::vector<std::string> worn;
+    hooks.wearCombo = [&worn](const std::string& top, const std::string& pants) {
+        worn = { top, pants };
+        return "Wardrobe: " + top + " with " + pants + " on";
+    };
+    tw::buildDebugMenu(menu, hooks);
+
+    check(hasHeader(menu, "WARDROBE"), "the wardrobe has its own section");
+    check(hasLabelText(menu, "Worn now", "Swat top, Swat pants"), "and says what is on");
+    check(menu.item("Top") && menu.item("Top")->options == hooks.wardrobeTops,
+          "the top picker lists every top");
+    check(menu.item("Pants") && menu.item("Pants")->options == hooks.wardrobePants,
+          "the pants picker lists every pair of pants");
+    check(menu.item("Look") && menu.item("Look")->options == hooks.wardrobeLooks,
+          "the look picker lists the named looks");
+
+    // The example the whole entry exists for: the Deus Ex trousers under the Swat top.
+    selectLabel(menu, "Top");
+    menu.handleKey(tw::Key::Right);            // Deus Ex top -> Swat top
+    selectLabel(menu, "Pants");                // Deus Ex pants is already selected
+    selectLabel(menu, "Wear this top and these pants");
+    menu.handleKey(tw::Key::Select);
+    check(worn.size() == 2 && worn[0] == "Swat top" && worn[1] == "Deus Ex pants",
+          "the two pickers are worn together");
+    check(menu.status().find("Swat top with Deus Ex pants") != std::string::npos,
+          "and the status line names both");
+
+    // A single picker wears one slot. Enter on the row is the command, the arrows only
+    // browse: writing the profile on every keypress would be a file write per arrow.
+    int tops = 0;
+    hooks.wearTop = [&tops](const std::string& name) {
+        ++tops;
+        return "Wardrobe: " + name + " on";
+    };
+    tw::Menu second;
+    second.setVisible(true);
+    tw::buildDebugMenu(second, hooks);
+    selectLabel(second, "Top");
+    second.handleKey(tw::Key::Right);
+    check(tops == 0, "browsing the picker does not write the profile");
+    second.handleKey(tw::Key::Select);
+    check(tops == 1, "Enter on the picker wears that piece");
+    check(second.status().find("Swat top") != std::string::npos,
+          "and the status line says which one");
+
+    // The look, the undo, and a build with no table at all.
+    int looks = 0;
+    hooks.wearLook = [&looks](const std::string& name) {
+        ++looks;
+        return "Wardrobe: " + name + " on";
+    };
+    tw::Menu third;
+    third.setVisible(true);
+    tw::buildDebugMenu(third, hooks);
+    selectLabel(third, "Look");
+    third.handleKey(tw::Key::Right);            // Corner Boy -> Swat
+    selectLabel(third, "Wear this look");
+    third.handleKey(tw::Key::Select);
+    check(looks == 1 && third.status().find("Swat") != std::string::npos,
+          "a named look is worn in one press");
+    selectLabel(third, "Undo wardrobe changes");
+    third.handleKey(tw::Key::Select);
+    check(third.status().find("back to what you were wearing") != std::string::npos,
+          "undo reports what it did");
+
+    tw::DebugHooks bare = fullHooks(&toggles, &picks, &levels, &spawned);
+    bare.wardrobeTops.clear();
+    bare.wardrobePants.clear();
+    bare.wardrobeLooks.clear();
+    tw::Menu plain;
+    tw::buildDebugMenu(plain, bare);
+    check(!hasHeader(plain, "WARDROBE"), "no clothing table, no wardrobe section");
+}
+
+// The rules behind the wardrobe, on a profile alone: only the picked slot changes, a
+// piece nobody has bought goes into the wardrobe, and an unknown piece stays on.
+void testWardrobeProfile() {
+    tw::unlock::WardrobeIndex index;
+    index.uid = { "100", "200", "300", "400" };
+    index.slot = { "torso", "torso", "legs", "feet" };
+    check(index.SlotOf("300") == "legs", "the table answers which slot a piece fills");
+    check(index.SlotOf("999").empty(), "and nothing for a piece it does not know");
+
+    tw::json::Value state;
+    state.type = tw::json::Value::Type::Object;
+    tw::json::Value& player = state["player"];
+    player.type = tw::json::Value::Type::Object;
+    tw::json::Value& custom = player["CustomizationBag"];
+    custom.type = tw::json::Value::Type::Object;
+    custom["ClothingOutfitCortexUID"].setString("outfit-uid");
+    tw::json::Value& list = custom["ClothingStoreItemUIDs"];
+    list.type = tw::json::Value::Type::Array;
+    for (const char* uid : { "100", "300", "999" }) {
+        tw::json::Value item;
+        item.setString(uid);
+        list.array.push_back(std::move(item));
+    }
+
+    tw::unlock::WearReport report = tw::unlock::ReplaceWornSlot(state, index, "legs", "400");
+    // 400 is a feet piece here on purpose: the rule works from the slot it is given.
+    check(report.changed, "a different piece is a change");
+    check(report.worn == 3, "the list keeps its length");
+    check(report.owned == 1, "the new piece is put into the wardrobe");
+    const tw::json::Value* after = player.find("CustomizationBag");
+    check(after && after->find("ClothingOutfitCortexUID")->str == "0",
+          "the last bought outfit stops being what the client draws");
+
+    // The torso is untouched, and the piece the table does not know is still there.
+    std::string worn;
+    for (const tw::json::Value& item : after->find("ClothingStoreItemUIDs")->array)
+        worn += item.str + ",";
+    check(worn == "100,999,400,", "only the picked slot moved: " + worn);
+
+    // Wearing what is already on changes nothing, so the menu can say so instead of
+    // rewriting the file.
+    check(!tw::unlock::ReplaceWornSlot(state, index, "legs", "400").changed,
+          "wearing the same piece twice is not a change");
+
+    // A whole look replaces each slot it covers and leaves the rest.
+    tw::unlock::WearReport look = tw::unlock::WearPieces(state, index, { "200", "300" });
+    check(look.changed, "a look is a change");
+    worn.clear();
+    for (const tw::json::Value& item : after->find("ClothingStoreItemUIDs")->array)
+        worn += item.str + ",";
+    check(worn == "999,400,200,300,", "the look's slots are replaced, the rest kept: " + worn);
+
+    // Nothing to wear is not a change, and neither is a profile with no player.
+    check(!tw::unlock::WearPieces(state, index, {}).changed, "an empty look does nothing");
+    tw::json::Value blank;
+    blank.type = tw::json::Value::Type::Object;
+    check(!tw::unlock::ReplaceWornSlot(blank, index, "torso", "200").changed,
+          "a profile with no player is left alone");
+}
+
 }  // namespace
 
 int main() {
@@ -1507,6 +1684,8 @@ int main() {
     testSectionJump();
     testMissingHooksStillListed();
     testMenuStyle();
+    testWardrobe();
+    testWardrobeProfile();
     testUnlockCatalog();
     testUnlockProfile();
     testUnlockKeepsProgress();

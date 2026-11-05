@@ -1002,6 +1002,78 @@ def pay_world_encounter_reward(player, result=1, now=None):
             "reward_type": JOB_REWARD_TYPES.get(kind, JOB_REWARD_FACE)}
 
 
+# ---- export missions -----------------------------------------------------------
+# The warehouse's export business: the client runs the mission itself (its own
+# ExportMissionSlots, the three export operation types ExportDefend/ExportEscort/
+# ExportGunner) and calls export/startmission/<uid> when it begins and
+# export/endmission/<uid>/<result> when it ends. Everything the server has to do is
+# answer those two and pay: the payout ladders are the game's own table,
+# UFG::ExportMissionMetadata, whose level 1 entries are 1.5x the black-market value in
+# money and 3% of that in face. This build pays the flat money it always did and the
+# face that goes with it, and keeps the running totals the profile screen asks for
+# (mExportFaceEarned, which used to be hard-coded to 0).
+EXPORT_MONEY = 2500                          # one finished export, dirty money
+EXPORT_FACE_PERCENT = 3.0                    # ExportMissionMetadata, mFaceRewardPercentageOfMoneyReward[0]
+EXPORT_MAX_PER_HOUR = 6                      # like the street encounters; lifted by UnlockBag.All
+
+
+def export_bag(player):
+    bag = player.setdefault("ExportBag", {})
+    bag.setdefault("Attempted", 0)
+    bag.setdefault("Completed", 0)
+    bag.setdefault("Face", 0)
+    bag.setdefault("Paid", [])
+    bag.setdefault("Started", [])
+    return bag
+
+
+def start_export_mission(player, mission_uid="", now=None):
+    """Note that the client has begun an export. Returns the bag for the log line."""
+    now = time.time() if now is None else now
+    bag = export_bag(player)
+    bag["Attempted"] += 1
+    bag["Started"] = [int(t) for t in bag["Started"] if now - int(t) < 3600] + [int(now)]
+    bag["Last"] = str(mission_uid or "0")
+    return bag
+
+
+def pay_export_mission(player, mission_uid="", success=True, now=None):
+    """Pay one finished export; returns what was paid (for the reply).
+
+    A failed export pays nothing, which is what the client's own success flag means -
+    the money and the face are the reward for the run, not for turning up. The hourly
+    cap only bites on a locked profile: an unlocked one is the menu's "everything is
+    open" profile, and its exports should not run dry.
+    """
+    now = time.time() if now is None else now
+    bag = export_bag(player)
+    paid = {"money": 0, "face": 0, "completed": bag["Completed"], "capped": False}
+    if isinstance(success, str):
+        success = success not in ("0", "false", "False", "")
+    bag["Last"] = str(mission_uid or "0")
+    if not success:
+        return paid                       # a failed run pays nothing, as before
+
+    # The cap counts exports that were *paid* in the last hour, not ones that were
+    # started: a mission that fails still used up its run.
+    recent = [t for t in bag.get("Paid", []) if now - int(t) < 3600]
+    bag["Paid"] = recent
+    if len(recent) >= EXPORT_MAX_PER_HOUR and not unlocked(player):
+        paid["capped"] = True
+        return paid
+    money = EXPORT_MONEY
+    face = int(round(money * EXPORT_FACE_PERCENT / 100.0))
+    currency = player["CurrencyBag"]
+    currency["DirtyMoney"] = str(int(currency.get("DirtyMoney", "0")) + money)
+    pdb = player["PlayerDataBag"]
+    pdb["Face"] = str(int(pdb.get("Face", "0")) + face)
+    bag["Paid"] = recent + [int(now)]
+    bag["Completed"] += 1
+    bag["Face"] += face
+    paid.update({"money": money, "face": face, "completed": bag["Completed"]})
+    return paid
+
+
 # ---- "Challenges" (community trials) -------------------------------------------
 # UIScreenTrials pages through trial containers - the previous, current and next
 # challenge. The client tracks challenge progress itself (the trial names are ordinary

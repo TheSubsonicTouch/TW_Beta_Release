@@ -166,9 +166,7 @@ std::string UnlockEventsAndActivities(bool content) {
 
     // The server keeps the profile next to itself (LocalServer/state.json); an older
     // layout kept it in the game folder, so both are written when they exist.
-    const char *files[] = { "state.json", "LocalServer/state.json" };
-    for (const char *rel : files) {
-        const std::string path = dir + rel;
+    for (const std::string &path : ProfileFiles()) {
         json::Value root;
         if (!ReadJson(path, root) || !root.isObject()) continue;
         any = true;
@@ -206,7 +204,7 @@ std::string UnlockEventsAndActivities(bool content) {
 
     // The reload: server.py stats these two on every request and re-imports them when the
     // timestamp moves, which also re-reads state.json from disk.
-    Touch(dir + "LocalServer/handlers.py");
+    ReloadServer();
 
     const int jobs = ErrandCount(errands);
     std::string status = total.wasUnlocked ? "Already unlocked" : "Unlocked";
@@ -234,6 +232,39 @@ std::string UnlockEventsAndActivities(bool content) {
 
 std::string UnlockRaidsAndEvents() {
     return UnlockEventsAndActivities(false);
+}
+
+std::string GameFolder() { return GameDir(); }
+
+bool ReadGameFile(const std::string &path, std::string &out) { return ReadFileText(path, out); }
+
+bool WriteGameFile(const std::string &path, const std::string &text) {
+    return WriteFileText(path, text);
+}
+
+bool DeleteGameFile(const std::string &path) {
+    return DeleteFileW(ToWide(path).c_str()) != 0;
+}
+
+std::vector<std::string> ProfileFiles() {
+    const std::string dir = GameDir();
+    if (dir.empty()) return {};
+    std::vector<std::string> out;
+    for (const char *rel : { "state.json", "LocalServer/state.json" }) {
+        HANDLE h = CreateFileW(ToWide(dir + rel).c_str(), GENERIC_READ,
+                               FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING,
+                               FILE_ATTRIBUTE_NORMAL, nullptr);
+        if (h == INVALID_HANDLE_VALUE) continue;
+        CloseHandle(h);
+        out.push_back(dir + rel);
+    }
+    return out;
+}
+
+void ReloadServer() {
+    const std::string dir = GameDir();
+    if (dir.empty()) return;
+    Touch(dir + "LocalServer/handlers.py");
 }
 
 }  // namespace game

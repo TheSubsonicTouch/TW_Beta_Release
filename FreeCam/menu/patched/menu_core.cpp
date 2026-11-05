@@ -1067,6 +1067,104 @@ void buildDebugMenu(Menu& menu, const DebugHooks& hooks) {
         }
     }
 
+    // ---- Wardrobe --------------------------------------------------------
+    //
+    // The wardrobe screen only offers the pieces the game files give a shop category, so
+    // an outfit's own trousers cannot be worn with another outfit's top - the Deus Ex
+    // trousers and the Swat top being the example that started this. Every piece here is
+    // one the client already draws; "wearing" one rewrites the profile's piece list, and
+    // the slot that was picked is the only slot it touches.
+    if (!hooks.wardrobeTops.empty() || !hooks.wardrobePants.empty()) {
+        header("WARDROBE");
+
+        {
+            MenuItem worn;
+            worn.label = "Worn now";
+            worn.kind = ItemKind::Info;
+            worn.text = hooks.wardrobeStatus ? hooks.wardrobeStatus() : std::string();
+            menu.addItem(worn);
+        }
+
+        auto wearSlot = [&menu](const char* label, std::vector<std::string> options,
+                                std::function<std::string(const std::string&)> fn,
+                                const char* what) {
+            MenuItem it;
+            it.label = label;
+            it.kind = ItemKind::Selector;
+            it.options = std::move(options);
+            it.onPick = [&menu, fn, what](const std::string& opt) -> std::string {
+                if (!fn) return std::string(what) + ": not available in this build";
+                if (opt.empty()) return std::string(what) + ": no pieces known";
+                return fn(opt);
+            };
+            menu.addItem(it);
+        };
+
+        wearSlot("Top", hooks.wardrobeTops, hooks.wearTop, "Top");
+        wearSlot("Pants", hooks.wardrobePants, hooks.wearPants, "Pants");
+
+        {
+            // The point of the pickers: these two together, whatever the game files think
+            // of either garment on its own.
+            MenuItem wear;
+            wear.label = "Wear this top and these pants";
+            wear.kind = ItemKind::Action;
+            auto combo = hooks.wearCombo;
+            wear.onAction = [&menu, combo]() {
+                if (!combo) {
+                    menu.setStatus("Wardrobe: this build cannot write the profile");
+                    return;
+                }
+                std::string top, pants;
+                if (const MenuItem* row = menu.item("Top"))
+                    if (!row->options.empty()) top = row->options[row->optionIndex];
+                if (const MenuItem* row = menu.item("Pants"))
+                    if (!row->options.empty()) pants = row->options[row->optionIndex];
+                menu.setStatus(combo(top, pants));
+            };
+            menu.addItem(wear);
+        }
+
+        if (!hooks.wardrobeLooks.empty()) {
+            MenuItem look;
+            look.label = "Look";
+            look.kind = ItemKind::Selector;
+            look.options = hooks.wardrobeLooks;
+            menu.addItem(look);
+
+            MenuItem wear;
+            wear.label = "Wear this look";
+            wear.kind = ItemKind::Action;
+            auto fn = hooks.wearLook;
+            wear.onAction = [&menu, fn]() {
+                if (!fn) {
+                    menu.setStatus("Wardrobe: this build cannot write the profile");
+                    return;
+                }
+                std::string name;
+                if (const MenuItem* row = menu.item("Look"))
+                    if (!row->options.empty()) name = row->options[row->optionIndex];
+                if (name.empty()) {
+                    menu.setStatus("Wardrobe: no looks in the server's data");
+                    return;
+                }
+                menu.setStatus(fn(name));
+            };
+            menu.addItem(wear);
+        }
+
+        {
+            MenuItem undo;
+            undo.label = "Undo wardrobe changes";
+            undo.kind = ItemKind::Action;
+            auto fn = hooks.wardrobeUndo;
+            undo.onAction = [&menu, fn]() {
+                menu.setStatus(fn ? fn() : std::string("Wardrobe: nothing to undo"));
+            };
+            menu.addItem(undo);
+        }
+    }
+
     // ---- Progression -----------------------------------------------------
     if (!hooks.levelTargets.empty() || hooks.unlockAllContent) {
         header("PROGRESSION");

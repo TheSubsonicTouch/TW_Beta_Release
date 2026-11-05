@@ -905,7 +905,8 @@ def _profile(player, is_ai):
     return ok(
         mAccountID=pdb["AccountID"], mPlayerName=pdb["Name"], mXP=xp, mXPLevel=level,
         mFace=pdb.get("Face", "0"), mRaidAttempts=0, mRaidSuccesses=0, mRacketsCompleted=0,
-        mTotalTurfPointsPossible=0, mTurfPoints=0, mRaidFaceEarned="0", mExportFaceEarned="0",
+        mTotalTurfPointsPossible=0, mTurfPoints=0, mRaidFaceEarned="0",
+        mExportFaceEarned=str(state.export_bag(player).get("Face", 0)),
         mAvatarURL=pdb.get("AvatarUrl", ""), mIsAI=is_ai, mUpgrades=[], mWeaponResults=[],
     )
 
@@ -1222,18 +1223,35 @@ def end_operation(req, method, parts, body, query):
 
 @route("game", "export/startmission")
 def export_start(req, method, parts, body, query):
+    # export/startmission/<mission uid>: the client has begun one of its export missions.
+    # Nothing is decided here - the mission, its commodity and its route are the client's -
+    # but the attempt is counted, which is what the hourly cap below works from.
+    mission = parts[2] if len(parts) > 2 else "0"
+    with STATE.lock:
+        bag = state.start_export_mission(_player(), mission)
+        STATE.save()
+    print("export: mission %s started (%d attempted)" % (mission, bag["Attempted"]),
+          flush=True)
     return _ok_bags()
 
 
 @route("game", "export/endmission")
 def export_end(req, method, parts, body, query):
-    # export/endmission/<mission uid>/<result>
+    # export/endmission/<mission uid>/<result>: one of the client's export missions has
+    # finished. state.pay_export_mission pays the game's own money and face ladders and
+    # keeps the totals the profile screen reads back as mExportFaceEarned.
+    mission = parts[2] if len(parts) > 2 else "0"
     success = _int(parts[3] if len(parts) > 3 else None) != 0
-    money = 2500 if success else 0
     with STATE.lock:
-        _money("DirtyMoney", money)
-    STATE.save()
-    return _ok_bags(mFaceReward=0, mMoneyReward=money)
+        paid = state.pay_export_mission(_player(), mission, success)
+        STATE.save()
+    if paid["money"] or paid["face"]:
+        print("export: mission %s delivered -> +%d dirty money, +%d face (%d done)"
+              % (mission, paid["money"], paid["face"], paid["completed"]), flush=True)
+    elif success and paid["capped"]:
+        print("export: mission %s delivered, but the hourly export cap is full" % mission,
+              flush=True)
+    return _ok_bags(mFaceReward=paid["face"], mMoneyReward=paid["money"])
 
 
 @route("game", "worldencounter/endencounter")

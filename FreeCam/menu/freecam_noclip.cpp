@@ -5,6 +5,24 @@
 // (0x23f25f8 -> +0x58 -> +0x80), read and written through the same validation, with only
 // the translation touched.
 //
+// Two things have to be true for that to be noclip rather than a very fast elevator.
+//
+//   1. The position written has to be the one the game reads. It is, for the camera that
+//      follows the player and for the renderer - but the character controller may keep its
+//      own copy and copy it back over the node each tick, in which case a write is undone
+//      before it is ever drawn. So the first tick looks for other pointers to the player's
+//      position: any pointer in the player object or the node that lands on three readable,
+//      writable floats matching the position exactly is a copy, and every tick writes the
+//      anchor into those as well. Nothing is assumed about where they are or what owns
+//      them; a pointer that stops matching is dropped.
+//   2. The game must not win the race. The write happens on the camera thread every 1 ms,
+//      which is several times per frame, so the last write before the frame is ours.
+//
+// The log line reports how far the game moved the character back between two writes. A
+// steady 0.00 m means the write is holding and the only thing in the way of walking into a
+// wall was the direction the anchor was moved in; a metre or two per tick means the
+// controller is rewriting the node and the copies above are what carries the flight.
+//
 // Why an anchor rather than "add to the matrix every tick": the game's physics keeps
 // running. If the position were only nudged while a key was down, the character would fall
 // between presses and the whole thing would be a very fast elevator. So the first tick
@@ -64,6 +82,23 @@ struct Anchor {
 };
 Anchor g_anchor;
 
+// A second copy of the player's position, found at runtime: a pointer in the player object
+// or its node that lands on three floats matching the position. The controller writing one
+// of these back over the node is exactly what "collision pushes me out of the wall" looks
+// like from the outside, so the anchor is written into them too.
+struct Mirror {
+    float *address;
+    float last[3];      // what was written last, so a copy someone else owns is noticed
+};
+constexpr int kMaxMirrors = 12;
+Mirror g_mirrors[kMaxMirrors];
+int g_mirrorCount = 0;
+ULONGLONG g_lastScan = 0;
+bool g_scanned = false;
+
+// How far the game moved the character since the last write, kept for the log line.
+float g_driftMax = 0.0f;
+
 uintptr_t Base() { return reinterpret_cast<uintptr_t>(GetModuleHandleW(nullptr)); }
 
 bool Readable(const void *p, size_t n) {
@@ -95,14 +130,106 @@ void *PlayerObject() {
 
 // The live player transform, as the game keeps it. Null when the player is not in the
 // world (title screen, loading, between maps).
-float *PlayerMatrix() {
+float *PlayerMatrix(void **nodeOut) {
+    if (nodeOut) *nodeOut = nullptr;
     void *player = PlayerObject();
     if (!player) return nullptr;
     void *node = *reinterpret_cast<void **>(static_cast<uint8_t *>(player) + kPlayerNode);
     if (!Readable(node, 0xC0)) return nullptr;
     float *m = reinterpret_cast<float *>(static_cast<uint8_t *>(node) + kNodeMatrix);
     if (!Readable(m, 64)) return nullptr;
+    if (nodeOut) *nodeOut = node;
     return m;
+}
+
+float *PlayerMatrix() {
+    void *node = nullptr;
+    return PlayerMatrix(&node);
+}
+
+float Distance(const float a[3], const float b[3]);
+
+bool Writable(const void *p, size_t n) {
+    if (!Readable(p, n)) return false;
+    MEMORY_BASIC_INFORMATION mbi{};
+    if (VirtualQuery(p, &mbi, sizeof mbi) != sizeof mbi) return false;
+    return !(mbi.Protect & (PAGE_READONLY | PAGE_EXECUTE_READ | PAGE_EXECUTE | PAGE_GUARD));
+}
+
+bool Same(const float *f, const float p[3], float tolerance) {
+    return std::fabs(f[0] - p[0]) <= tolerance && std::fabs(f[1] - p[1]) <= tolerance &&
+           std::fabs(f[2] - p[2]) <= tolerance;
+}
+
+// Every pointer in the player object and the node that lands on a copy of the player's
+// position. Pointers back into the two objects themselves are skipped: those are the
+// transform being written already.
+void ScanMirrors(void *player, void *node, const float pos[3]) {
+    g_mirrorCount = 0;
+    g_scanned = true;
+    const struct { void *object; uintptr_t span; } objects[] = {
+        { player, 0x800 }, { node, 0x400 },
+    };
+    for (const auto &object : objects) {
+        const uintptr_t base = reinterpret_cast<uintptr_t>(object.object);
+        if (!base) continue;
+        for (uintptr_t off = 0; off + sizeof(uintptr_t) <= object.span; off += sizeof(uintptr_t)) {
+            if (!Readable(reinterpret_cast<void *>(base + off), sizeof(uintptr_t))) continue;
+            const uintptr_t target = *reinterpret_cast<uintptr_t *>(base + off);
+            if (target < 0x10000) continue;
+            // Its own objects are the transform, not a copy of it.
+            if (target >= base && target < base + object.span) continue;
+            if (target >= reinterpret_cast<uintptr_t>(player) &&
+                target < reinterpret_cast<uintptr_t>(player) + 0x800) {
+                continue;
+            }
+            if (target >= reinterpret_cast<uintptr_t>(node) &&
+                target < reinterpret_cast<uintptr_t>(node) + 0x400) {
+                continue;
+            }
+            if (!Writable(reinterpret_cast<void *>(target), sizeof(float) * 3)) continue;
+            const float *f = reinterpret_cast<const float *>(target);
+            if (!Same(f, pos, 0.02f)) continue;
+            bool known = false;
+            for (int i = 0; i < g_mirrorCount; ++i) {
+                if (g_mirrors[i].address == f) known = true;
+            }
+            if (known) continue;
+            Mirror &mirror = g_mirrors[g_mirrorCount++];
+            mirror.address = const_cast<float *>(f);
+            mirror.last[0] = f[0];
+            mirror.last[1] = f[1];
+            mirror.last[2] = f[2];
+            if (g_mirrorCount >= kMaxMirrors) return;
+        }
+    }
+}
+
+void WriteMirrors(const float pos[3], const float current[3]) {
+    for (int i = 0; i < g_mirrorCount; ++i) {
+        Mirror &mirror = g_mirrors[i];
+        float *f = mirror.address;
+        // Out of range, out of the process, or no longer a position-shaped block: drop it
+        // rather than write into whatever owns it now.
+        bool keep = Writable(f, sizeof(float) * 3) &&
+                    std::fabs(f[0]) < 50000.0f && std::fabs(f[1]) < 50000.0f &&
+                    std::fabs(f[2]) < 50000.0f;
+        // A copy the game is still writing itself is worth keeping even though our value is
+        // gone; a copy that belongs to something else entirely - never what was written and
+        // never the player - is not.
+        if (keep && Distance(f, mirror.last) > 3.0f && Distance(f, current) > 3.0f) keep = false;
+        if (!keep) {
+            g_mirrors[i] = g_mirrors[--g_mirrorCount];
+            --i;
+            continue;
+        }
+        f[0] = pos[0];
+        f[1] = pos[1];
+        f[2] = pos[2];
+        mirror.last[0] = pos[0];
+        mirror.last[1] = pos[1];
+        mirror.last[2] = pos[2];
+    }
 }
 
 bool KeyDown(int vk) { return (GetAsyncKeyState(vk) & 0x8000) != 0; }
@@ -129,9 +256,12 @@ bool NoclipStep() {
     last.QuadPart = now.QuadPart;
     if (dt > kMaxStep) dt = kMaxStep;
 
-    float *m = PlayerMatrix();
+    void *node = nullptr;
+    float *m = PlayerMatrix(&node);
     if (!m) {
         g_anchor.have = false;   // not in the world; start again from wherever we land
+        g_mirrorCount = 0;
+        g_scanned = false;
         return false;
     }
     void *player = PlayerObject();
@@ -183,17 +313,41 @@ bool NoclipStep() {
         for (int i = 0; i < 3; ++i) g_anchor.p[i] += wish[i] * step;
     }
 
+    // How far the game moved the character since the last write. Zero means the write is
+    // what the game is reading; a steady metre means it keeps a copy of its own, which is
+    // what the scan below is for. Measured before the write, so it is the game's doing.
+    const float drift = Distance(cur, g_anchor.p);
+    if (drift > g_driftMax) g_driftMax = drift;
+
+    // The other copies of the position, found once the player exists. Rescanning every two
+    // seconds until something turns up covers a player object that is rebuilt on a respawn
+    // or a load; once found, they are tracked from then on.
+    const ULONGLONG scanTick = GetTickCount64();
+    if (!g_scanned || (g_mirrorCount == 0 && scanTick - g_lastScan > 2000)) {
+        g_lastScan = scanTick;
+        ScanMirrors(player, node, cur);
+        if (g_mirrorCount > 0) {
+            TW_Log("Noclip: %d other copy/copies of the player position tracked",
+                   g_mirrorCount);
+        }
+    }
+
     // Written every tick, moving or not: that is what holds the character still instead of
     // letting the game's gravity take it back down. Only the translation.
     m[12] = g_anchor.p[0];
     m[13] = g_anchor.p[1];
     m[14] = g_anchor.p[2];
+    WriteMirrors(g_anchor.p, cur);
 
     const ULONGLONG tick = GetTickCount64();
     if (tick - g_lastLog > 5000) {
         g_lastLog = tick;
-        TW_Log("Noclip: player at %.1f %.1f %.1f, %.0fx", g_anchor.p[0], g_anchor.p[1],
-               g_anchor.p[2], static_cast<double>(NoclipSpeed()));
+        TW_Log("Noclip: player at %.1f %.1f %.1f, %.0fx, the game pulled it back %.2f m,"
+               " %d position copy/copies held",
+               g_anchor.p[0], g_anchor.p[1], g_anchor.p[2],
+               static_cast<double>(NoclipSpeed()), static_cast<double>(g_driftMax),
+               g_mirrorCount);
+        g_driftMax = 0.0f;
     }
     return true;
 }
@@ -213,6 +367,9 @@ void NoclipSet(bool on) {
     g_active = on;
     g_anchor.have = false;    // take the position it finds when it starts
     g_lastLog = 0;
+    g_mirrorCount = 0;        // the copies belong to whoever was in the world last
+    g_scanned = false;
+    g_driftMax = 0.0f;
     TW_Log("Noclip: %s", on ? "on - the player is flown directly, collision is not consulted"
                             : "off - the game's own movement takes the character back");
 }

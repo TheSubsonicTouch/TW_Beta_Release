@@ -64,7 +64,7 @@ on the next launch).
 | `useroptions.py` | Reads/edits the obfuscated `UserOptions.dat`. |
 | `cert.pem`, `key.pem` | Self-signed certificate for `localhost` (the client does not verify it). |
 | `logs/` | One request log per server run. Lines marked `UNHANDLED` are endpoints with no handler yet. |
-| `tools/` | The scripts used to unpack the game data and decode its schema, crash-analysis helpers, `smoke_test.py`, `test_jobs.py`, `test_shops.py`, `test_looks.py`, `test_unlock.py`, `playermodel.py`, `looks.py` (the lookbook), `schema_dump.py`, `patch_exe.py` (see above), `make_bundle.py` and the data builders (`errands.py`, `challenges.py`, `favour_rewards.py`, `store_items.py`). |
+| `tools/` | The scripts used to unpack the game data and decode its schema, crash-analysis helpers, `smoke_test.py`, `test_jobs.py`, `test_shops.py`, `test_looks.py`, `test_unlock.py`, `test_exports.py`, `playermodel.py`, `looks.py` (the lookbook), `schema_dump.py`, `patch_exe.py` (see above), `make_bundle.py` and the data builders (`errands.py`, `challenges.py`, `favour_rewards.py`, `store_items.py`). |
 | `devdata/` | Reference data for extending the server: the full object-database export and the client's endpoint and key lists. Not needed to play. |
 
 ## How it works
@@ -106,7 +106,7 @@ The bags:
 | 0x0100 | InventoryBag | yes (array of owned store items) |
 | 0x0200 | ShieldBag | no |
 | 0x0400 | TrialsBag | no |
-| 0x0800 | ExportRewardsBag | no |
+| 0x0800 | ExportRewardsBag | no (the export missions are the client's own; see below) |
 | 0x1000 | EnforcerUpgradesBag | yes (array of `{Item1: upgrade uid, Item2: slot}`) |
 
 The reply only sets the bits for bags it actually contains, which the client
@@ -441,11 +441,28 @@ There is no story object, no chapter or act, no dialogue-driven chain, and no ca
 starts or advances one. The 163 `Mission` and 333 `Quest` strings in the executable are
 UI and schema names from the engine, not authored content.
 
-The export chain is the nearest thing, and this server deliberately does not run it:
-`tools/storyline.py` lists `Complete an Export` and `Complete 3 Exports` as skipped,
-because their condition can never be met, and `state.ERRAND_UNSUPPORTED` is what
-unblocks the 49 jobs that hung off them. Making those two playable would mean inventing
-the chain - there is nothing in the data to emulate.
+The export chain is the nearest thing, and it is the client's: the export missions are
+`UFG::ExportMissionSlots` handed to `UFG::OperationManager`, whose three export types
+(`ExportDefend`, `ExportEscort`, `ExportGunner`) the client runs itself. The server's
+half is the two calls it makes - `export/startmission/%u64` when one begins and
+`export/endmission/%u64/%u` when it ends - and the payout, which comes from the game's
+own `UFG::ExportMissionMetadata`: 1.5x the black-market value in money and 3% of that in
+face at level 1, rising to 2.2x and 6.5% by level 10. This server pays the flat 2,500
+dirty money it always did plus the face that goes with it, counts the attempt, the
+completion and the face in `ExportBag`, caps a locked profile at six paid exports an
+hour (the menu's unlock lifts the cap, like the street encounters), pays nothing for a
+failed run, and reports the face it has paid back as `mExportFaceEarned` in
+`profile/playerdata` instead of a hard-coded 0. `tools/test_exports.py` checks all of
+it.
+
+What the server cannot do is put an export on the map. Which exports exist, where they
+start and what they carry is client data, and the client's own gate on offering one is
+Face rank - *"Your face rank isn't high enough to do export missions"* - which the
+menu's unlock now clears. `tools/storyline.py` still lists `Complete an Export` and
+`Complete 3 Exports` as skipped: those two jobs test the client's own `ExportsCompleted`
+counter, which this server never sees, so they are on the board (the unlock puts them
+there) but their condition is met by the game, not by us. `state.ERRAND_UNSUPPORTED` is
+what keeps them from hiding the 49 jobs behind them.
 
 ### Unlocking everything (`UnlockBag.All`)
 
@@ -509,6 +526,7 @@ without the flag gets and what the flag adds.
     python tools/test_activities.py  # operations, crime scenes, street events, restart
     python tools/test_raids.py     # rival availability, raid cooldown, profile migration
     python tools/test_unlock.py    # UnlockBag.All: jobs, favours, the event, the rivals
+    python tools/test_exports.py   # export missions: money, face, totals, the hourly cap
 
 The test scripts build a throw-away profile in a temp folder, so they never touch
 `state.json`. `tools/smoke_test.py` runs the same screens over HTTPS against a running

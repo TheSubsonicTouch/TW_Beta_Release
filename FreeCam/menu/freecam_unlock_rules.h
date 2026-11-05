@@ -35,6 +35,11 @@ struct Settings {
     long long maxXp = 0;             // XP of the top level (gamedb_min.json XPDefinitions)
     int maxRacketLevel = 0;          // top safehouse/racket level (MetagameInfoWrapper)
     int triadLevel = 50;             // what the triad screen shows at the top level
+    // Face is the rank the export missions are gated on ("Your face rank isn't high
+    // enough to do export missions. (Complete Raids to earn face and gain ranks.)"). The
+    // game's own face payouts are tens of points and no rank ladder ships in the data,
+    // so a value this large clears every rank there can be.
+    long long maxFace = 1000000;
     long long now = 0;               // unix time: the challenge's window starts here
     int rotationSeconds = 7 * 86400; // data/challenges.json rotationDays, in seconds
 };
@@ -60,6 +65,43 @@ struct Report {
 // Reads the two data files into the catalogue. Missing or malformed input gives an empty
 // catalogue rather than an error: the profile side still works without it.
 Catalog ReadCatalog(const json::Value &favourites, const json::Value &stores);
+
+// ---- the wardrobe --------------------------------------------------------------
+//
+// The client draws the player from CustomizationBag.ClothingStoreItemUIDs, one entry per
+// UFG::StoreClothing piece, and from nothing else. Buying an outfit fills that list with
+// the outfit's own pieces, but the wardrobe screen will not hand-mix two outfits: a
+// garment the game files do not give a shop category (the Deus Ex and Swat trousers, the
+// Hitman set) has no row in it at all. Writing the list directly is what makes "Deus Ex
+// pants with the Swat top" a thing you can wear, and it is also what makes those pieces
+// equippable without a shop page of their own.
+
+// uid -> the slot it fills ("torso", "legs", ...). Built from the menu's own table, so a
+// piece the client is already wearing is identified instead of guessed at.
+struct WardrobeIndex {
+    std::vector<std::string> uid;
+    std::vector<std::string> slot;
+
+    std::string SlotOf(const std::string &piece) const;
+};
+
+// What a wear did, for the menu's status line.
+struct WearReport {
+    bool changed = false;   // the profile was rewritten
+    int worn = 0;           // pieces now in ClothingStoreItemUIDs
+    int owned = 0;          // pieces added to the InventoryBag so the wardrobe shows them
+};
+
+// Replaces every worn piece of `slot` with `piece` (an empty `piece` takes the slot off).
+// Other slots - the hat, the shoes, the watch - are left exactly as they were, which is
+// the whole point of picking one slot at a time.
+WearReport ReplaceWornSlot(json::Value &state, const WardrobeIndex &index,
+                           const std::string &slot, const std::string &piece);
+
+// Puts a whole set on: each slot the list of pieces covers is replaced, the rest is kept.
+// This is a named look from data/looks.json or a game outfit's own piece list.
+WearReport WearPieces(json::Value &state, const WardrobeIndex &index,
+                      const std::vector<std::string> &pieces);
 
 // Edits one profile (the whole state.json object: {"player": ..., "opponents": [...]}).
 // `content` is false for the menu's smaller "raids and events" entry, which opens the
