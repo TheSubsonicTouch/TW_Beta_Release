@@ -94,7 +94,9 @@ def main():
     dll_out = os.path.join(OUT_DIR, "dinput8.dll")
     start_out = os.path.join(OUT_DIR, "START-HERE.txt")
     shutil.copyfile(DLL, dll_out)
-    with open(start_out, "w", newline="\r\n", encoding="utf-8") as f:
+    # newline="" so the CRLFs already in START_HERE are the only ones written; opening with
+    # newline="\r\n" would turn each of them into CR CR LF.
+    with open(start_out, "w", newline="", encoding="utf-8") as f:
         f.write(START_HERE)
 
     entries = [("START-HERE.txt", start_out), ("dinput8.dll", dll_out)]
