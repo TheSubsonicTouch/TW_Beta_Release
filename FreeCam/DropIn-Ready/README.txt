@@ -141,6 +141,45 @@ game carries on from its own camera and not from where you flew to.
 WHAT CHANGED IN THIS BUILD
 --------------------------
 
+  - Build 32. A wardrobe section, and the rest of the "make the game have more to do" pass.
+
+    - The wardrobe is the answer to "the Deus Ex trousers with the Swat top". The client
+      draws the player from the profile's list of clothing pieces, and the wardrobe screen
+      only offers pieces the game files give a shop category - so an outfit's own trousers
+      have no row to pick unless the whole outfit goes on. The new WARDROBE section lists
+      every piece the game has instead: 148 tops and 61 pairs of pants by name ("Deus Ex
+      pants", "Swat top"), a "Wear this top and these pants" row that replaces only those
+      two slots and leaves the hat, the shoes and the watch alone, 32 named looks from the
+      server's own lookbook, and an undo that puts back what the profile had before the
+      first change. The table is compiled into the DLL from the installed game data
+      (FreeCam/tools/wardrobe_table.py), so every row is a piece the client already
+      draws - nothing is invented, and a piece with no finished garment is left out.
+    - A change is written to the profile, not to memory, so it appears when the client
+      next loads its bags - the menu says so rather than pretending the next frame moves.
+      The three actions also put the piece into the player's wardrobe if it is not there
+      yet, which is what makes the outfit-only trousers show up in the game's own wardrobe
+      afterwards.
+    - Noclip now looks for the reason it could still be stopped by a wall. The node this
+      build has always written may not be the only copy of the player's position: the
+      character controller can keep its own and write it back. So the first tick scans the
+      player object and its node for pointers to three floats that exactly match the
+      position, and every tick writes the anchor into those copies as well (a copy that
+      stops looking like a position is dropped, and nothing outside the player is
+      written). The 5-second log line now also says how far the game moved the character
+      back between two writes - 0.00 m means the write is holding, a metre or more means
+      the controller is winning, and the copies are what carries the flight.
+    - Unlock all now also raises Face rank, which is what the client's own message asks
+      for before the map will offer an export mission ("Your face rank isn't high enough
+      to do export missions"). The ladder is not in the game data, so the unlock sets a
+      value above any rank it can hold.
+    - The local server pays export missions properly: export/endmission credits the money
+      and the face the game's own ExportMissionMetadata table implies (3% of the money at
+      level 1), keeps running attempted/completed/face totals, caps a locked profile at
+      six paid exports an hour (lifted by Unlock all), pays nothing for a failed run, and
+      the profile screen's mExportFaceEarned is now the real number instead of a
+      hard-coded 0. tools/test_exports.py checks all of it.
+    - A still of the wardrobe is in packaging/menu-build32-preview.png.
+
   - Build 31. The sky colour is painted, and the picker holds the game's own skydomes.
 
     - Build 30 wrote the colour into the game's sky memory and reported that the sky had
