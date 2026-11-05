@@ -1,0 +1,1408 @@
+"""Persistent player/world state for the local Triad Wars server.
+
+Field names and encodings follow what the client deserialises (see NOTES.md):
+  * 32-bit integers, floats and bools are plain JSON values;
+  * every 64-bit value (ids, UIDs, object handles, money) is a decimal *string*,
+    because the client's JSON library would otherwise round it through a double;
+  * symbols (e.g. LocationName) are strings that the client hashes itself.
+"""
+import copy
+import json
+import math
+import os
+import random
+import threading
+import time
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+STATE_PATH = os.path.join(HERE, "state.json")
+
+with open(os.path.join(HERE, "data", "gamedb_min.json"), encoding="utf-8") as f:
+    DB = json.load(f)
+
+# ---- game database lookups ---------------------------------------------------
+RACKET_TYPES = {r["$uid"]: r for r in DB["UFG::RacketType"]}
+_BY_CAPTION = {}
+for _r in DB["UFG::RacketType"]:
+    _BY_CAPTION.setdefault(_r["mCaption"], []).append(_r)
+
+SAFEHOUSE_UID = _BY_CAPTION["RACKET_SAFEHOUSE"][0]["$uid"]
+WAREHOUSE_UID = _BY_CAPTION["RACKET_WAREHOUSE"][0]["$uid"]
+TEMPLE_UID = _BY_CAPTION["RACKET_TEMPLE"][0]["$uid"]
+EMPTY_UID = {r["mSize"]: r["$uid"] for r in _BY_CAPTION["Empty"]}   # SMALL / MEDIUM / LARGE
+
+TURF_TEMPLATES = DB["UFG::TurfTemplate"]
+TRIADS = DB["UFG::SelectableTriad"]
+COMMODITIES = DB["UFG::CommodityType"]
+XP_LEVELS = DB["UFG::XPDefinitions"][0]["mAuthoredXPLevels"]    # XP needed to reach each level
+METAGAME = DB["UFG::MetagameInfoWrapper"][0]                    # build/upgrade costs and times
+INFORMANT_TYPES = {i["$uid"]: i for i in DB["UFG::InformantType"]}  # contacts and their favours
+
+# Upgrade favours: favour definition UID -> {"upgrade": enforcer upgrade UID, "name", "ftpe"}.
+with open(os.path.join(HERE, "data", "favour_upgrades.json"), encoding="utf-8") as f:
+    FAVOUR_UPGRADES = json.load(f)
+FTPE_RAID_FAVOURS = sorted(uid for uid, v in FAVOUR_UPGRADES.items() if v["ftpe"])
+
+# Jobs ("errands") and Challenges ("community trials"), built by tools/errands.py and
+# tools/challenges.py from the game's own object database. Both are optional: a server
+# copied without them answers both screens with an empty but valid result, as before.
+def _load_data(name, default):
+    path = os.path.join(HERE, "data", name)
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return default
+
+
+ERRAND_DB = _load_data("errands.json", {})
+ERRANDS = ERRAND_DB.get("errands") or []
+ERRANDS_BY_UID = {e["uid"]: e for e in ERRANDS}
+ERRAND_REWARDS = ERRAND_DB.get("rewards") or {}
+
+CHALLENGE_DB = _load_data("challenges.json", {})
+CHALLENGES = CHALLENGE_DB.get("challenges") or []
+CHALLENGE_TUNERS = CHALLENGE_DB.get("tuners") or {}
+CHALLENGE_ROTATION_SECONDS = int(CHALLENGE_DB.get("rotationDays", 7)) * 86400
+
+# Store catalogues: store UID -> {"name", "type", "items": [store item UIDs]}. Built by
+# tools/store_items.py; stores that are not listed have nothing for sale.
+with open(os.path.join(HERE, "data", "store_items.json"), encoding="utf-8") as f:
+    STORE_ITEMS = json.load(f)
+
+# The open world has seven turf sites. The client maps each site's symbol to a
+# slot 1..7 and looks the owner up as opponents[slot - 1].
+TURF_LOCATIONS = ["Turf-Turf%05d" % n for n in range(1, 8)]
+
+# mRequestedBags bit for each data bag in a serialized-player-data response.
+BAG_PLAYER = 0x0001
+BAG_CUSTOMIZATION = 0x0002
+BAG_INFORMANTS = 0x0004
+BAG_FAVOURS = 0x0008
+BAG_ACTIVE_FAVOURS = 0x0010
+BAG_CURRENCY = 0x0040
+BAG_TURF = 0x0080
+BAG_INVENTORY = 0x0100
+BAG_SHIELD = 0x0200
+BAG_TRIALS = 0x0400
+BAG_EXPORT_REWARDS = 0x0800
+BAG_ENFORCER_UPGRADES = 0x1000
+
+AI_NAMES = ["Big Smile Lee", "Uncle Po", "Sonny Wo", "Broken Nose Jiang",
+            "Two Chin Tsao", "Pockmark Cheuk", "Dogeyes Lin"]
+
+# A rival's turf answers a raid and then needs time to recover: UIScreenWorldMap asks for
+# "FREE_REFRESH_RIVALS" and the client itself says "Unable to provide new rivals when all
+# turfs are on cooldown", so mRemainingSeconds is the countdown until that site can be hit
+# again. A fresh profile has every rival available; a successful raid puts that one site on
+# this cooldown. Ten minutes keeps the seven-site roster in play in one sitting.
+RIVAL_RAID_COOLDOWN = 10 * 60
+
+# What one racket standing on a rival's turf is worth to whoever walks out with it. The
+# base raid payout is fixed, so this is what makes a built-up site worth more than a bare
+# one - and it is why the unlock's built-out rivals are worth raiding.
+RAID_SAFE_DIRTY = 250
+
+
+def racket_instance(type_uid, level=1, block=0, slot=0, state=0, staff=0):
+    r = {
+        "RacketTypeUID": str(type_uid),
+        "RacketLevel": level,
+        "Staff": staff,
+        "BlockIndex": block,
+        "RacketState": state,
+        "SlotIndex": slot,
+        "CurrentProduction": 0,
+        "Stats": {
+            "MaxStaff": 0,
+            "OutputMultiplier": 1.0,
+            "ProductionTimeDivision": 1.0,
+            "UpgradeDiscountMultiplier": 1.0,
+            "ProductionInputDiscountDivision": 1.0,
+            "NoStaffSpawn": 0,
+        },
+    }
+    for n in range(1, 11):
+        r["Production%d" % n] = 0
+    return r
+
+
+SAFEHOUSE_BLOCK = -1      # BlockIndex of the safehouse / warehouse / temple (off the grid)
+
+
+def new_turf(location, template_index=0, level=1):
+    tpl = TURF_TEMPLATES[template_index % len(TURF_TEMPLATES)]
+    return {
+        "Turf": {
+            "LocationName": location,
+            # The safehouse, warehouse and temple are not on the block grid: the client
+            # positions (and mouse-picks) them from the turf origin only when BlockIndex is
+            # -1. Any grid index puts their pick boxes over that grid lot instead, so the
+            # safehouse cannot be selected in the turf manager.
+            "Safehouse": racket_instance(SAFEHOUSE_UID, level, SAFEHOUSE_BLOCK),
+            "Warehouse": racket_instance(WAREHOUSE_UID, level, SAFEHOUSE_BLOCK),
+            "Temple": racket_instance(TEMPLE_UID, level, SAFEHOUSE_BLOCK),
+            "TurfTemplateUID": tpl["$uid"],
+            "RacketsBuilt": "0",
+        },
+        # Only built rackets are listed. The client draws empty lots itself from the
+        # template, and counts every entry here against the turf's build points
+        # (safehouse level minus len(Rackets)), so placeholders leave none to spend.
+        "Rackets": [],
+        "Commodities": [],
+    }
+
+
+# ---- Rival turfs -------------------------------------------------------------------
+# Every turf template has the same five buildable lots - three SMALL, one MEDIUM, one
+# LARGE (`UFG::TurfTemplate.mTurfBlocks`) - so five rackets is a full turf. The rivals
+# start with none, which left all seven sites on the world map looking abandoned while
+# the player's own turf filled up. UnlockBag.All builds them out of the game's own racket
+# types, one per lot, matched by size: empty-lot types are skipped, and so is any type
+# asking for a higher safehouse than that rival is given.
+#
+# The picks are seeded per rival, so a given site always comes back built the same way -
+# filling is idempotent and needs no bookkeeping in the profile.
+RIVAL_TURF_LOTS = ("SMALL", "SMALL", "SMALL", "MEDIUM", "LARGE")
+
+
+def _racket_types_by_size():
+    by_size = {}
+    for uid in sorted(RACKET_TYPES):
+        rtype = RACKET_TYPES[uid]
+        if rtype.get("mIsEmptyType"):
+            continue
+        if rtype.get("mSize") in RIVAL_TURF_LOTS:
+            by_size.setdefault(rtype["mSize"], []).append(uid)
+    return by_size
+
+
+RACKET_TYPES_BY_SIZE = _racket_types_by_size()
+
+
+def rival_safehouse_level(index):
+    """The safehouse level a rival's turf is built out to: 6..9, cycling by site."""
+    return 6 + index % 4
+
+
+def fill_rival_turf(player, index=0):
+    """Build out one rival's turf from the game's racket types.
+
+    Idempotent: returns the number of rackets added, 0 once the turf is full. The rival's
+    safehouse is raised first, because the client counts a turf's spare build points as
+    safehouse level minus the rackets already standing on it - a five-racket site under a
+    level-1 safehouse reads as massively over budget.
+    """
+    turf = player.get("TurfBag") or {}
+    building = turf.get("Turf") or {}
+    if not building or len(turf.get("Rackets") or []) >= len(RIVAL_TURF_LOTS):
+        return 0
+    level = rival_safehouse_level(index)
+    rng = random.Random(0x7AD0 + index)          # stable: a site always looks the same
+    built = []
+    for block, size in enumerate(RIVAL_TURF_LOTS):
+        choices = [uid for uid in RACKET_TYPES_BY_SIZE.get(size, [])
+                   if int(RACKET_TYPES[uid].get("mSafehouseMinLevel") or 0) <= level]
+        if not choices:
+            continue
+        uid = choices[rng.randrange(len(choices))]
+        built.append(racket_instance(uid, 1 + (index + block) % 3, block))
+    if not built:
+        return 0
+    turf["Rackets"] = built
+    building["RacketsBuilt"] = str(len(built))
+    for key in ("Safehouse", "Warehouse", "Temple"):
+        if key in building:
+            building[key]["RacketLevel"] = level
+    return len(built)
+
+
+def rival_racket_count(player):
+    return len((player.get("TurfBag") or {}).get("Rackets") or [])
+
+
+def new_customization_bag():
+    """What the player is wearing (UFG::EnforcerCustomization). Zero means "as created".
+
+    ScalingPresetCortexUID picks a body preset, ClothingOutfitCortexUID the outfit, and
+    ClothingStoreItemUIDs the individual UFG::StoreClothing pieces drawn on top. The
+    wardrobe screen rewrites all three through enforcer/customization; the model the
+    game draws is these pieces, so they are the player model as far as the client cares.
+    """
+    return {
+        "ScalingPresetCortexUID": "0",
+        "ClothingOutfitCortexUID": "0",
+        "ClothingStoreItemUIDs": [],
+    }
+
+
+def new_player(player_id, name, triad_index, location, template_index=0, account_id=None):
+    return {
+        "PlayerDataBag": {
+            "PlayerDataID": str(player_id),
+            "Name": name,
+            "Face": "0",
+            "LaunderedMoney": 0,
+            "LaundrySecondsRemaining": 0,
+            "EnforcerXP": 0,
+            "Triad": TRIADS[triad_index % len(TRIADS)]["$uid"],
+            "AccountID": str(account_id if account_id is not None else player_id),
+            "LastUsedVehicle": "0",
+            "GameplayState": "",
+            "AvatarUrl": "",
+            "PreferMatchmakingWithFriends": False,
+            "IsFavourListInitialized": True,
+        },
+        "CurrencyBag": {"CleanMoney": "25000", "DirtyMoney": "5000", "Gold": "0"},
+        "TurfBag": new_turf(location, template_index),
+        "FavoursBag": [],
+        "EnforcerUpgradesBag": [],
+        "InventoryBag": [],
+        "CustomizationBag": new_customization_bag(),
+        # Job board and challenge progress; not client data bags, so they are not
+        # serialised into mDataBags (see State.bags).
+        "ErrandsBag": new_errand_bag(),
+        "TrialsBag": new_trial_bag(),
+    }
+
+
+def favour_instance(favour_id, definition_uid, is_new=1):
+    """A favour the player owns (UFG::FavourInstanceData)."""
+    return {
+        "FavourID": str(favour_id),
+        "SecondsElapsed": 0,
+        "TotalSeconds": 0,
+        "FavourDefinitionUID": str(definition_uid),
+        "IsNew": is_new,
+    }
+
+
+def next_favour_id(player):
+    """A favour instance id that does not collide with the ones already owned."""
+    used = [int(f.get("FavourID", 0)) for f in player.get("FavoursBag", [])]
+    return max([5000 + len(player.get("EnforcerUpgradesBag", []))] + used) + 1
+
+
+def grant_starting_favours(player):
+    """Give the two upgrade favours the first-raid results screen awards.
+
+    The client shows these as raid rewards without asking the server for them, then
+    its upgrade tutorial expects them to be owned.
+    """
+    owned = {f["FavourDefinitionUID"] for f in player["FavoursBag"]}
+    equipped = {u["Item1"] for u in player["EnforcerUpgradesBag"]}
+    next_id = 5001 + len(player["FavoursBag"]) + len(player["EnforcerUpgradesBag"])
+    for uid in FTPE_RAID_FAVOURS:
+        if uid in owned or FAVOUR_UPGRADES[uid]["upgrade"] in equipped:
+            continue
+        player["FavoursBag"].append(favour_instance(next_id, uid))
+        next_id += 1
+
+
+# Items the first-time-experience contacts hand over. The client never asks the server
+# for them: after speaking to a contact it just re-reads the InventoryBag and expects the
+# item to be there (FTPE_01 "Ridge Sport" car, FTPE_02 "Cleaver").
+FTPE_STORE_ITEMS = ["5666866140888112945", "4038481858749259483"]
+
+
+def inventory_item(item_id, store_item_uid, account_id):
+    """An owned store item (UFG::InventoryItemInstanceData)."""
+    return {
+        "SecondsElapsed": 0,
+        "TotalSeconds": 0,
+        "StoreItemID": str(store_item_uid),
+        "InventoryItemID": str(item_id),
+        "AccountID": str(account_id),
+    }
+
+
+def grant_starting_inventory(player):
+    bag = player.setdefault("InventoryBag", [])
+    owned = {i.get("StoreItemID") for i in bag}
+    next_id = max([7000] + [int(i.get("InventoryItemID", 0)) for i in bag]) + 1
+    account = player["PlayerDataBag"].get("AccountID", "1")
+    for uid in FTPE_STORE_ITEMS:
+        if uid not in owned:
+            bag.append(inventory_item(next_id, uid, account))
+            next_id += 1
+
+
+# ---- "Jobs" (errands) ----------------------------------------------------------
+# The client's Jobs screen is driven by game/errands: three daily slots, each holding
+# one UFG::ErrandTypeMetadata (data/errands.json, built by tools/errands.py). The
+# client checks the objective itself - errand completion conditions are its own stat
+# counters - and tells the server with errands/end/<slot>; the reward is paid on
+# errands/claimreward/<slot>. The server owns only the board: which errands are on
+# offer, their state, and the payout.
+ERRAND_SLOT_COUNT = 3
+ERRAND_ACTIVE = 0       # on the board, objective not met yet
+ERRAND_COMPLETED = 1    # objective met, reward waiting to be collected
+ERRAND_COLLECTED = 2    # reward paid
+# True: a collected slot refills with the next available job the next time the board is
+# read (the hub's "Next Job"), so the Jobs screen keeps working through the chain.
+# False: the three slots are fixed for the day and only the UTC rollover replaces them.
+ERRAND_REFILL_COLLECTED = True
+
+# The safehouse has ten levels (mSafehouseUpgradeCosts), but four errands ask for a
+# "safehouse 15" that never existed in the shipped game - they are unreachable as written,
+# so the requirement is read as "the top level". They are ordinary raid/combat jobs.
+ERRAND_SAFEHOUSE_CAP = len(METAGAME.get("mSafehouseUpgradeCosts") or []) or 10
+# A finished repeatable job comes back after the game's own cooldown
+# (UFG::MetagameInfoWrapper.mRepeatableErrandCooldownHours, 96 hours).
+ERRAND_REPEATABLE_COOLDOWN = int(METAGAME.get("mRepeatableErrandCooldownHours") or 0) * 3600
+
+# Stats the client counts and the server cannot. "Complete an Export" and "Complete 3
+# Exports" read the client's own ExportsCompleted counter, which only moves when an export
+# mission is handed in - so until one has been, there is nothing on the board that could
+# ever be ticked (see export_chain_live). They are never treated as a prerequisite, either
+# way: 49 other jobs list "Complete 3 Exports" as one, and waiting for a counter the server
+# cannot see would hide most of the ladder. Everything else the client counts itself
+# (kills, raids, rackets, crimes scenes, operations, purchases).
+ERRAND_UNSUPPORTED_STATS = {"ExportsCompleted"}
+ERRAND_UNSUPPORTED = {e["uid"] for e in ERRANDS
+                      if any((c or {}).get("stat") in ERRAND_UNSUPPORTED_STATS
+                             for c in e.get("conditions") or [])}
+
+
+def export_chain_live(player):
+    """True once an export has actually been delivered on this profile.
+
+    The two export jobs are the only ones whose objective the server cannot see, so they
+    are held back until there is evidence that the client's ExportsCompleted counter runs
+    on this installation - which is one delivered export (handlers.export_end records it in
+    ExportBag.Completed). From then on they are offered like any other job.
+    """
+    bag = player.get("ExportBag") or {}
+    try:
+        return int(bag.get("Completed", 0) or 0) > 0
+    except (TypeError, ValueError):
+        return False
+
+# 29 errands are switched off in the game data (mEnabled = false): the combat-tutorial
+# variants ("Sweep Kicks", "Roundhouse Kicks", ...), the commodity collectors and a few
+# others. Nothing about them is broken - the client still counts their objectives - they
+# were simply never handed out in the beta. Once every enabled job has been done, the
+# board falls back to them instead of going empty, which is how the ladder keeps going
+# after the story runs out. Set to False to keep the board to the game's own 87.
+ERRAND_BONUS_JOBS = True
+
+RARITY_ORDER = ["Common", "Rare", "VeryRare", "Epic"]
+
+# Reward type -> (what it pays, which ErrandRewards table it reads).
+# The tables are indexed by XP level (level 1 = index 0). UFG::ErrandRewards has dirty
+# money, face and GOLD tables and no clean-money ladder at all - the "clean money"
+# reward types are the gold ones, and the tutorial errands pay the fixed gold amounts
+# (the Jobs tutorial celebrates "GoldEarned").
+ERRAND_REWARD_TABLES = {
+    "REWARD_MONEY_LOW": ("DirtyMoney", "mRewardDirtyMoneyLow"),
+    "REWARD_MONEY_MID": ("DirtyMoney", "mRewardDirtyMoneyMedium"),
+    "REWARD_MONEY_HIGH": ("DirtyMoney", "mRewardDirtyMoneyHigh"),
+    "REWARD_CLEAN_MONEY_LOW": ("Gold", "mRewardGoldLow"),
+    "REWARD_CLEAN_MONEY_MID": ("Gold", "mRewardGoldMedium"),
+    "REWARD_CLEAN_MONEY_HIGH": ("Gold", "mRewardGoldHigh"),
+    "REWARD_FACE_LOW": ("Face", "mRewardFaceLow"),
+    "REWARD_FACE_MID": ("Face", "mRewardFaceMedium"),
+    "REWARD_FACE_HIGH": ("Face", "mRewardFaceHigh"),
+    "REWARD_FAVOUR": ("Favour", None),
+    "REWARD_CLEAN_MONEY_TUTORIAL1": ("Gold", "mRewardGoldTutorial1"),
+    "REWARD_CLEAN_MONEY_TUTORIAL2": ("Gold", "mRewardGoldTutorial2"),
+    "REWARD_CLEAN_MONEY_TUTORIAL3": ("Gold", "mRewardGoldTutorial3"),
+}
+
+# mRewardType in the claim reply: the job reward category the collected card shows
+# (JOB_REWARD_GOLD, _CASH, _FACE, _FAVOUR - the order the client's strings appear in).
+# Only the card art depends on it, so a wrong guess is cosmetic.
+JOB_REWARD_GOLD = 0
+JOB_REWARD_CASH = 1
+JOB_REWARD_FACE = 2
+JOB_REWARD_FAVOUR = 3
+JOB_REWARD_TYPES = {"Gold": JOB_REWARD_GOLD, "DirtyMoney": JOB_REWARD_CASH,
+                    "Face": JOB_REWARD_FACE, "Favour": JOB_REWARD_FAVOUR}
+
+
+def utc_day(now=None):
+    return time.strftime("%Y-%m-%d", time.gmtime(time.time() if now is None else now))
+
+
+# ---- "unlock everything" ------------------------------------------------------
+# UnlockBag.All is written by the menu's Unlock all content entry (freecam_unlock.cpp).
+# It is not one of the client's data bags, so it never reaches the game; it only decides
+# what this server offers. A profile without the flag behaves exactly as before:
+#
+#   * the whole job catalogue instead of the tutorial's first rung, the export-gated
+#     jobs included (see ERRAND_UNSUPPORTED);
+#   * every favour card at any level, the two FTPE-only ones included (favour_pool);
+#   * the challenge stays live and joined across its rotations (current_challenge);
+#   * rival turfs never go on the post-raid cooldown (opponent_remaining,
+#     start_rival_cooldown) - see handlers.raid_end and State.opponents;
+#   * the street keeps paying: the six-an-hour cap on street encounters is gone
+#     (pay_world_encounter_reward), and four times as many crime scene markers are kept
+#     (crime_scene_limit).
+def unlocked(player):
+    bag = player.get("UnlockBag")
+    return isinstance(bag, dict) and bool(bag.get("All"))
+
+
+def seconds_to_refresh(now=None):
+    """Seconds until the job board rolls over (next UTC midnight)."""
+    t = time.gmtime(time.time() if now is None else now)
+    return max(1, 86400 - (t.tm_hour * 3600 + t.tm_min * 60 + t.tm_sec))
+
+
+def xp_level(player):
+    """The player's XP level, the same way profile/playerdata reports it."""
+    xp = int(player["PlayerDataBag"].get("EnforcerXP", 0))
+    return max(1, sum(1 for need in XP_LEVELS if xp >= need))
+
+
+def safehouse_level(player):
+    return int(player["TurfBag"]["Turf"]["Safehouse"].get("RacketLevel", 1))
+
+
+def new_errand_bag():
+    return {"Day": "", "Slots": [None] * ERRAND_SLOT_COUNT, "Completed": {}, "Changes": 0}
+
+
+def errands(player):
+    bag = player.setdefault("ErrandsBag", new_errand_bag())
+    for key, value in new_errand_bag().items():
+        bag.setdefault(key, value)
+    return bag
+
+
+def errand_slot(bag, index):
+    """The slot with this mSlotIndex (slots are stored in index order)."""
+    if index is None:
+        return None
+    for slot in bag["Slots"]:
+        if slot and int(slot.get("SlotIndex", -1)) == int(index):
+            return slot
+    return None
+
+
+def errand_uid(slot):
+    return slot.get("ErrandUID") if slot else None
+
+
+def errand_definition(slot):
+    uid = errand_uid(slot)
+    return ERRANDS_BY_UID.get(uid) if uid else None
+
+
+def favour_pool(errand, level=1, everything=False):
+    """Upgrade favours that satisfy an errand's rarity/tag reward rule.
+
+    Only the 137 upgrade favours are used: they are the ones the client can equip, so
+    a job reward always turns into something the player can spend.
+
+    `everything` is the unlocked profile (see unlocked). The XP level and the two
+    FTPE-only cards stop filtering there, so a job can pay any of the 137 whatever the
+    player's level is - the level gate is what hides 129 of them from a fresh profile.
+    """
+    rule = errand.get("favour") or {}
+    try:
+        low = RARITY_ORDER.index(rule.get("min") or "Common")
+        high = RARITY_ORDER.index(rule.get("max") or "Epic")
+    except ValueError:
+        low, high = 0, len(RARITY_ORDER) - 1
+    tags = set(rule.get("tags") or [])
+    pool = []
+    for uid, info in FAVOUR_UPGRADES.items():
+        if info.get("ftpe") and not everything:
+            continue
+        rarity = info.get("rarity")
+        if rarity not in RARITY_ORDER or not low <= RARITY_ORDER.index(rarity) <= high:
+            continue
+        if not everything and int(info.get("xpLevel", 0)) > level:
+            continue
+        if tags and not tags.intersection(info.get("tags") or []):
+            continue
+        pool.append(uid)
+    if not pool:
+        pool = [uid for uid, info in FAVOUR_UPGRADES.items()
+                if everything or not info.get("ftpe")]
+    return pool
+
+
+def _errand_record(bag, uid):
+    """(times done, when it was last paid) for one errand - both formats the bag used."""
+    record = bag["Completed"].get(uid)
+    if record is None:
+        return 0, 0
+    if isinstance(record, dict):
+        return int(record.get("Times") or 0), int(record.get("Last") or 0)
+    return int(record or 0), 0          # an early profile kept just a count
+
+
+def errand_requirement(errand, field):
+    """The level/safehouse an errand asks for, with the impossible 15 read as the top."""
+    value = int(errand.get(field) or 0)
+    if field == "safehouseLevel":
+        return min(value, ERRAND_SAFEHOUSE_CAP)
+    return value
+
+
+def errand_available(bag, errand, level, safehouse, now=None, bonus=False, ignore_gates=False,
+                     everything=False, export_jobs=False):
+    """Can this errand be put on the board?
+
+    `bonus` allows the errands the game data switches off (see ERRAND_BONUS_JOBS); those
+    also ignore their mErrandLinks, which point at other switched-off jobs. `ignore_gates`
+    drops the level/safehouse requirement - the client checks the objective itself, so a
+    job whose gate is out of reach is still playable; the board only falls back to that
+    when nothing else is left (see errand_pool). `everything` is the unlocked profile
+    (see unlocked): every job, no gate, no chain and no cooldown. `export_jobs` lets the two
+    export-chain jobs through once one has been delivered (see export_chain_live).
+    """
+    enabled = bool(errand.get("enabled"))
+    if errand["uid"] in ERRAND_UNSUPPORTED and not (everything or export_jobs):
+        return False
+    if not enabled and not (bonus and ERRAND_BONUS_JOBS) and not everything:
+        return False
+    if not ignore_gates and not everything:
+        if errand_requirement(errand, "xpLevel") > level:
+            return False
+        if errand_requirement(errand, "safehouseLevel") > safehouse:
+            return False
+    # mErrandLinks are the errands that must have been completed first ("Raid 2 Rivals"
+    # links to "Raid A Rival"). With one link only the tutorial's first job is on offer.
+    if enabled and not everything and any(link not in bag["Completed"]
+                                          and link not in ERRAND_UNSUPPORTED
+                                          for link in errand.get("links") or []):
+        return False
+    times, last = _errand_record(bag, errand["uid"])
+    if not times:
+        return True
+    if not errand.get("repeatable"):
+        return False
+    now = time.time() if now is None else now
+    if ERRAND_REPEATABLE_COOLDOWN and now - last < ERRAND_REPEATABLE_COOLDOWN and not everything:
+        return False
+    return True
+
+
+def errand_pool(player, bag, exclude=(), now=None, bonus=True):
+    """The errands the board can offer right now.
+
+    The game's own (enabled) jobs come first. If none of them is available - the story
+    ladder is finished, or every open job is on cooldown - the switched-off bonus jobs
+    fill in, so the Jobs screen never runs dry.
+
+    An unlocked profile (see unlocked) skips all of that: the whole catalogue, the
+    switched-off jobs and the export-gated ones included, with no level, chain or cooldown
+    requirement, so the board rotates through every job the game has.
+    """
+    level, safehouse = xp_level(player), safehouse_level(player)
+    if unlocked(player):
+        pool = [e for e in ERRANDS if e["uid"] not in exclude
+                and errand_available(bag, e, level, safehouse, now, everything=True)]
+        # The export jobs (ERRAND_UNSUPPORTED) go last: on an unlocked profile they are on
+        # the board like any other job, but they need export missions running before they
+        # can be ticked, so they never take the first card.
+        pool.sort(key=lambda e: (e["uid"] in ERRAND_UNSUPPORTED, -e["priority"], e["name"]))
+        return pool
+    export_jobs = export_chain_live(player)
+    pool = [e for e in ERRANDS
+            if e["uid"] not in exclude and e["enabled"]
+            and errand_available(bag, e, level, safehouse, now, export_jobs=export_jobs)]
+    if not pool and bonus:
+        pool = [e for e in ERRANDS
+                if e["uid"] not in exclude and not e["enabled"]
+                and errand_available(bag, e, level, safehouse, now, bonus=True,
+                                     export_jobs=export_jobs)]
+    if not pool and bonus:
+        # Everything the level and safehouse open is done or on cooldown. Rather than hand
+        # back an empty Jobs screen, offer the jobs whose prerequisites are met anyway,
+        # easiest requirement first - the client evaluates the objective from its own stat
+        # counters, so they can be played and finished.
+        pool = [e for e in ERRANDS if e["uid"] not in exclude
+                and errand_available(bag, e, level, safehouse, now, bonus=True, ignore_gates=True,
+                                     export_jobs=export_jobs)]
+        pool.sort(key=lambda e: (errand_requirement(e, "xpLevel"),
+                                 errand_requirement(e, "safehouseLevel"), -e["priority"], e["name"]))
+        return pool
+    # The export jobs come last on purpose: they can only be finished once the client is
+    # running export missions again, and they should not take a card from a job that can
+    # be played today.
+    pool.sort(key=lambda e: (e["uid"] in ERRAND_UNSUPPORTED, -e["priority"], e["name"]))
+    return pool
+
+
+def new_errand_slot(player, errand, now=None, index=0):
+    level = xp_level(player)
+    favours = []
+    if (errand.get("reward") or "").startswith("REWARD_FAVOUR"):
+        pool = favour_pool(errand, level, unlocked(player))
+        if pool:
+            favours = [random.choice(pool)]
+    return {"SlotIndex": int(index), "ErrandUID": errand["uid"], "State": ERRAND_ACTIVE,
+            "Begun": int(time.time() if now is None else now),
+            "Favours": favours, "Pack": "0"}
+
+
+def _board_names(bag, skip_index=None):
+    """The job names already on the board.
+
+    A few jobs exist twice in the game's data - one record per racket, with the same
+    display name and the same objective ("Take Down 3 Enforcers"). Excluding by UID lets
+    both land on the board at once, which reads as three cards with two of them
+    identical; the unlocked catalogue makes that likely, so the board keeps one of each.
+    """
+    names = set()
+    for slot in bag["Slots"]:
+        if not slot or (skip_index is not None and int(slot.get("SlotIndex", -1)) == skip_index):
+            continue
+        errand = errand_definition(slot)
+        if errand:
+            names.add(errand["name"])
+    return names
+
+
+def fill_errands(player, bag, now=None):
+    """Put the highest-priority available errands into empty slots."""
+    slotted = {errand_uid(s) for s in bag["Slots"] if s}
+    for index, slot in enumerate(bag["Slots"]):
+        if slot:
+            continue
+        pool = errand_pool(player, bag, exclude=slotted, now=now)
+        taken = _board_names(bag)
+        pool = [e for e in pool if e["name"] not in taken] or pool
+        if not pool:
+            return
+        bag["Slots"][index] = new_errand_slot(player, pool[0], now, index)
+        slotted.add(pool[0]["uid"])
+
+
+def refresh_errands(player, now=None):
+    """Roll the board over and replace collected jobs.
+
+    A new day (UTC) replaces every active and collected job; a completed but unclaimed
+    one waits for its reward. Within a day, a collected slot gets the next available job
+    the next time the board is read ("Next Job" on the hub), so finishing one job does
+    not leave an empty card until midnight.
+    """
+    now = time.time() if now is None else now
+    bag = errands(player)
+    today = utc_day(now)
+    if bag["Day"] != today:
+        bag["Day"] = today
+        bag["Changes"] = 0
+        for index, slot in enumerate(bag["Slots"]):
+            if slot and slot.get("State") in (ERRAND_ACTIVE, ERRAND_COLLECTED):
+                bag["Slots"][index] = None
+    elif ERRAND_REFILL_COLLECTED:
+        for index, slot in enumerate(bag["Slots"]):
+            if slot and slot.get("State") == ERRAND_COLLECTED:
+                bag["Slots"][index] = None
+    fill_errands(player, bag, now)
+    return bag
+
+
+def change_errand(player, index, now=None):
+    """Replace the errand in a slot. Returns (slot, reason); slot is None on failure."""
+    bag = errands(player)
+    slot = errand_slot(bag, index)
+    if slot is None:
+        return None, "There is no job in that slot."
+    slotted = {errand_uid(s) for s in bag["Slots"] if s}
+    pool = errand_pool(player, bag, exclude=slotted, now=now)
+    taken = _board_names(bag, skip_index=index)
+    pool = [e for e in pool if e["name"] not in taken] or pool
+    if not pool:
+        return None, "No jobs available to change."
+    fresh = new_errand_slot(player, pool[0], now, index)
+    bag["Slots"][bag["Slots"].index(slot)] = fresh
+    bag["Changes"] += 1
+    return fresh, ""
+
+
+def end_errand(player, index, now=None):
+    """The client reports that the slot's objective is done."""
+    slot = errand_slot(errands(player), index)
+    if slot is None:
+        return None
+    if slot.get("State") == ERRAND_ACTIVE:
+        slot["State"] = ERRAND_COMPLETED
+        slot["Ended"] = int(time.time() if now is None else now)
+    return slot
+
+
+def _table_amount(name, level):
+    table = ERRAND_REWARDS.get(name)
+    if isinstance(table, list):
+        if not table:
+            return 0
+        return int(table[min(max(level - 1, 0), len(table) - 1)])
+    return int(table or 0)
+
+
+def pay_errand_reward(player, errand, slot):
+    """Credit the errand's reward and return what was paid (for the reply)."""
+    kind, table = ERRAND_REWARD_TABLES.get(errand.get("reward"), ("None", None))
+    level = xp_level(player)
+    paid = {"kind": kind, "amount": 0, "favours": [], "pack": "0",
+            "reward_type": JOB_REWARD_TYPES.get(kind, JOB_REWARD_GOLD)}
+    if kind in ("DirtyMoney", "CleanMoney", "Gold"):
+        amount = _table_amount(table, level) if table else 0
+        bag = player["CurrencyBag"]
+        bag[kind] = str(int(bag.get(kind, "0")) + amount)
+        paid["amount"] = amount
+    elif kind == "Face":
+        amount = _table_amount(table, level) if table else 0
+        pdb = player["PlayerDataBag"]
+        pdb["Face"] = str(int(pdb.get("Face", "0")) + amount)
+        paid["amount"] = amount
+    elif kind == "Favour":
+        pool = favour_pool(errand, level)
+        picks = [uid for uid in slot.get("Favours") or [] if uid in FAVOUR_UPGRADES]
+        if not picks and pool:
+            picks = [random.choice(pool)]
+        owned = player.setdefault("FavoursBag", [])
+        for uid in picks:
+            owned.append(favour_instance(next_favour_id(player), uid))
+        paid["favours"] = picks
+    return paid
+
+
+def claim_errand(player, index, now=None):
+    """Pay the slot's reward. Returns (slot, paid, reason)."""
+    bag = errands(player)
+    slot = errand_slot(bag, index)
+    if slot is None:
+        return None, None, "There is no job in that slot."
+    errand = errand_definition(slot)
+    if errand is None:
+        return None, None, "That job no longer exists."
+    if slot.get("State") == ERRAND_COLLECTED:
+        return None, None, "That reward has already been collected."
+    paid = pay_errand_reward(player, errand, slot)
+    record = bag["Completed"].setdefault(errand["uid"], {"Times": 0, "Last": 0})
+    record["Times"] += 1
+    record["Last"] = int(time.time() if now is None else now)
+    slot["State"] = ERRAND_COLLECTED
+    slot["Claimed"] = record["Last"]
+    return slot, paid, ""
+
+
+def completed_errands(player):
+    """One record per errand ever completed, newest first."""
+    bag = errands(player)
+    out = []
+    for uid, record in bag["Completed"].items():
+        errand = ERRANDS_BY_UID.get(uid)
+        if errand is None:
+            continue
+        out.append({"uid": uid, "name": errand["name"],
+                    "times": int(record.get("Times", 0)),
+                    "last": int(record.get("Last", 0))})
+    out.sort(key=lambda r: -r["last"])
+    return out
+
+
+# ---- World activities (operations) ----------------------------------------------
+# The client runs the open-world activities itself and reports each one when it ends:
+# operation/endoperation/<name>/<completed>/<successful>. The names are the game's own
+# UFG::OperationType objects - Catch, Defeat, Photo, Deliver, Collect, Destroy, Hijack -
+# so nothing here is invented; only the payout is the server's, and it uses the game's
+# face/dirty-money ladders at the player's XP level (UFG::ErrandRewards).
+OPERATION_TYPES = {o["$uid"]: o.get("mOperationTypeName", "")
+                   for o in DB.get("UFG::OperationType") or []}
+OPERATION_REWARDS = {
+    "Catch": "REWARD_FACE_LOW",        # bring someone in alive
+    "Defeat": "REWARD_MONEY_MID",      # clear a group of thugs
+    "Photo": "REWARD_FACE_MID",        # photograph the scene
+    "Deliver": "REWARD_MONEY_LOW",     # drive a package across town
+    "Collect": "REWARD_MONEY_LOW",     # pick up a drop
+    "Destroy": "REWARD_MONEY_MID",     # wreck the marked vehicles
+    "Hijack": "REWARD_MONEY_MID",      # steal a specific vehicle
+}
+
+
+def operation_name(value):
+    """'Catch' / 'catch' / the type's own UID -> the operation's name."""
+    text = str(value or "").strip()
+    if text in OPERATION_TYPES:
+        return OPERATION_TYPES[text]
+    for name in OPERATION_REWARDS:
+        if text.lower() == name.lower():
+            return name
+    return text
+
+
+def pay_operation_reward(player, name, successful=True):
+    """Credit one finished activity and return what was paid (for the reply)."""
+    name = operation_name(name)
+    reward = OPERATION_REWARDS.get(name, "REWARD_MONEY_LOW")
+    kind, table = ERRAND_REWARD_TABLES.get(reward, ("DirtyMoney", "mRewardDirtyMoneyLow"))
+    amount = _table_amount(table, xp_level(player)) if successful else 0
+    if amount:
+        if kind == "Face":
+            pdb = player["PlayerDataBag"]
+            pdb["Face"] = str(int(pdb.get("Face", "0")) + amount)
+        else:
+            bag = player["CurrencyBag"]
+            bag[kind] = str(int(bag.get(kind, "0")) + amount)
+    return {"operation": name, "kind": kind, "amount": amount, "successful": bool(successful),
+            "reward_type": JOB_REWARD_TYPES.get(kind, JOB_REWARD_CASH)}
+
+
+# ---- Crime scenes -----------------------------------------------------------------
+# Corpses and loot the client leaves in the world after a fight. The server never invents a
+# position: it records the scene the client reports (openworldcrimescene/<x>/<y>/<z>/<id>)
+# and hands the same coordinates back in the CrimeScenes list, so a player's own fights
+# become collectible crime scenes. Collecting one pays face
+# (openworldcrimescenecollection/<scene id> -> FaceCollected).
+CRIME_SCENE_FACE = 10
+CRIME_SCENE_LIMIT = 24          # markers kept at once; the oldest drops off
+CRIME_SCENE_LIMIT_UNLOCKED = 96  # ... with UnlockBag.All, four times as many
+CRIME_SCENE_TTL = 60 * 60       # an hour, then the scene is gone
+CRIME_SCENE_UID_BASE = 7000000000000000000
+
+# The unlock keeps the map littered: this many markers lying about at any time, and the
+# ring of places to scatter them around.
+CRIME_SCENE_SCATTER = 8
+CRIME_SCENE_HOTSPOTS = 64       # remembered positions, oldest drops off
+CRIME_SCENE_SCATTER_SPREAD = 24 # how far from a known spot a new one can appear
+
+
+def crime_scene_limit(player):
+    """Markers kept at once. The unlocked profile keeps more (see unlocked)."""
+    return CRIME_SCENE_LIMIT_UNLOCKED if unlocked(player) else CRIME_SCENE_LIMIT
+
+
+def crime_scene_bag(player):
+    bag = player.setdefault("CrimeSceneBag", {})
+    bag.setdefault("Scenes", [])
+    bag.setdefault("NextUID", 0)
+    return bag
+
+
+def prune_crime_scenes(player, now=None):
+    """Forget scenes older than CRIME_SCENE_TTL. Returns True if anything went."""
+    now = time.time() if now is None else now
+    bag = crime_scene_bag(player)
+    keep = [s for s in bag["Scenes"] if int(s.get("Created") or 0) + CRIME_SCENE_TTL > now]
+    if len(keep) == len(bag["Scenes"]):
+        return False
+    bag["Scenes"] = keep
+    return True
+
+
+def remember_hotspot(player, x, y, z):
+    """Remember a place the client fought at, for scatter_crime_scenes to work from.
+
+    Only coordinates the client reported ever end up here, so anything scattered later is
+    a spot the game has already shown to be real ground the player can stand on.
+    """
+    spots = crime_scene_bag(player).setdefault("Hotspots", [])
+    for spot in spots:
+        if abs(int(spot[0]) - int(x)) <= 4 and abs(int(spot[1]) - int(y)) <= 4:
+            return
+    spots.append([int(x), int(y), int(z)])
+    del spots[:-CRIME_SCENE_HOTSPOTS]
+
+
+def scatter_crime_scenes(player, now=None):
+    """Litter the map with markers around places the client has already fought.
+
+    Only an unlocked profile does this. The server still never invents a position: every
+    marker is a remembered hotspot moved a few metres, so it lands on the same street
+    corner the game itself put a body on. Returns how many markers were added.
+    """
+    if not unlocked(player):
+        return 0
+    now = time.time() if now is None else now
+    bag = crime_scene_bag(player)
+    spots = bag.get("Hotspots") or []
+    if not spots:
+        return 0                       # nothing fought yet: nothing to scatter around
+    live = sum(1 for s in bag["Scenes"] if not s.get("Collected"))
+    added = 0
+    for attempt in range((CRIME_SCENE_SCATTER - live) * 4):
+        if live + added >= CRIME_SCENE_SCATTER:
+            break
+        # Seeded on the scene counter as well as the attempt, so every marker that does
+        # land gives the next one fresh ground to try instead of re-rolling the same
+        # offsets it has already deduplicated against.
+        rng = random.Random(bag["NextUID"] * 7919 + attempt)
+        spot = spots[rng.randrange(len(spots))]
+        offset = rng.randrange(8, CRIME_SCENE_SCATTER_SPREAD + 1)
+        angle = rng.uniform(0, 6.283185)
+        if add_crime_scene(player,
+                           int(spot[0]) + int(offset * math.cos(angle)),
+                           int(spot[1]) + int(offset * math.sin(angle)),
+                           int(spot[2]), now=now, remember=False):
+            added += 1
+    return added
+
+
+def add_crime_scene(player, x, y, z, victim="", now=None, remember=True):
+    """Record a scene the client reported. Returns the record, or None if it already had it.
+
+    `remember=False` keeps the position out of the hotspot ring: that is what the scatter
+    itself uses, so the ring only ever holds ground the client reported and the litter
+    cannot creep away from real streets a few metres per read.
+    """
+    now = time.time() if now is None else now
+    bag = crime_scene_bag(player)
+    prune_crime_scenes(player, now)
+    if remember:
+        remember_hotspot(player, x, y, z)
+    for scene in bag["Scenes"]:
+        # The client reports the same corpse again as it stays in the world; one marker is
+        # enough. 4 units is about a body's width on the map.
+        if abs(int(scene["DeathX"]) - int(x)) <= 4 and abs(int(scene["DeathY"]) - int(y)) <= 4:
+            return None
+    bag["NextUID"] = int(bag.get("NextUID") or 0) + 1
+    scene = {"OpenWorldCrimeSceneID": str(CRIME_SCENE_UID_BASE + bag["NextUID"]),
+             "DeathX": int(x), "DeathY": int(y), "DeathZ": int(z),
+             "VictimPlayerDataIDString": str(victim or "0"),
+             "Collected": False, "Created": int(now)}
+    bag["Scenes"].append(scene)
+    del bag["Scenes"][:-crime_scene_limit(player)]
+    return scene
+
+
+# The members the client's own parser declares for one scene (devdata/endpoints.txt,
+# "openworldcrimescene"); Created/CollectedAt stay on our record but are not sent.
+CRIME_SCENE_FIELDS = ("OpenWorldCrimeSceneID", "DeathX", "DeathY", "DeathZ",
+                      "VictimPlayerDataIDString", "Collected")
+
+
+def crime_scenes(player, now=None):
+    """The scenes the client should draw: everything not collected yet."""
+    prune_crime_scenes(player, now)
+    return [{key: scene[key] for key in CRIME_SCENE_FIELDS}
+            for scene in crime_scene_bag(player)["Scenes"] if not scene.get("Collected")]
+
+
+def collect_crime_scene(player, scene_id, now=None):
+    """Collect one scene and pay its face. Returns (scene, face); (None, 0) if not found."""
+    prune_crime_scenes(player, now)
+    for scene in crime_scene_bag(player)["Scenes"]:
+        if str(scene.get("OpenWorldCrimeSceneID")) == str(scene_id) and not scene.get("Collected"):
+            scene["Collected"] = True
+            scene["CollectedAt"] = int(time.time() if now is None else now)
+            pdb = player["PlayerDataBag"]
+            pdb["Face"] = str(int(pdb.get("Face", "0")) + CRIME_SCENE_FACE)
+            return scene, CRIME_SCENE_FACE
+    return None, 0
+
+
+# ---- World encounters --------------------------------------------------------------
+# The street events the client's own manager runs (Skookum TWWorldEncounterManager spawns
+# the units; the server only hears about them when one ends, at
+# worldencounter/endencounter/<type>/<result>). The list endpoint stays empty on purpose:
+# the encounters are the client's, and handing it entries it did not spawn itself is the
+# one way to get an invisible or mismatched one. Paying for the ones it does run turns the
+# free-roam events into something worth stopping for - the game's own face ladder, capped
+# so the street cannot out-earn the Jobs screen.
+WORLD_ENCOUNTER_REWARD = "REWARD_FACE_LOW"
+WORLD_ENCOUNTER_LIMIT = 6                   # payouts ...
+WORLD_ENCOUNTER_WINDOW = 60 * 60            # ... per hour of play (UnlockBag.All lifts it)
+
+
+def world_encounter_bag(player):
+    bag = player.setdefault("WorldEncounterBag", {})
+    bag.setdefault("Paid", [])
+    return bag
+
+
+def pay_world_encounter_reward(player, result=1, now=None):
+    """Credit one finished street encounter; returns what was paid (for the reply)."""
+    now = time.time() if now is None else now
+    kind, table = ERRAND_REWARD_TABLES.get(WORLD_ENCOUNTER_REWARD, ("Face", "mRewardFaceLow"))
+    amount = _table_amount(table, xp_level(player)) if str(result) != "0" else 0
+    bag = world_encounter_bag(player)
+    recent = [t for t in bag["Paid"] if now - int(t) < WORLD_ENCOUNTER_WINDOW]
+    bag["Paid"] = recent
+    if amount and len(recent) >= WORLD_ENCOUNTER_LIMIT and not unlocked(player):
+        amount = 0                  # enough for now; the street keeps its own pace
+    if amount:
+        bag["Paid"].append(int(now))
+        pdb = player["PlayerDataBag"]
+        pdb["Face"] = str(int(pdb.get("Face", "0")) + amount)
+    return {"kind": kind, "amount": amount,
+            "reward_type": JOB_REWARD_TYPES.get(kind, JOB_REWARD_FACE)}
+
+
+# ---- export missions -----------------------------------------------------------
+# The warehouse's export business: the client runs the mission itself (its own
+# ExportMissionSlots, the three export operation types ExportDefend/ExportEscort/
+# ExportGunner) and calls export/startmission/<uid> when it begins and
+# export/endmission/<uid>/<result> when it ends. Everything the server has to do is
+# answer those two and pay: the payout ladders are the game's own table,
+# UFG::ExportMissionMetadata, whose level 1 entries are 1.5x the black-market value in
+# money and 3% of that in face. This build pays the flat money it always did and the
+# face that goes with it, and keeps the running totals the profile screen asks for
+# (mExportFaceEarned, which used to be hard-coded to 0).
+EXPORT_MONEY = 2500                          # one finished export, dirty money
+EXPORT_FACE_PERCENT = 3.0                    # ExportMissionMetadata, mFaceRewardPercentageOfMoneyReward[0]
+EXPORT_MAX_PER_HOUR = 6                      # like the street encounters; lifted by UnlockBag.All
+
+
+def export_bag(player):
+    bag = player.setdefault("ExportBag", {})
+    bag.setdefault("Attempted", 0)
+    bag.setdefault("Completed", 0)
+    bag.setdefault("Face", 0)
+    bag.setdefault("Paid", [])
+    bag.setdefault("Started", [])
+    return bag
+
+
+def start_export_mission(player, mission_uid="", now=None):
+    """Note that the client has begun an export. Returns the bag for the log line."""
+    now = time.time() if now is None else now
+    bag = export_bag(player)
+    bag["Attempted"] += 1
+    bag["Started"] = [int(t) for t in bag["Started"] if now - int(t) < 3600] + [int(now)]
+    bag["Last"] = str(mission_uid or "0")
+    return bag
+
+
+def pay_export_mission(player, mission_uid="", success=True, now=None):
+    """Pay one finished export; returns what was paid (for the reply).
+
+    A failed export pays nothing, which is what the client's own success flag means -
+    the money and the face are the reward for the run, not for turning up. The hourly
+    cap only bites on a locked profile: an unlocked one is the menu's "everything is
+    open" profile, and its exports should not run dry.
+    """
+    now = time.time() if now is None else now
+    bag = export_bag(player)
+    paid = {"money": 0, "face": 0, "completed": bag["Completed"], "capped": False}
+    if isinstance(success, str):
+        success = success not in ("0", "false", "False", "")
+    bag["Last"] = str(mission_uid or "0")
+    if not success:
+        return paid                       # a failed run pays nothing, as before
+
+    # The cap counts exports that were *paid* in the last hour, not ones that were
+    # started: a mission that fails still used up its run.
+    recent = [t for t in bag.get("Paid", []) if now - int(t) < 3600]
+    bag["Paid"] = recent
+    if len(recent) >= EXPORT_MAX_PER_HOUR and not unlocked(player):
+        paid["capped"] = True
+        return paid
+    money = EXPORT_MONEY
+    face = int(round(money * EXPORT_FACE_PERCENT / 100.0))
+    currency = player["CurrencyBag"]
+    currency["DirtyMoney"] = str(int(currency.get("DirtyMoney", "0")) + money)
+    pdb = player["PlayerDataBag"]
+    pdb["Face"] = str(int(pdb.get("Face", "0")) + face)
+    bag["Paid"] = recent + [int(now)]
+    bag["Completed"] += 1
+    bag["Face"] += face
+    paid.update({"money": money, "face": face, "completed": bag["Completed"]})
+    return paid
+
+
+# ---- "Challenges" (community trials) -------------------------------------------
+# UIScreenTrials pages through trial containers - the previous, current and next
+# challenge. The client tracks challenge progress itself (the trial names are ordinary
+# stat symbols) and reports it with trial/reportprogress/<value>; trialsscreenvisits
+# asks for the same report. The server keeps the reported progress, pays the reward
+# tier the first time it is reached, and records the opt-in.
+TRIAL_OPT_IN, TRIAL_OPT_OUT = 1, 0
+
+
+def new_trial_bag():
+    return {"Index": 0, "Start": 0, "End": 0, "Progress": 0, "Rewarded": [], "OptedIn": 0,
+            "Name": ""}
+
+
+def trial_instance_id(bag, index=None):
+    """A stable id for one rotation slot: unique per challenge and start time.
+
+    trialinstance/optin/<this id>/<name> is how the client opts in, so the id in the
+    container card has to be the same value.
+    """
+    index = bag["Index"] if index is None else index
+    return str(int(bag["Start"]) * 1000 + int(index) % 1000 + 1)
+
+
+def trials(player):
+    bag = player.setdefault("TrialsBag", new_trial_bag())
+    for key, value in new_trial_bag().items():
+        bag.setdefault(key, value)
+    return bag
+
+
+def current_challenge(player, now=None):
+    """The challenge running now; rotates through data/challenges.json."""
+    now = time.time() if now is None else now
+    bag = trials(player)
+    if not bag["Start"] or now >= bag["End"]:
+        index = 0 if not bag["Start"] else bag["Index"] + 1
+        bag["Index"] = index % max(1, len(CHALLENGES))
+        bag["Start"] = int(now)
+        bag["End"] = int(now + CHALLENGE_ROTATION_SECONDS)
+        bag["Progress"] = 0
+        bag["Rewarded"] = []
+        # A new rotation asks a fresh profile to take part again. An unlocked one
+        # (see unlocked) keeps whatever it last chose, so the event the unlock
+        # started does not go dark a week later - and an opt-out in the events
+        # screen still sticks.
+        if not unlocked(player):
+            bag["OptedIn"] = TRIAL_OPT_OUT
+    elif bag.get("Name"):
+        # The client opted into a named container: follow it rather than the rotation.
+        names = {c.get("name"): i for i, c in enumerate(CHALLENGES)}
+        if bag["Name"] in names and names[bag["Name"]] != bag["Index"]:
+            bag["Index"] = names[bag["Name"]]
+            bag["Progress"] = 0          # progress and paid tiers belong to one container
+            bag["Rewarded"] = []
+    return bag, (CHALLENGES[bag["Index"]] if CHALLENGES else None)
+
+
+def _rarity_range(rule):
+    try:
+        return RARITY_ORDER.index(rule.get("min") or "Common"), \
+               RARITY_ORDER.index(rule.get("max") or "Epic")
+    except (AttributeError, ValueError):
+        return 0, len(RARITY_ORDER) - 1
+
+
+def trial_tier_reward(player, tier):
+    """Pay one challenge tier and describe it for the reply.
+
+    The tier names a UFG::GameRewardTuner from data/challenges.json; its
+    mGameRewardType decides what is handed over, and mRewardValues is indexed by the
+    player's XP level.
+    """
+    tuner_uid = str(tier.get("tuner") or "")
+    tuner = CHALLENGE_TUNERS.get(tuner_uid) or {}
+    kind = tuner.get("mGameRewardType") or ""
+    values = tuner.get("mRewardValues") or []
+    level = xp_level(player)
+    amount = 0
+    favours = []
+    paid = "None"
+    if values:
+        entry = values[min(max(level - 1, 0), len(values) - 1)] or {}
+        amount = int(entry.get("mMinReward", 0))
+    if kind == "RewardType_DirtyMoney":
+        bag = player["CurrencyBag"]
+        bag["DirtyMoney"] = str(int(bag.get("DirtyMoney", "0")) + amount)
+        paid = "DirtyMoney"
+    elif kind == "RewardType_CleanMoney":
+        bag = player["CurrencyBag"]
+        bag["CleanMoney"] = str(int(bag.get("CleanMoney", "0")) + amount)
+        paid = "CleanMoney"
+    elif kind == "RewardType_Face":
+        pdb = player["PlayerDataBag"]
+        pdb["Face"] = str(int(pdb.get("Face", "0")) + amount)
+        paid = "Face"
+    elif kind in ("RewardType_Favours_All", "RewardType_Favours_RaidBonus"):
+        rules = tuner.get("mFavourTypes") or []
+        rule = rules[min(max(level - 1, 0), len(rules) - 1)] if rules else {}
+        low, high = _rarity_range(rule)
+        tags = {t.get("$handle") for t in rule.get("favourTags") or [] if isinstance(t, dict)}
+        pool = [uid for uid, info in FAVOUR_UPGRADES.items()
+                if not info.get("ftpe") and info.get("rarity") in RARITY_ORDER
+                and low <= RARITY_ORDER.index(info["rarity"]) <= high
+                and (not tags or tags.intersection(info.get("tags") or []))]
+        if not pool:
+            pool = [uid for uid, info in FAVOUR_UPGRADES.items() if not info.get("ftpe")]
+        if pool:
+            favours = [random.choice(pool)]
+            bag = player.setdefault("FavoursBag", [])
+            for uid in favours:
+                bag.append(favour_instance(next_favour_id(player), uid))
+        paid = "Favour"
+        amount = len(favours)          # mRewardValues is the tuner's favour budget, not a count
+    return {"tuner": tuner_uid, "kind": kind or paid, "paid": paid,
+            "amount": amount, "favours": favours, "target": int(tier.get("target", 0))}
+
+
+def trial_snapshot(player, value=None, now=None):
+    """Update (optionally) and describe the challenge report."""
+    bag, challenge = current_challenge(player, now)
+    if value is not None:
+        bag["Progress"] = max(int(bag["Progress"]), max(0, int(value)))
+    tiers = (challenge or {}).get("tiers") or []
+    target = max([int(t.get("target", 0)) for t in tiers] or [0])
+    progress = min(int(bag["Progress"]), target) if target else int(bag["Progress"])
+    granted = []
+    for index, tier in enumerate(tiers):
+        if progress >= int(tier.get("target", 0)) and index not in bag["Rewarded"]:
+            bag["Rewarded"].append(index)
+            reward = trial_tier_reward(player, tier)
+            reward["index"] = index
+            granted.append(reward)
+    reached = [i for i, t in enumerate(tiers) if progress >= int(t.get("target", 0))]
+    return bag, challenge, {"progress": progress, "target": target, "reached": reached,
+                            "opted_in": bool(bag["OptedIn"]), "granted": granted}
+
+
+def trial_container(bag, challenge, start, end, index):
+    """One UFG::TrialContainer-shaped record (the trials screen's card)."""
+    return {"mTrial": challenge.get("name", ""),
+            "mTrialInstance": trial_instance_id(bag, index),
+            "mTrialStartSeconds": int(start), "mTrialEndSeconds": int(end),
+            "mBonusFavour": "0",
+            "mDisplayName": challenge.get("title", ""),
+            "mDescription": challenge.get("description", ""),
+            "mImage": challenge.get("image", "")}
+
+
+def opponent_remaining(opponent, now=None, everything=False):
+    """Seconds until that rival's turf can be raided again (0 = right now).
+
+    An unlocked profile (see unlocked) never waits: the world map keeps every turf
+    on offer, whatever the profile was carrying when it was unlocked.
+    """
+    if everything:
+        return 0
+    now = time.time() if now is None else now
+    return max(0, int(round(int(opponent.get("cooldown_until") or 0) - now)))
+
+
+def start_rival_cooldown(opponent, seconds=None, now=None, everything=False):
+    """Put one rival's turf on the post-raid cooldown.
+
+    While the profile is unlocked this is a no-op: a raid clears the turf instead of
+    taking it off the map for RIVAL_RAID_COOLDOWN.
+    """
+    if everything:
+        opponent["cooldown_until"] = 0
+        return 0
+    now = time.time() if now is None else now
+    opponent["cooldown_until"] = int(now + (RIVAL_RAID_COOLDOWN if seconds is None else seconds))
+    return opponent["cooldown_until"]
+
+
+def default_state():
+    player = new_player(1001, "Player", 1, TURF_LOCATIONS[0], 0, account_id=1)
+    grant_starting_favours(player)
+    grant_starting_inventory(player)
+    return {
+        "version": 8,
+        "created": int(time.time()),
+        "player": player,
+        "opponents": [
+            {
+                "type": 0,
+                "cooldown_until": 0,
+                "data": new_player(2001 + i, AI_NAMES[i], i, TURF_LOCATIONS[i], i),
+            }
+            for i in range(7)
+        ],
+        "gamestate": "",          # opaque save blob the client POSTs to playersavegame
+        "gameplaystate": "",
+    }
+
+
+class State:
+    def __init__(self, path=STATE_PATH):
+        self.path = path
+        self.lock = threading.RLock()
+        if os.path.exists(path):
+            with open(path, encoding="utf-8") as f:
+                self.data = json.load(f)
+            self._migrate()
+        else:
+            self.data = default_state()
+            self.save()
+
+    def _migrate(self):
+        """Bring a profile saved by an older server version up to date."""
+        version = self.data.get("version", 1)
+        if version >= 8:
+            return
+        player = self.data["player"]
+        if version < 2:
+            for key in ("FavoursBag", "EnforcerUpgradesBag", "InventoryBag"):
+                player.setdefault(key, [])
+            grant_starting_favours(player)
+        if version < 3:
+            # Move the safehouse-family buildings off the block grid (see new_turf).
+            for owner in [player] + [o["data"] for o in self.data.get("opponents", [])]:
+                turf = owner.get("TurfBag", {}).get("Turf", {})
+                for key in ("Safehouse", "Warehouse", "Temple"):
+                    if key in turf:
+                        turf[key]["BlockIndex"] = SAFEHOUSE_BLOCK
+        if version < 4:
+            # Empty-lot placeholders used to be stored as rackets; drop them (see new_turf).
+            empties = set(EMPTY_UID.values())
+            for owner in [player] + [o["data"] for o in self.data.get("opponents", [])]:
+                bag = owner.get("TurfBag")
+                if bag:
+                    bag["Rackets"] = [r for r in bag.get("Rackets", [])
+                                      if r.get("RacketTypeUID") not in empties]
+        if version < 5:
+            grant_starting_inventory(player)
+        if version < 6:
+            # Jobs and challenges keep their state on the player, not in a data bag.
+            for owner in [player] + [o["data"] for o in self.data.get("opponents", [])]:
+                owner.setdefault("ErrandsBag", new_errand_bag())
+                owner.setdefault("TrialsBag", new_trial_bag())
+                owner.setdefault("CurrencyBag", {}).setdefault("Gold", "0")
+        if version < 7:
+            # The customization bag is a data bag now, so it is always present and the
+            # client never reads a missing one (it is sent only when asked for).
+            for owner in [player] + [o["data"] for o in self.data.get("opponents", [])]:
+                owner.setdefault("CustomizationBag", new_customization_bag())
+        if version < 8:
+            # Every rival used to be reported as "on cooldown for 24 hours", which left the
+            # world map with nothing to raid (see RIVAL_RAID_COOLDOWN). Saved profiles get
+            # the countdown removed, so they start with the whole roster available.
+            for opponent in self.data.get("opponents", []):
+                opponent.pop("remaining_seconds", None)
+                opponent["cooldown_until"] = int(opponent.get("cooldown_until") or 0)
+        self.data["version"] = 8
+        self.save()
+
+    def save(self):
+        with self.lock:
+            tmp = self.path + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(self.data, f, indent=1)
+            os.replace(tmp, self.path)
+
+    # -- response builders ---------------------------------------------------
+    @staticmethod
+    def bags(player, mask):
+        """Build an mDataBags object containing only the bags we actually hold."""
+        out = {}
+        have = 0
+        # PlayerData/Customization/Currency/Turf are objects; Favours, Inventory and
+        # EnforcerUpgrades are arrays of records (EnforcerUpgrades as {Item1: uid, Item2: slot}).
+        for bit, key in ((BAG_PLAYER, "PlayerDataBag"), (BAG_CUSTOMIZATION, "CustomizationBag"),
+                         (BAG_FAVOURS, "FavoursBag"), (BAG_CURRENCY, "CurrencyBag"),
+                         (BAG_TURF, "TurfBag"), (BAG_INVENTORY, "InventoryBag"),
+                         (BAG_ENFORCER_UPGRADES, "EnforcerUpgradesBag")):
+            if mask & bit and key in player:
+                out[key] = copy.deepcopy(player[key])
+                have |= bit
+        out["mRequestedBags"] = have
+        return out
+
+    def player_bags(self, mask):
+        with self.lock:
+            return self.bags(self.data["player"], mask)
+
+    def opponents(self, mask=0x1FFF):
+        """Opponent summaries plus their data bags.
+
+        The client reads these as two parallel root-level arrays: mOpponents[i]
+        describes the rival and mOpponentDataBags[i] holds that rival's bags.
+        """
+        with self.lock:
+            everything = unlocked(self.data["player"])
+            infos, bags = [], []
+            for index, o in enumerate(self.data["opponents"]):
+                p = o["data"]
+                # The unlock builds the rivals' turfs out once (see fill_rival_turf);
+                # a profile without the flag sees them exactly as before.
+                if everything:
+                    fill_rival_turf(p, index)
+                infos.append({
+                    "mPlayerDataID": p["PlayerDataBag"]["PlayerDataID"],
+                    "mOpponentType": o.get("type", 0),
+                    "mTriad": {},
+                    "mRemainingSeconds": opponent_remaining(o, everything=everything),
+                })
+                bags.append(self.bags(p, mask))
+            return infos, bags

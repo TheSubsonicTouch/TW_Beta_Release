@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
+  <assemblyIdentity type="win32"
+                    name="TheSubsonicTouch.TriadWars.FreeCamera.Menu"
+                    version="1.0.0.15"
+                    processorArchitecture="amd64"/>
+  <description>Triad Wars debug menu with the free camera</description>
+</assembly>

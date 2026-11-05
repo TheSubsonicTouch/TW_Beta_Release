@@ -1,0 +1,7 @@
+SHA-256 of every file in this package.
+Check one with:  certutil -hashfile dinput8.dll SHA256
+or in PowerShell: Get-FileHash -Algorithm SHA256 <file>
+
+3d3b282c46d40be2c15bdbf0bbdc9708c16774a34de0dc5042772d48d9d6c956  START-HERE.txt
+1d1d98634d0989a24a1e9299d7f0631579aeea6397cbf99673138b27244e49ed  dinput8.dll
+d36fb54e884dbf91827c5093cdbe7ec3eeda4d4ee56799702cfec0ab3f9889c4  README.txt

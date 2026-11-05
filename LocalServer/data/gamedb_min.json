@@ -1,0 +1,5941 @@
+{
+ "UFG::TurfTemplate": [
+  {
+   "$uid": "225501511964055524",
+   "$type": "UFG::TurfTemplate",
+   "mTurfBoundaryIndex": 0,
+   "mEntranceOrientation": "TURF_ROT_0",
+   "mSafehouseBlock": {
+    "$handle": "6379346716810314025",
+    "$type": "UFG::SafehouseBlock"
+   },
+   "mTurfBlocks": [
+    {
+     "mSize": "SMALL",
+     "mGridPosition": {
+      "x": 1.0,
+      "y": 1.0
+     },
+     "mSafehouseLevelUnlock": 3,
+     "mOrientation": "TURF_ROT_90"
+    },
+    {
+     "mSize": "SMALL",
+     "mGridPosition": {
+      "x": 2.0,
+      "y": 0.0
+     },
+     "mSafehouseLevelUnlock": 1,
+     "mOrientation": "TURF_ROT_270"
+    },
+    {
+     "mSize": "SMALL",
+     "mGridPosition": {
+      "x": 3.0,
+      "y": 0.0
+     },
+     "mSafehouseLevelUnlock": 7,
+     "mOrientation": "TURF_ROT_0"
+    },
+    {
+     "mSize": "MEDIUM",
+     "mGridPosition": {
+      "x": 0.0,
+      "y": 0.0
+     },
+     "mSafehouseLevelUnlock": 5,
+     "mOrientation": "TURF_ROT_0"
+    },
+    {
+     "mSize": "LARGE",
+     "mGridPosition": {
+      "x": 2.0,
+      "y": 1.0
+     },
+     "mSafehouseLevelUnlock": 9,
+     "mOrientation": "TURF_ROT_180"
+    }
+   ],
+   "mGameplayPrefab": "sym:0x5c262c0c"
+  },
+  {
+   "$uid": "2445664016155883607",
+   "$type": "UFG::TurfTemplate",
+   "mTurfBoundaryIndex": 1,
+   "mEntranceOrientation": "TURF_ROT_0",
+   "mSafehouseBlock": {
+    "$handle": "6379346716810314025",
+    "$type": "UFG::SafehouseBlock"
+   },
+   "mTurfBlocks": [
+    {
+     "mSize": "SMALL",
+     "mGridPosition": {
+      "x": 0.0,
+      "y": 0.0
+     },
+     "mSafehouseLevelUnlock": 7,
+     "mOrientation": "TURF_ROT_90"
+    },
+    {
+     "mSize": "SMALL",
+     "mGridPosition": {
+      "x": 1.0,
+      "y": 0.0
+     },
+     "mSafehouseLevelUnlock": 3,
+     "mOrientation": "TURF_ROT_0"
+    },
+    {
+     "mSize": "SMALL",
+     "mGridPosition": {
+      "x": 1.0,
+      "y": 1.0
+     },
+     "mSafehouseLevelUnlock": 1,
+     "mOrientation": "TURF_ROT_90"
+    },
+    {
+     "mSize": "MEDIUM",
+     "mGridPosition": {
+      "x": 2.0,
+      "y": 2.0
+     },
+     "mSafehouseLevelUnlock": 5,
+     "mOrientation": "TURF_ROT_180"
+    },
+    {
+     "mSize": "LARGE",
+     "mGridPosition": {
+      "x": 2.0,
+      "y": 0.0
+     },
+     "mSafehouseLevelUnlock": 9,
+     "mOrientation": "TURF_ROT_270"
+    }
+   ],
+   "mGameplayPrefab": "sym:0x51650ad5"
+  },
+  {
+   "$uid": "8243834201586633798",
+   "$type": "UFG::TurfTemplate",
+   "mTurfBoundaryIndex": 0,
+   "mEntranceOrientation": "TURF_ROT_0",
+   "mSafehouseBlock": {
+    "$handle": "6379346716810314025",
+    "$type": "UFG::SafehouseBlock"
+   },
+   "mTurfBlocks": [
+    {
+     "mSize": "SMALL",
+     "mGridPosition": {
+      "x": 1.0,
+      "y": 1.0
+     },
+     "mSafehouseLevelUnlock": 7,
+     "mOrientation": "TURF_ROT_90"
+    },
+    {
+     "mSize": "SMALL",
+     "mGridPosition": {
+      "x": 2.0,
+      "y": 2.0
+     },
+     "mSafehouseLevelUnlock": 1,
+     "mOrientation": "TURF_ROT_270"
+    },
+    {
+     "mSize": "SMALL",
+     "mGridPosition": {
+      "x": 3.0,
+      "y": 2.0
+     },
+     "mSafehouseLevelUnlock": 3,
+     "mOrientation": "TURF_ROT_180"
+    },
+    {
+     "mSize": "MEDIUM",
+     "mGridPosition": {
+      "x": 0.0,
+      "y": 0.0
+     },
+     "mSafehouseLevelUnlock": 5,
+     "mOrientation": "TURF_ROT_0"
+    },
+    {
+     "mSize": "LARGE",
+     "mGridPosition": {
+      "x": 2.0,
+      "y": 0.0
+     },
+     "mSafehouseLevelUnlock": 9,
+     "mOrientation": "TURF_ROT_270"
+    }
+   ],
+   "mGameplayPrefab": "sym:0x58e731bb"
+  },
+  {
+   "$uid": "12099742056862485966",
+   "$type": "UFG::TurfTemplate",
+   "mTurfBoundaryIndex": 1,
+   "mEntranceOrientation": "TURF_ROT_0",
+   "mSafehouseBlock": {
+    "$handle": "6379346716810314025",
+    "$type": "UFG::SafehouseBlock"
+   },
+   "mTurfBlocks": [
+    {
+     "mSize": "SMALL",
+     "mGridPosition": {
+      "x": 0.0,
+      "y": 0.0
+     },
+     "mSafehouseLevelUnlock": 7,
+     "mOrientation": "TURF_ROT_0"
+    },
+    {
+     "mSize": "SMALL",
+     "mGridPosition": {
+      "x": 2.0,
+      "y": 2.0
+     },
+     "mSafehouseLevelUnlock": 3,
+     "mOrientation": "TURF_ROT_180"
+    },
+    {
+     "mSize": "SMALL",
+     "mGridPosition": {
+      "x": 3.0,
+      "y": 2.0
+     },
+     "mSafehouseLevelUnlock": 1,
+     "mOrientation": "TURF_ROT_90"
+    },
+    {
+     "mSize": "MEDIUM",
+     "mGridPosition": {
+      "x": 3.0,
+      "y": 0.0
+     },
+     "mSafehouseLevelUnlock": 5,
+     "mOrientation": "TURF_ROT_270"
+    },
+    {
+     "mSize": "LARGE",
+     "mGridPosition": {
+      "x": 1.0,
+      "y": 0.0
+     },
+     "mSafehouseLevelUnlock": 9,
+     "mOrientation": "TURF_ROT_270"
+    }
+   ],
+   "mGameplayPrefab": "sym:0x46a061be"
+  }
+ ],
+ "UFG::SafehouseBlock": [
+  {
+   "$uid": "6379346716810314025",
+   "$type": "UFG::SafehouseBlock",
+   "mSafehouse": {
+    "$handle": "7427838002936215495",
+    "$type": "UFG::RacketType"
+   },
+   "mGarageRacket": {
+    "$handle": "16869525680633088799",
+    "$type": "UFG::RacketType"
+   },
+   "mWarehouseRacket": {
+    "$handle": "6675658476745246410",
+    "$type": "UFG::RacketType"
+   },
+   "mTriadTempleRacket": {
+    "$handle": "681339054293160616",
+    "$type": "UFG::RacketType"
+   }
+  }
+ ],
+ "UFG::RacketType": [
+  {
+   "$uid": "518436766349603219",
+   "$type": "UFG::RacketType",
+   "mSize": "SMALL",
+   "mIsEmptyType": false,
+   "mFamily": {
+    "$handle": "5160028046467063634",
+    "$type": "UFG::RacketFamily"
+   },
+   "mLevels": [
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 500,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 720,
+     "mMaxStaff": 1,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 800,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 1080,
+     "mMaxStaff": 1,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 1200,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 1500,
+     "mMaxStaff": 2,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 2000,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 2400,
+     "mMaxStaff": 2,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 3250,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 3300,
+     "mMaxStaff": 3,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 4500,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 4500,
+     "mMaxStaff": 3,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 7000,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 6600,
+     "mMaxStaff": 4,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 10000,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 9000,
+     "mMaxStaff": 4,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 12000,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 9600,
+     "mMaxStaff": 5,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 15000,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 10500,
+     "mMaxStaff": 5,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    }
+   ],
+   "mCaption": "RACKET_CURRENCY",
+   "mRacketIcon": "Counterfeiting_Currency",
+   "mOperationRacketType": "Counterfeiting_Currency",
+   "mSafehouseMinLevel": 1,
+   "mRacketWarningMessage": "",
+   "mBoostRackets": [],
+   "mRequiredRacket": null,
+   "mCorePrefabs": {
+    "$handle": "7866570057159523949",
+    "$type": "UFG::RacketCorePrefabs"
+   },
+   "mRacketInput": null,
+   "mRacketInput2": null,
+   "mRacketID": 1,
+   "mRacketOutput": {
+    "$handle": "3223739389318635268",
+    "$type": "UFG::CommodityType"
+   },
+   "mRacketStaffMod": 0.05,
+   "mRacketFormula": 5,
+   "mInformantGained": {
+    "$handle": "4509536354533812810",
+    "$type": "UFG::InformantType"
+   }
+  },
+  {
+   "$uid": "657586769918417613",
+   "$type": "UFG::RacketType",
+   "mSize": "MEDIUM",
+   "mIsEmptyType": false,
+   "mFamily": {
+    "$handle": "15928765476849270780",
+    "$type": "UFG::RacketFamily"
+   },
+   "mLevels": [
+    {
+     "mInput1Amount": 600,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 15,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 1800,
+     "mMaxStaff": 1,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 1200,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 20,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 2100,
+     "mMaxStaff": 1,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 1500,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 25,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 3300,
+     "mMaxStaff": 2,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 1800,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 30,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 4200,
+     "mMaxStaff": 2,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 2100,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 35,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 4800,
+     "mMaxStaff": 3,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 2400,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 40,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 5100,
+     "mMaxStaff": 3,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 2700,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 45,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 5400,
+     "mMaxStaff": 4,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 3000,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 50,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 6000,
+     "mMaxStaff": 4,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 3300,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 55,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 6600,
+     "mMaxStaff": 5,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 3600,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 60,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 7200,
+     "mMaxStaff": 5,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    }
+   ],
+   "mCaption": "RACKET_FISH_MARKET",
+   "mRacketIcon": "Smuggling_FishMarket",
+   "mOperationRacketType": "Smuggling_FishMarket",
+   "mSafehouseMinLevel": 2,
+   "mRacketWarningMessage": "",
+   "mBoostRackets": [],
+   "mRequiredRacket": null,
+   "mCorePrefabs": {
+    "$handle": "7866570057159523949",
+    "$type": "UFG::RacketCorePrefabs"
+   },
+   "mRacketInput": {
+    "$handle": "3223739389318635268",
+    "$type": "UFG::CommodityType"
+   },
+   "mRacketInput2": null,
+   "mRacketID": 15,
+   "mRacketOutput": {
+    "$handle": "2916177118768518687",
+    "$type": "UFG::CommodityType"
+   },
+   "mRacketStaffMod": 0.05,
+   "mRacketFormula": 5,
+   "mInformantGained": {
+    "$handle": "18255188327195281870",
+    "$type": "UFG::InformantType"
+   }
+  },
+  {
+   "$uid": "681339054293160616",
+   "$type": "UFG::RacketType",
+   "mSize": "SAFEHOUSE",
+   "mIsEmptyType": false,
+   "mFamily": null,
+   "mLevels": [
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    }
+   ],
+   "mCaption": "RACKET_TEMPLE",
+   "mRacketIcon": "triad_temple",
+   "mOperationRacketType": "",
+   "mSafehouseMinLevel": 0,
+   "mRacketWarningMessage": "",
+   "mBoostRackets": [],
+   "mRequiredRacket": null,
+   "mCorePrefabs": {
+    "$handle": "6775880087960199218",
+    "$type": "UFG::RacketCorePrefabs"
+   },
+   "mRacketInput": null,
+   "mRacketInput2": null,
+   "mRacketID": 2004,
+   "mRacketOutput": null,
+   "mRacketStaffMod": 0.0,
+   "mRacketFormula": 0,
+   "mInformantGained": null
+  },
+  {
+   "$uid": "1040870362154017478",
+   "$type": "UFG::RacketType",
+   "mSize": "LARGE",
+   "mIsEmptyType": true,
+   "mFamily": null,
+   "mLevels": [
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    }
+   ],
+   "mCaption": "Empty",
+   "mRacketIcon": "",
+   "mOperationRacketType": "",
+   "mSafehouseMinLevel": 0,
+   "mRacketWarningMessage": "",
+   "mBoostRackets": [],
+   "mRequiredRacket": null,
+   "mCorePrefabs": {
+    "$handle": "7866570057159523949",
+    "$type": "UFG::RacketCorePrefabs"
+   },
+   "mRacketInput": null,
+   "mRacketInput2": null,
+   "mRacketID": 0,
+   "mRacketOutput": null,
+   "mRacketStaffMod": 0.0,
+   "mRacketFormula": 0,
+   "mInformantGained": null
+  },
+  {
+   "$uid": "1142746177313768767",
+   "$type": "UFG::RacketType",
+   "mSize": "MEDIUM",
+   "mIsEmptyType": false,
+   "mFamily": {
+    "$handle": "15094118641276673099",
+    "$type": "UFG::RacketFamily"
+   },
+   "mLevels": [
+    {
+     "mInput1Amount": 80,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 2,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 1800,
+     "mMaxStaff": 1,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 120,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 3,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 3000,
+     "mMaxStaff": 1,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 160,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 4,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 4500,
+     "mMaxStaff": 2,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 200,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 5,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 6000,
+     "mMaxStaff": 2,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 240,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 6,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 9000,
+     "mMaxStaff": 3,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 280,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 7,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 11400,
+     "mMaxStaff": 3,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 320,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 8,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 12600,
+     "mMaxStaff": 4,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 400,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 10,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 13500,
+     "mMaxStaff": 4,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 480,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 12,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 14400,
+     "mMaxStaff": 5,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 560,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 14,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 16500,
+     "mMaxStaff": 5,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    }
+   ],
+   "mCaption": "RACKET_AUTO_SHOP",
+   "mRacketIcon": "Vehicle_CustomAutoShop",
+   "mOperationRacketType": "Vehicle_AutoShop",
+   "mSafehouseMinLevel": 3,
+   "mRacketWarningMessage": "RACKET_AUTO_SHOP_WARNING",
+   "mBoostRackets": [],
+   "mRequiredRacket": {
+    "$handle": "14822563352656898089",
+    "$type": "UFG::RacketType"
+   },
+   "mCorePrefabs": {
+    "$handle": "7866570057159523949",
+    "$type": "UFG::RacketCorePrefabs"
+   },
+   "mRacketInput": {
+    "$handle": "5591782374748088804",
+    "$type": "UFG::CommodityType"
+   },
+   "mRacketInput2": null,
+   "mRacketID": 21,
+   "mRacketOutput": {
+    "$handle": "12899405313262884080",
+    "$type": "UFG::CommodityType"
+   },
+   "mRacketStaffMod": 0.05,
+   "mRacketFormula": 5,
+   "mInformantGained": {
+    "$handle": "10740203655539158235",
+    "$type": "UFG::InformantType"
+   }
+  },
+  {
+   "$uid": "2428252897790382124",
+   "$type": "UFG::RacketType",
+   "mSize": "MEDIUM",
+   "mIsEmptyType": true,
+   "mFamily": null,
+   "mLevels": [
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    }
+   ],
+   "mCaption": "Empty",
+   "mRacketIcon": "",
+   "mOperationRacketType": "",
+   "mSafehouseMinLevel": 0,
+   "mRacketWarningMessage": "",
+   "mBoostRackets": [],
+   "mRequiredRacket": null,
+   "mCorePrefabs": {
+    "$handle": "7866570057159523949",
+    "$type": "UFG::RacketCorePrefabs"
+   },
+   "mRacketInput": null,
+   "mRacketInput2": null,
+   "mRacketID": 0,
+   "mRacketOutput": null,
+   "mRacketStaffMod": 0.0,
+   "mRacketFormula": 0,
+   "mInformantGained": null
+  },
+  {
+   "$uid": "4790026536684175184",
+   "$type": "UFG::RacketType",
+   "mSize": "SMALL",
+   "mIsEmptyType": false,
+   "mFamily": {
+    "$handle": "4547847467365846543",
+    "$type": "UFG::RacketFamily"
+   },
+   "mLevels": [
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 500,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 600,
+     "mMaxStaff": 1,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 800,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 720,
+     "mMaxStaff": 1,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 1200,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 900,
+     "mMaxStaff": 2,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 2000,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 1320,
+     "mMaxStaff": 2,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 3250,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 2040,
+     "mMaxStaff": 3,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 4500,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 2700,
+     "mMaxStaff": 3,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 7000,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 4200,
+     "mMaxStaff": 4,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 10000,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 5400,
+     "mMaxStaff": 4,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 12000,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 6000,
+     "mMaxStaff": 5,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 15000,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 6300,
+     "mMaxStaff": 5,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    }
+   ],
+   "mCaption": "RACKET_FOOD_CARTS",
+   "mRacketIcon": "Extortion_FoodCarts",
+   "mOperationRacketType": "Extortion_FoodCarts",
+   "mSafehouseMinLevel": 1,
+   "mRacketWarningMessage": "",
+   "mBoostRackets": [],
+   "mRequiredRacket": null,
+   "mCorePrefabs": {
+    "$handle": "7866570057159523949",
+    "$type": "UFG::RacketCorePrefabs"
+   },
+   "mRacketInput": null,
+   "mRacketInput2": null,
+   "mRacketID": 4,
+   "mRacketOutput": {
+    "$handle": "3223739389318635268",
+    "$type": "UFG::CommodityType"
+   },
+   "mRacketStaffMod": 0.05,
+   "mRacketFormula": 5,
+   "mInformantGained": {
+    "$handle": "13697035526422863815",
+    "$type": "UFG::InformantType"
+   }
+  },
+  {
+   "$uid": "4962222915235619025",
+   "$type": "UFG::RacketType",
+   "mSize": "LARGE",
+   "mIsEmptyType": false,
+   "mFamily": {
+    "$handle": "4547847467365846543",
+    "$type": "UFG::RacketFamily"
+   },
+   "mLevels": [
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 3250,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 2700,
+     "mMaxStaff": 1,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 4500,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 3600,
+     "mMaxStaff": 1,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 7000,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 7200,
+     "mMaxStaff": 2,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 10000,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 9000,
+     "mMaxStaff": 2,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 12000,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 10800,
+     "mMaxStaff": 3,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 15000,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 12000,
+     "mMaxStaff": 3,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 18000,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 13200,
+     "mMaxStaff": 4,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 20000,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 14400,
+     "mMaxStaff": 4,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 22500,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 15600,
+     "mMaxStaff": 5,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 25000,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 16800,
+     "mMaxStaff": 5,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    }
+   ],
+   "mCaption": "RACKET_MINIBUS",
+   "mRacketIcon": "Extortion_Minibus",
+   "mOperationRacketType": "Extortion_Minibus",
+   "mSafehouseMinLevel": 3,
+   "mRacketWarningMessage": "",
+   "mBoostRackets": [],
+   "mRequiredRacket": {
+    "$handle": "9912487547185339337",
+    "$type": "UFG::RacketType"
+   },
+   "mCorePrefabs": {
+    "$handle": "7866570057159523949",
+    "$type": "UFG::RacketCorePrefabs"
+   },
+   "mRacketInput": null,
+   "mRacketInput2": null,
+   "mRacketID": 6,
+   "mRacketOutput": {
+    "$handle": "3223739389318635268",
+    "$type": "UFG::CommodityType"
+   },
+   "mRacketStaffMod": 0.05,
+   "mRacketFormula": 5,
+   "mInformantGained": {
+    "$handle": "4831773695554441899",
+    "$type": "UFG::InformantType"
+   }
+  },
+  {
+   "$uid": "5472783115460134427",
+   "$type": "UFG::RacketType",
+   "mSize": "SMALL",
+   "mIsEmptyType": false,
+   "mFamily": {
+    "$handle": "10171338414384551525",
+    "$type": "UFG::RacketFamily"
+   },
+   "mLevels": [
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 1200,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 1200,
+     "mMaxStaff": 1,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 2000,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 1800,
+     "mMaxStaff": 1,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 3250,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 2700,
+     "mMaxStaff": 2,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 4500,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 3600,
+     "mMaxStaff": 2,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 7000,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 5400,
+     "mMaxStaff": 3,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 10000,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 7200,
+     "mMaxStaff": 3,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 12000,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 7800,
+     "mMaxStaff": 4,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 15000,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 8400,
+     "mMaxStaff": 4,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 18000,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 9000,
+     "mMaxStaff": 5,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 20000,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 10200,
+     "mMaxStaff": 5,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    }
+   ],
+   "mCaption": "RACKET_GAMBLING_DEN",
+   "mRacketIcon": "Gambling_BackRoom",
+   "mOperationRacketType": "Gambling_BackRoomGame",
+   "mSafehouseMinLevel": 2,
+   "mRacketWarningMessage": "",
+   "mBoostRackets": [],
+   "mRequiredRacket": {
+    "$handle": "9566532506770642778",
+    "$type": "UFG::RacketType"
+   },
+   "mCorePrefabs": {
+    "$handle": "7866570057159523949",
+    "$type": "UFG::RacketCorePrefabs"
+   },
+   "mRacketInput": null,
+   "mRacketInput2": null,
+   "mRacketID": 10,
+   "mRacketOutput": {
+    "$handle": "3223739389318635268",
+    "$type": "UFG::CommodityType"
+   },
+   "mRacketStaffMod": 0.05,
+   "mRacketFormula": 5,
+   "mInformantGained": {
+    "$handle": "5307198439264409361",
+    "$type": "UFG::InformantType"
+   }
+  },
+  {
+   "$uid": "6675658476745246410",
+   "$type": "UFG::RacketType",
+   "mSize": "SAFEHOUSE",
+   "mIsEmptyType": false,
+   "mFamily": null,
+   "mLevels": [
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    }
+   ],
+   "mCaption": "RACKET_WAREHOUSE",
+   "mRacketIcon": "Warehouse",
+   "mOperationRacketType": "",
+   "mSafehouseMinLevel": 0,
+   "mRacketWarningMessage": "",
+   "mBoostRackets": [],
+   "mRequiredRacket": null,
+   "mCorePrefabs": {
+    "$handle": "4924586008840554375",
+    "$type": "UFG::RacketCorePrefabs"
+   },
+   "mRacketInput": null,
+   "mRacketInput2": null,
+   "mRacketID": 2002,
+   "mRacketOutput": null,
+   "mRacketStaffMod": 0.0,
+   "mRacketFormula": 0,
+   "mInformantGained": null
+  },
+  {
+   "$uid": "6802537335395688960",
+   "$type": "UFG::RacketType",
+   "mSize": "SAFEHOUSE",
+   "mIsEmptyType": false,
+   "mFamily": null,
+   "mLevels": [
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    }
+   ],
+   "mCaption": "Hangout",
+   "mRacketIcon": "",
+   "mOperationRacketType": "",
+   "mSafehouseMinLevel": 0,
+   "mRacketWarningMessage": "",
+   "mBoostRackets": [],
+   "mRequiredRacket": null,
+   "mCorePrefabs": {
+    "$handle": "3611287401984454939",
+    "$type": "UFG::RacketCorePrefabs"
+   },
+   "mRacketInput": null,
+   "mRacketInput2": null,
+   "mRacketID": 0,
+   "mRacketOutput": null,
+   "mRacketStaffMod": 0.0,
+   "mRacketFormula": 0,
+   "mInformantGained": null
+  },
+  {
+   "$uid": "7427838002936215495",
+   "$type": "UFG::RacketType",
+   "mSize": "SAFEHOUSE",
+   "mIsEmptyType": false,
+   "mFamily": null,
+   "mLevels": [
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    }
+   ],
+   "mCaption": "RACKET_SAFEHOUSE",
+   "mRacketIcon": "safehouse",
+   "mOperationRacketType": "",
+   "mSafehouseMinLevel": 0,
+   "mRacketWarningMessage": "",
+   "mBoostRackets": [],
+   "mRequiredRacket": null,
+   "mCorePrefabs": {
+    "$handle": "9100374048745893584",
+    "$type": "UFG::RacketCorePrefabs"
+   },
+   "mRacketInput": null,
+   "mRacketInput2": null,
+   "mRacketID": 2000,
+   "mRacketOutput": null,
+   "mRacketStaffMod": 0.0,
+   "mRacketFormula": 0,
+   "mInformantGained": null
+  },
+  {
+   "$uid": "7573475972317018949",
+   "$type": "UFG::RacketType",
+   "mSize": "SMALL",
+   "mIsEmptyType": false,
+   "mFamily": {
+    "$handle": "5160028046467063634",
+    "$type": "UFG::RacketFamily"
+   },
+   "mLevels": [
+    {
+     "mInput1Amount": 1440,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 6,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 1200,
+     "mMaxStaff": 1,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 1920,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 8,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 1800,
+     "mMaxStaff": 1,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 2400,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 10,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 2700,
+     "mMaxStaff": 2,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 2880,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 12,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 3600,
+     "mMaxStaff": 2,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 3360,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 14,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 5400,
+     "mMaxStaff": 3,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 3840,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 16,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 7200,
+     "mMaxStaff": 3,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 4320,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 18,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 7800,
+     "mMaxStaff": 4,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 4800,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 20,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 8400,
+     "mMaxStaff": 4,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 5280,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 22,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 9000,
+     "mMaxStaff": 5,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 6000,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 25,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 10200,
+     "mMaxStaff": 5,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    }
+   ],
+   "mCaption": "RACKET_HACKERS",
+   "mRacketIcon": "Counterfeiting_DataTheft",
+   "mOperationRacketType": "Counterfeiting_Hackers",
+   "mSafehouseMinLevel": 2,
+   "mRacketWarningMessage": "",
+   "mBoostRackets": [],
+   "mRequiredRacket": {
+    "$handle": "518436766349603219",
+    "$type": "UFG::RacketType"
+   },
+   "mCorePrefabs": {
+    "$handle": "7866570057159523949",
+    "$type": "UFG::RacketCorePrefabs"
+   },
+   "mRacketInput": {
+    "$handle": "3223739389318635268",
+    "$type": "UFG::CommodityType"
+   },
+   "mRacketInput2": null,
+   "mRacketID": 7,
+   "mRacketOutput": {
+    "$handle": "15899949689628397201",
+    "$type": "UFG::CommodityType"
+   },
+   "mRacketStaffMod": 0.05,
+   "mRacketFormula": 5,
+   "mInformantGained": {
+    "$handle": "11506116560062288789",
+    "$type": "UFG::InformantType"
+   }
+  },
+  {
+   "$uid": "8217289287552932160",
+   "$type": "UFG::RacketType",
+   "mSize": "MEDIUM",
+   "mIsEmptyType": false,
+   "mFamily": {
+    "$handle": "5160028046467063634",
+    "$type": "UFG::RacketFamily"
+   },
+   "mLevels": [
+    {
+     "mInput1Amount": 6,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 80,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 900,
+     "mMaxStaff": 1,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 7,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 90,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 1320,
+     "mMaxStaff": 1,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 8,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 100,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 2040,
+     "mMaxStaff": 2,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 9,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 110,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 2700,
+     "mMaxStaff": 2,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 10,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 120,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 3900,
+     "mMaxStaff": 3,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 11,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 130,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 5400,
+     "mMaxStaff": 3,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 12,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 140,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 6000,
+     "mMaxStaff": 4,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 13,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 150,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 6300,
+     "mMaxStaff": 4,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 14,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 160,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 6900,
+     "mMaxStaff": 5,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 15,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 170,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 7800,
+     "mMaxStaff": 5,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    }
+   ],
+   "mCaption": "RACKET_SWEAT_SHOP",
+   "mRacketIcon": "Counterfeiting_Sweatshop",
+   "mOperationRacketType": "Counterfeiting_Sweatshop",
+   "mSafehouseMinLevel": 3,
+   "mRacketWarningMessage": "RACKET_SWEAT_SHOP_WARNING",
+   "mBoostRackets": [],
+   "mRequiredRacket": {
+    "$handle": "7573475972317018949",
+    "$type": "UFG::RacketType"
+   },
+   "mCorePrefabs": {
+    "$handle": "7866570057159523949",
+    "$type": "UFG::RacketCorePrefabs"
+   },
+   "mRacketInput": {
+    "$handle": "15899949689628397201",
+    "$type": "UFG::CommodityType"
+   },
+   "mRacketInput2": null,
+   "mRacketID": 3,
+   "mRacketOutput": {
+    "$handle": "12416988788789754389",
+    "$type": "UFG::CommodityType"
+   },
+   "mRacketStaffMod": 0.05,
+   "mRacketFormula": 5,
+   "mInformantGained": {
+    "$handle": "9630364867332697871",
+    "$type": "UFG::InformantType"
+   }
+  },
+  {
+   "$uid": "9492196841068096968",
+   "$type": "UFG::RacketType",
+   "mSize": "SMALL",
+   "mIsEmptyType": true,
+   "mFamily": null,
+   "mLevels": [
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    }
+   ],
+   "mCaption": "Empty",
+   "mRacketIcon": "",
+   "mOperationRacketType": "",
+   "mSafehouseMinLevel": 0,
+   "mRacketWarningMessage": "",
+   "mBoostRackets": [],
+   "mRequiredRacket": null,
+   "mCorePrefabs": {
+    "$handle": "7866570057159523949",
+    "$type": "UFG::RacketCorePrefabs"
+   },
+   "mRacketInput": null,
+   "mRacketInput2": null,
+   "mRacketID": 0,
+   "mRacketOutput": null,
+   "mRacketStaffMod": 0.0,
+   "mRacketFormula": 0,
+   "mInformantGained": null
+  },
+  {
+   "$uid": "9566532506770642778",
+   "$type": "UFG::RacketType",
+   "mSize": "SMALL",
+   "mIsEmptyType": false,
+   "mFamily": {
+    "$handle": "10171338414384551525",
+    "$type": "UFG::RacketFamily"
+   },
+   "mLevels": [
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 500,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 600,
+     "mMaxStaff": 1,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 800,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 900,
+     "mMaxStaff": 1,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 1200,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 1200,
+     "mMaxStaff": 2,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 2000,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 1800,
+     "mMaxStaff": 2,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 3250,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 2700,
+     "mMaxStaff": 3,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 4500,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 3600,
+     "mMaxStaff": 3,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 7000,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 5400,
+     "mMaxStaff": 4,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 10000,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 7200,
+     "mMaxStaff": 4,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 12000,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 7800,
+     "mMaxStaff": 5,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 15000,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 8400,
+     "mMaxStaff": 5,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    }
+   ],
+   "mCaption": "RACKET_COCK_FIGHTING",
+   "mRacketIcon": "Gambling_Cockfighting",
+   "mOperationRacketType": "Gambling_CockFighting",
+   "mSafehouseMinLevel": 1,
+   "mRacketWarningMessage": "",
+   "mBoostRackets": [],
+   "mRequiredRacket": null,
+   "mCorePrefabs": {
+    "$handle": "7866570057159523949",
+    "$type": "UFG::RacketCorePrefabs"
+   },
+   "mRacketInput": null,
+   "mRacketInput2": null,
+   "mRacketID": 9,
+   "mRacketOutput": {
+    "$handle": "3223739389318635268",
+    "$type": "UFG::CommodityType"
+   },
+   "mRacketStaffMod": 0.05,
+   "mRacketFormula": 5,
+   "mInformantGained": {
+    "$handle": "5327944665916385773",
+    "$type": "UFG::InformantType"
+   }
+  },
+  {
+   "$uid": "9912487547185339337",
+   "$type": "UFG::RacketType",
+   "mSize": "SMALL",
+   "mIsEmptyType": false,
+   "mFamily": {
+    "$handle": "4547847467365846543",
+    "$type": "UFG::RacketFamily"
+   },
+   "mLevels": [
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 950,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 1200,
+     "mMaxStaff": 1,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 1600,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 1800,
+     "mMaxStaff": 1,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 2600,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 2700,
+     "mMaxStaff": 2,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 3600,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 3600,
+     "mMaxStaff": 2,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 5600,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 5400,
+     "mMaxStaff": 3,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 8000,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 7200,
+     "mMaxStaff": 3,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 9600,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 7800,
+     "mMaxStaff": 4,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 12000,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 8400,
+     "mMaxStaff": 4,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 14400,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 9000,
+     "mMaxStaff": 5,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 16000,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 10200,
+     "mMaxStaff": 5,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    }
+   ],
+   "mCaption": "RACKET_LOAN_SHARKING",
+   "mRacketIcon": "Extortion_LoanSharking",
+   "mOperationRacketType": "Extortion_LoanSharking",
+   "mSafehouseMinLevel": 2,
+   "mRacketWarningMessage": "RACKET_LOAN_SHARKING_WARNING",
+   "mBoostRackets": [
+    {
+     "$handle": "5472783115460134427",
+     "$type": "UFG::RacketType"
+    },
+    {
+     "$handle": "9566532506770642778",
+     "$type": "UFG::RacketType"
+    }
+   ],
+   "mRequiredRacket": {
+    "$handle": "4790026536684175184",
+    "$type": "UFG::RacketType"
+   },
+   "mCorePrefabs": {
+    "$handle": "7866570057159523949",
+    "$type": "UFG::RacketCorePrefabs"
+   },
+   "mRacketInput": null,
+   "mRacketInput2": null,
+   "mRacketID": 5,
+   "mRacketOutput": {
+    "$handle": "3223739389318635268",
+    "$type": "UFG::CommodityType"
+   },
+   "mRacketStaffMod": 0.05,
+   "mRacketFormula": 5,
+   "mInformantGained": {
+    "$handle": "8593555165977983651",
+    "$type": "UFG::InformantType"
+   }
+  },
+  {
+   "$uid": "11540359912074537680",
+   "$type": "UFG::RacketType",
+   "mSize": "LARGE",
+   "mIsEmptyType": false,
+   "mFamily": {
+    "$handle": "15094118641276673099",
+    "$type": "UFG::RacketFamily"
+   },
+   "mLevels": [
+    {
+     "mInput1Amount": 2300,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 1,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 1200,
+     "mMaxStaff": 1,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 4600,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 2,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 1800,
+     "mMaxStaff": 1,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 6900,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 3,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 2700,
+     "mMaxStaff": 2,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 9200,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 4,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 3600,
+     "mMaxStaff": 2,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 11500,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 5,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 5400,
+     "mMaxStaff": 3,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 16100,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 7,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 7200,
+     "mMaxStaff": 3,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 20700,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 9,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 7800,
+     "mMaxStaff": 4,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 25300,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 11,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 8400,
+     "mMaxStaff": 4,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 29900,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 13,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 9000,
+     "mMaxStaff": 5,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 34500,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 15,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 10200,
+     "mMaxStaff": 5,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    }
+   ],
+   "mCaption": "RACKET_REPO",
+   "mRacketIcon": "Vehicle_Repo",
+   "mOperationRacketType": "Vehicle_Repo",
+   "mSafehouseMinLevel": 2,
+   "mRacketWarningMessage": "",
+   "mBoostRackets": [],
+   "mRequiredRacket": null,
+   "mCorePrefabs": {
+    "$handle": "7866570057159523949",
+    "$type": "UFG::RacketCorePrefabs"
+   },
+   "mRacketInput": {
+    "$handle": "3223739389318635268",
+    "$type": "UFG::CommodityType"
+   },
+   "mRacketInput2": null,
+   "mRacketID": 22,
+   "mRacketOutput": {
+    "$handle": "3149661868324414249",
+    "$type": "UFG::CommodityType"
+   },
+   "mRacketStaffMod": 0.05,
+   "mRacketFormula": 5,
+   "mInformantGained": {
+    "$handle": "17780602037209348574",
+    "$type": "UFG::InformantType"
+   }
+  },
+  {
+   "$uid": "14283187717193251857",
+   "$type": "UFG::RacketType",
+   "mSize": "SMALL",
+   "mIsEmptyType": false,
+   "mFamily": {
+    "$handle": "15928765476849270780",
+    "$type": "UFG::RacketFamily"
+   },
+   "mLevels": [
+    {
+     "mInput1Amount": 1000,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 1,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 3600,
+     "mMaxStaff": 1,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 2000,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 2,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 3960,
+     "mMaxStaff": 1,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 3000,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 3,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 4320,
+     "mMaxStaff": 2,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 4000,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 4,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 7200,
+     "mMaxStaff": 2,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 5000,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 5,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 11520,
+     "mMaxStaff": 3,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 6000,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 6,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 18000,
+     "mMaxStaff": 3,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 7000,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 7,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 24000,
+     "mMaxStaff": 4,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 8000,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 8,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 30000,
+     "mMaxStaff": 4,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 9000,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 9,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 33000,
+     "mMaxStaff": 5,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 10000,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 10,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 36000,
+     "mMaxStaff": 5,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    }
+   ],
+   "mCaption": "RACKET_EXOTIC_ANIMAL_GOODS",
+   "mRacketIcon": "Smuggling_Apothecary",
+   "mOperationRacketType": "Smuggling_Apothecary",
+   "mSafehouseMinLevel": 3,
+   "mRacketWarningMessage": "",
+   "mBoostRackets": [],
+   "mRequiredRacket": {
+    "$handle": "17654167754036782068",
+    "$type": "UFG::RacketType"
+   },
+   "mCorePrefabs": {
+    "$handle": "7866570057159523949",
+    "$type": "UFG::RacketCorePrefabs"
+   },
+   "mRacketInput": {
+    "$handle": "3223739389318635268",
+    "$type": "UFG::CommodityType"
+   },
+   "mRacketInput2": null,
+   "mRacketID": 14,
+   "mRacketOutput": {
+    "$handle": "2887900354055350876",
+    "$type": "UFG::CommodityType"
+   },
+   "mRacketStaffMod": 0.05,
+   "mRacketFormula": 5,
+   "mInformantGained": {
+    "$handle": "16343020252162478729",
+    "$type": "UFG::InformantType"
+   }
+  },
+  {
+   "$uid": "14822563352656898089",
+   "$type": "UFG::RacketType",
+   "mSize": "SMALL",
+   "mIsEmptyType": false,
+   "mFamily": {
+    "$handle": "15094118641276673099",
+    "$type": "UFG::RacketFamily"
+   },
+   "mLevels": [
+    {
+     "mInput1Amount": 2,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 64,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 1500,
+     "mMaxStaff": 1,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 3,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 96,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 2400,
+     "mMaxStaff": 1,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 4,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 128,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 3600,
+     "mMaxStaff": 2,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 5,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 160,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 4800,
+     "mMaxStaff": 2,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 7,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 224,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 7200,
+     "mMaxStaff": 3,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 9,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 288,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 9300,
+     "mMaxStaff": 3,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 11,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 352,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 10200,
+     "mMaxStaff": 4,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 13,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 416,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 10800,
+     "mMaxStaff": 4,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 15,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 480,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 11700,
+     "mMaxStaff": 5,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 18,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 576,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 13200,
+     "mMaxStaff": 5,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    }
+   ],
+   "mCaption": "RACKET_CHOP_SHOP",
+   "mRacketIcon": "Vehicle_ChopShop",
+   "mOperationRacketType": "Vehicle_ChopShop",
+   "mSafehouseMinLevel": 3,
+   "mRacketWarningMessage": "RACKET_CHOP_SHOP_WARNING",
+   "mBoostRackets": [],
+   "mRequiredRacket": {
+    "$handle": "11540359912074537680",
+    "$type": "UFG::RacketType"
+   },
+   "mCorePrefabs": {
+    "$handle": "7866570057159523949",
+    "$type": "UFG::RacketCorePrefabs"
+   },
+   "mRacketInput": {
+    "$handle": "3149661868324414249",
+    "$type": "UFG::CommodityType"
+   },
+   "mRacketInput2": null,
+   "mRacketID": 20,
+   "mRacketOutput": {
+    "$handle": "5591782374748088804",
+    "$type": "UFG::CommodityType"
+   },
+   "mRacketStaffMod": 0.05,
+   "mRacketFormula": 5,
+   "mInformantGained": {
+    "$handle": "3343343311642022982",
+    "$type": "UFG::InformantType"
+   }
+  },
+  {
+   "$uid": "15102755531999804698",
+   "$type": "UFG::RacketType",
+   "mSize": "LARGE",
+   "mIsEmptyType": false,
+   "mFamily": {
+    "$handle": "5160028046467063634",
+    "$type": "UFG::RacketFamily"
+   },
+   "mLevels": [
+    {
+     "mInput1Amount": 2,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 10,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 2100,
+     "mMaxStaff": 1,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 4,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 20,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 3000,
+     "mMaxStaff": 1,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 6,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 30,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 4800,
+     "mMaxStaff": 2,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 8,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 40,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 6300,
+     "mMaxStaff": 2,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 10,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 50,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 9600,
+     "mMaxStaff": 3,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 12,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 60,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 12600,
+     "mMaxStaff": 3,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 14,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 70,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 13800,
+     "mMaxStaff": 4,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 16,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 80,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 14700,
+     "mMaxStaff": 4,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 18,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 90,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 15600,
+     "mMaxStaff": 5,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 20,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 100,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 18000,
+     "mMaxStaff": 5,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    }
+   ],
+   "mCaption": "RACKET_ELECTRONICS",
+   "mRacketIcon": "Counterfeiting_Electronics",
+   "mOperationRacketType": "Counterfeiting_Electronics",
+   "mSafehouseMinLevel": 3,
+   "mRacketWarningMessage": "RACKET_ELECTRONICS_WARNING",
+   "mBoostRackets": [],
+   "mRequiredRacket": {
+    "$handle": "17238024114843997220",
+    "$type": "UFG::RacketType"
+   },
+   "mCorePrefabs": {
+    "$handle": "7866570057159523949",
+    "$type": "UFG::RacketCorePrefabs"
+   },
+   "mRacketInput": {
+    "$handle": "15899949689628397201",
+    "$type": "UFG::CommodityType"
+   },
+   "mRacketInput2": null,
+   "mRacketID": 2,
+   "mRacketOutput": {
+    "$handle": "13986589783633428006",
+    "$type": "UFG::CommodityType"
+   },
+   "mRacketStaffMod": 0.05,
+   "mRacketFormula": 5,
+   "mInformantGained": {
+    "$handle": "14779651119629554556",
+    "$type": "UFG::InformantType"
+   }
+  },
+  {
+   "$uid": "16869525680633088799",
+   "$type": "UFG::RacketType",
+   "mSize": "SAFEHOUSE",
+   "mIsEmptyType": false,
+   "mFamily": null,
+   "mLevels": [
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    }
+   ],
+   "mCaption": "Garage",
+   "mRacketIcon": "",
+   "mOperationRacketType": "",
+   "mSafehouseMinLevel": 0,
+   "mRacketWarningMessage": "",
+   "mBoostRackets": [],
+   "mRequiredRacket": null,
+   "mCorePrefabs": {
+    "$handle": "2054049033951463012",
+    "$type": "UFG::RacketCorePrefabs"
+   },
+   "mRacketInput": null,
+   "mRacketInput2": null,
+   "mRacketID": 0,
+   "mRacketOutput": null,
+   "mRacketStaffMod": 0.0,
+   "mRacketFormula": 0,
+   "mInformantGained": null
+  },
+  {
+   "$uid": "17238024114843997220",
+   "$type": "UFG::RacketType",
+   "mSize": "SMALL",
+   "mIsEmptyType": false,
+   "mFamily": {
+    "$handle": "5160028046467063634",
+    "$type": "UFG::RacketFamily"
+   },
+   "mLevels": [
+    {
+     "mInput1Amount": 60,
+     "mInput2Amount": 25,
+     "mOutput1Amount": 12000,
+     "mOutput2Amount": 12000,
+     "mProdTimeSeconds": 1200,
+     "mMaxStaff": 1,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 100,
+     "mInput2Amount": 45,
+     "mOutput1Amount": 20000,
+     "mOutput2Amount": 20000,
+     "mProdTimeSeconds": 1800,
+     "mMaxStaff": 1,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 140,
+     "mInput2Amount": 60,
+     "mOutput1Amount": 28000,
+     "mOutput2Amount": 28000,
+     "mProdTimeSeconds": 2700,
+     "mMaxStaff": 2,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 210,
+     "mInput2Amount": 90,
+     "mOutput1Amount": 41000,
+     "mOutput2Amount": 41000,
+     "mProdTimeSeconds": 3600,
+     "mMaxStaff": 2,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 310,
+     "mInput2Amount": 140,
+     "mOutput1Amount": 55000,
+     "mOutput2Amount": 55000,
+     "mProdTimeSeconds": 5400,
+     "mMaxStaff": 3,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 360,
+     "mInput2Amount": 160,
+     "mOutput1Amount": 67500,
+     "mOutput2Amount": 67500,
+     "mProdTimeSeconds": 7200,
+     "mMaxStaff": 3,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 420,
+     "mInput2Amount": 185,
+     "mOutput1Amount": 80000,
+     "mOutput2Amount": 80000,
+     "mProdTimeSeconds": 7800,
+     "mMaxStaff": 4,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 500,
+     "mInput2Amount": 220,
+     "mOutput1Amount": 95000,
+     "mOutput2Amount": 95000,
+     "mProdTimeSeconds": 8400,
+     "mMaxStaff": 4,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 560,
+     "mInput2Amount": 250,
+     "mOutput1Amount": 105000,
+     "mOutput2Amount": 105000,
+     "mProdTimeSeconds": 9000,
+     "mMaxStaff": 5,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 720,
+     "mInput2Amount": 320,
+     "mOutput1Amount": 128000,
+     "mOutput2Amount": 128000,
+     "mProdTimeSeconds": 10200,
+     "mMaxStaff": 5,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    }
+   ],
+   "mCaption": "RACKET_COUNTERFEIT_GOODS",
+   "mRacketIcon": "NightMarket_CounterfeitGoods",
+   "mOperationRacketType": "Nightmarket_CounterfeitGoods",
+   "mSafehouseMinLevel": 3,
+   "mRacketWarningMessage": "RACKET_COUNTERFEIT_GOODS_WARNING",
+   "mBoostRackets": [],
+   "mRequiredRacket": {
+    "$handle": "8217289287552932160",
+    "$type": "UFG::RacketType"
+   },
+   "mCorePrefabs": {
+    "$handle": "7866570057159523949",
+    "$type": "UFG::RacketCorePrefabs"
+   },
+   "mRacketInput": {
+    "$handle": "12416988788789754389",
+    "$type": "UFG::CommodityType"
+   },
+   "mRacketInput2": {
+    "$handle": "13986589783633428006",
+    "$type": "UFG::CommodityType"
+   },
+   "mRacketID": 17,
+   "mRacketOutput": {
+    "$handle": "3223739389318635268",
+    "$type": "UFG::CommodityType"
+   },
+   "mRacketStaffMod": 0.05,
+   "mRacketFormula": 0,
+   "mInformantGained": {
+    "$handle": "4871174542108930736",
+    "$type": "UFG::InformantType"
+   }
+  },
+  {
+   "$uid": "17654167754036782068",
+   "$type": "UFG::RacketType",
+   "mSize": "MEDIUM",
+   "mIsEmptyType": false,
+   "mFamily": {
+    "$handle": "15928765476849270780",
+    "$type": "UFG::RacketFamily"
+   },
+   "mLevels": [
+    {
+     "mInput1Amount": 35,
+     "mInput2Amount": 3,
+     "mOutput1Amount": 7000,
+     "mOutput2Amount": 7000,
+     "mProdTimeSeconds": 2700,
+     "mMaxStaff": 1,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 45,
+     "mInput2Amount": 4,
+     "mOutput1Amount": 9000,
+     "mOutput2Amount": 9000,
+     "mProdTimeSeconds": 3600,
+     "mMaxStaff": 1,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 55,
+     "mInput2Amount": 5,
+     "mOutput1Amount": 11000,
+     "mOutput2Amount": 11000,
+     "mProdTimeSeconds": 5400,
+     "mMaxStaff": 2,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 65,
+     "mInput2Amount": 6,
+     "mOutput1Amount": 13000,
+     "mOutput2Amount": 13000,
+     "mProdTimeSeconds": 7200,
+     "mMaxStaff": 2,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 75,
+     "mInput2Amount": 7,
+     "mOutput1Amount": 15000,
+     "mOutput2Amount": 15000,
+     "mProdTimeSeconds": 7800,
+     "mMaxStaff": 3,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 85,
+     "mInput2Amount": 8,
+     "mOutput1Amount": 17000,
+     "mOutput2Amount": 17000,
+     "mProdTimeSeconds": 8400,
+     "mMaxStaff": 3,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 95,
+     "mInput2Amount": 9,
+     "mOutput1Amount": 19000,
+     "mOutput2Amount": 19000,
+     "mProdTimeSeconds": 9000,
+     "mMaxStaff": 4,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 105,
+     "mInput2Amount": 10,
+     "mOutput1Amount": 21000,
+     "mOutput2Amount": 21000,
+     "mProdTimeSeconds": 9600,
+     "mMaxStaff": 4,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 125,
+     "mInput2Amount": 12,
+     "mOutput1Amount": 25000,
+     "mOutput2Amount": 25000,
+     "mProdTimeSeconds": 10800,
+     "mMaxStaff": 5,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 150,
+     "mInput2Amount": 14,
+     "mOutput1Amount": 30000,
+     "mOutput2Amount": 30000,
+     "mProdTimeSeconds": 12000,
+     "mMaxStaff": 5,
+     "mUnlocks": ""
+    },
+    {
+     "mInput1Amount": 0,
+     "mInput2Amount": 0,
+     "mOutput1Amount": 0,
+     "mOutput2Amount": 0,
+     "mProdTimeSeconds": 0,
+     "mMaxStaff": 0,
+     "mUnlocks": ""
+    }
+   ],
+   "mCaption": "RACKET_SMUGGLING",
+   "mRacketIcon": "NightMarket_grocery",
+   "mOperationRacketType": "Nightmarket_SmuggledGoods",
+   "mSafehouseMinLevel": 3,
+   "mRacketWarningMessage": "RACKET_SMUGGLING_WARNING",
+   "mBoostRackets": [],
+   "mRequiredRacket": {
+    "$handle": "657586769918417613",
+    "$type": "UFG::RacketType"
+   },
+   "mCorePrefabs": {
+    "$handle": "7866570057159523949",
+    "$type": "UFG::RacketCorePrefabs"
+   },
+   "mRacketInput": {
+    "$handle": "2916177118768518687",
+    "$type": "UFG::CommodityType"
+   },
+   "mRacketInput2": {
+    "$handle": "2887900354055350876",
+    "$type": "UFG::CommodityType"
+   },
+   "mRacketID": 16,
+   "mRacketOutput": {
+    "$handle": "3223739389318635268",
+    "$type": "UFG::CommodityType"
+   },
+   "mRacketStaffMod": 0.05,
+   "mRacketFormula": 0,
+   "mInformantGained": {
+    "$handle": "3890209040251004737",
+    "$type": "UFG::InformantType"
+   }
+  }
+ ],
+ "UFG::RacketFamily": [
+  {
+   "$uid": "4547847467365846543",
+   "$type": "UFG::RacketFamily",
+   "mCaption": "FAMILY_EXTORTION",
+   "mOperationRacketFamily": "extortion",
+   "mRGBColor": 255,
+   "mTutorialStore": {
+    "$handle": "1339297555269163353",
+    "$type": "UFG::Store"
+   },
+   "mFavourCategoryTag": {
+    "$handle": "10380118711504537501",
+    "$type": "UFG::FavourCategoryTag"
+   }
+  },
+  {
+   "$uid": "5160028046467063634",
+   "$type": "UFG::RacketFamily",
+   "mCaption": "FAMILY_COUNTERFEITING",
+   "mOperationRacketFamily": "counterfeiting",
+   "mRGBColor": 65280,
+   "mTutorialStore": {
+    "$handle": "330971609030659674",
+    "$type": "UFG::Store"
+   },
+   "mFavourCategoryTag": {
+    "$handle": "2123254751645325102",
+    "$type": "UFG::FavourCategoryTag"
+   }
+  },
+  {
+   "$uid": "10171338414384551525",
+   "$type": "UFG::RacketFamily",
+   "mCaption": "FAMILY_GAMBLING",
+   "mOperationRacketFamily": "gambling",
+   "mRGBColor": 1122850,
+   "mTutorialStore": {
+    "$handle": "4375719404868812979",
+    "$type": "UFG::Store"
+   },
+   "mFavourCategoryTag": {
+    "$handle": "18295800922318833484",
+    "$type": "UFG::FavourCategoryTag"
+   }
+  },
+  {
+   "$uid": "10749119600944177752",
+   "$type": "UFG::RacketFamily",
+   "mCaption": "FAMILY_HEROIN",
+   "mOperationRacketFamily": "heroin",
+   "mRGBColor": 16711680,
+   "mTutorialStore": null,
+   "mFavourCategoryTag": null
+  },
+  {
+   "$uid": "15094118641276673099",
+   "$type": "UFG::RacketFamily",
+   "mCaption": "FAMILY_VEHICLE",
+   "mOperationRacketFamily": "cars",
+   "mRGBColor": 11184810,
+   "mTutorialStore": null,
+   "mFavourCategoryTag": null
+  },
+  {
+   "$uid": "15928765476849270780",
+   "$type": "UFG::RacketFamily",
+   "mCaption": "FAMILY_SMUGGLING",
+   "mOperationRacketFamily": "smuggling",
+   "mRGBColor": 8947848,
+   "mTutorialStore": null,
+   "mFavourCategoryTag": null
+  },
+  {
+   "$uid": "16676754436450199864",
+   "$type": "UFG::RacketFamily",
+   "mCaption": "FAMILY_NIGHTMARKET",
+   "mOperationRacketFamily": "nightmarket",
+   "mRGBColor": 3413934,
+   "mTutorialStore": null,
+   "mFavourCategoryTag": null
+  }
+ ],
+ "UFG::CommodityType": [
+  {
+   "$uid": "2887900354055350876",
+   "$type": "UFG::CommodityType",
+   "mDisplayName": "COMMODITY_APOTHECARY_GOODS",
+   "mDisplayIconName": "Apothecary",
+   "mFloorPrice": 775.0,
+   "mCeilingPrice": 780.0,
+   "mMarkUp": 0.0,
+   "mFloorUnits": 10000,
+   "mCeilingUnits": 10,
+   "mVirtualCommodity": false,
+   "mExportAmounts": [
+    3,
+    10,
+    25,
+    40,
+    65,
+    90,
+    125,
+    160,
+    200,
+    250
+   ]
+  },
+  {
+   "$uid": "2916177118768518687",
+   "$type": "UFG::CommodityType",
+   "mDisplayName": "COMMODITY_SEAFOOD",
+   "mDisplayIconName": "Seafood",
+   "mFloorPrice": 125.0,
+   "mCeilingPrice": 125.0,
+   "mMarkUp": 0.0,
+   "mFloorUnits": 10000,
+   "mCeilingUnits": 10,
+   "mVirtualCommodity": false,
+   "mExportAmounts": [
+    40,
+    100,
+    190,
+    300,
+    450,
+    600,
+    800,
+    1000,
+    1250,
+    1500
+   ]
+  },
+  {
+   "$uid": "3149661868324414249",
+   "$type": "UFG::CommodityType",
+   "mDisplayName": "COMMODITY_HOT_CARS",
+   "mDisplayIconName": "HotCars",
+   "mFloorPrice": 1100.0,
+   "mCeilingPrice": 1110.0,
+   "mMarkUp": 0.0,
+   "mFloorUnits": 10000,
+   "mCeilingUnits": 100,
+   "mVirtualCommodity": false,
+   "mExportAmounts": [
+    3,
+    10,
+    25,
+    40,
+    65,
+    110,
+    160,
+    225,
+    300,
+    375
+   ]
+  },
+  {
+   "$uid": "3223739389318635268",
+   "$type": "UFG::CommodityType",
+   "mDisplayName": "COMMODITY_DIRTY_MONEY",
+   "mDisplayIconName": "DirtyMoney",
+   "mFloorPrice": 0.0,
+   "mCeilingPrice": 0.0,
+   "mMarkUp": 0.0,
+   "mFloorUnits": 0,
+   "mCeilingUnits": 0,
+   "mVirtualCommodity": true,
+   "mExportAmounts": [
+    360,
+    1200,
+    3000,
+    5400,
+    10500,
+    18000,
+    25000,
+    36000,
+    48000,
+    60000
+   ]
+  },
+  {
+   "$uid": "5591782374748088804",
+   "$type": "UFG::CommodityType",
+   "mDisplayName": "COMMODITY_CAR_PARTS",
+   "mDisplayIconName": "CarParts",
+   "mFloorPrice": 31.0,
+   "mCeilingPrice": 32.0,
+   "mMarkUp": 0.0,
+   "mFloorUnits": 10000,
+   "mCeilingUnits": 100,
+   "mVirtualCommodity": false,
+   "mExportAmounts": [
+    0,
+    0,
+    1000,
+    1600,
+    3000,
+    4500,
+    6250,
+    8500,
+    11000,
+    15000
+   ]
+  },
+  {
+   "$uid": "8315919229355564626",
+   "$type": "UFG::CommodityType",
+   "mDisplayName": "COMMODITY_CLEAN_MONEY",
+   "mDisplayIconName": "CleanMoney",
+   "mFloorPrice": 0.0,
+   "mCeilingPrice": 0.0,
+   "mMarkUp": 0.0,
+   "mFloorUnits": 0,
+   "mCeilingUnits": 0,
+   "mVirtualCommodity": true,
+   "mExportAmounts": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "$uid": "12416988788789754389",
+   "$type": "UFG::CommodityType",
+   "mDisplayName": "COMMODITY_KNOCK_OFF_FASHION",
+   "mDisplayIconName": "KnockoffFashions",
+   "mFloorPrice": 25.0,
+   "mCeilingPrice": 25.0,
+   "mMarkUp": 0.0,
+   "mFloorUnits": 10000,
+   "mCeilingUnits": 10,
+   "mVirtualCommodity": false,
+   "mExportAmounts": [
+    200,
+    440,
+    725,
+    1050,
+    1450,
+    1900,
+    2400,
+    2900,
+    3500,
+    4100
+   ]
+  },
+  {
+   "$uid": "12899405313262884080",
+   "$type": "UFG::CommodityType",
+   "mDisplayName": "COMMODITY_REBUILT_CARS",
+   "mDisplayIconName": "RebuiltCars",
+   "mFloorPrice": 1800.0,
+   "mCeilingPrice": 1800.0,
+   "mMarkUp": 0.0,
+   "mFloorUnits": 10000,
+   "mCeilingUnits": 10,
+   "mVirtualCommodity": false,
+   "mExportAmounts": [
+    5,
+    15,
+    30,
+    50,
+    75,
+    110,
+    150,
+    200,
+    275,
+    350
+   ]
+  },
+  {
+   "$uid": "13986589783633428006",
+   "$type": "UFG::CommodityType",
+   "mDisplayName": "COMMODITY_KNOCK_OFF_ELECTRONICS",
+   "mDisplayIconName": "KnockOffElectronics",
+   "mFloorPrice": 150.0,
+   "mCeilingPrice": 150.0,
+   "mMarkUp": 0.0,
+   "mFloorUnits": 10000,
+   "mCeilingUnits": 10,
+   "mVirtualCommodity": false,
+   "mExportAmounts": [
+    25,
+    100,
+    225,
+    400,
+    625,
+    900,
+    1225,
+    1600,
+    2050,
+    2500
+   ]
+  },
+  {
+   "$uid": "15899949689628397201",
+   "$type": "UFG::CommodityType",
+   "mDisplayName": "COMMODITY_STOLEN_DESIGNS",
+   "mDisplayIconName": "StolenDesigns",
+   "mFloorPrice": 250.0,
+   "mCeilingPrice": 250.0,
+   "mMarkUp": 0.0,
+   "mFloorUnits": 10000,
+   "mCeilingUnits": 10,
+   "mVirtualCommodity": false,
+   "mExportAmounts": [
+    15,
+    40,
+    75,
+    120,
+    175,
+    230,
+    300,
+    385,
+    475,
+    600
+   ]
+  }
+ ],
+ "UFG::SelectableTriad": [
+  {
+   "$uid": "2615402444794721281",
+   "$type": "UFG::SelectableTriad",
+   "mName": "Shing Wo",
+   "mPropertyTagName": "ShingWo",
+   "mTriadTexture": {
+    "$handle": "7970200931783785696",
+    "$type": "Illusion::rTexture"
+   },
+   "mTriadColour": {
+    "r": 0.8711,
+    "g": 0.8028,
+    "b": 0.0748,
+    "a": 1.0
+   }
+  },
+  {
+   "$uid": "11294725079368944546",
+   "$type": "UFG::SelectableTriad",
+   "mName": "Sun On Yee",
+   "mPropertyTagName": "SunOnYee",
+   "mTriadTexture": {
+    "$handle": "17453075483004758366",
+    "$type": "Illusion::rTexture"
+   },
+   "mTriadColour": {
+    "r": 0.1883,
+    "g": 0.3948,
+    "b": 0.6602,
+    "a": 1.0
+   }
+  },
+  {
+   "$uid": "14851303682440922652",
+   "$type": "UFG::SelectableTriad",
+   "mName": "18K",
+   "mPropertyTagName": "18K",
+   "mTriadTexture": {
+    "$handle": "14118638687193154954",
+    "$type": "Illusion::rTexture"
+   },
+   "mTriadColour": {
+    "r": 0.5664,
+    "g": 0.0996,
+    "b": 0.0996,
+    "a": 1.0
+   }
+  }
+ ],
+ "UFG::GangMemberClass": [
+  {
+   "$uid": "581844808515219833",
+   "$type": "UFG::GangMemberClass",
+   "mFightingClass": "eFIGHTING_CLASS_ENFORCER",
+   "mSafehouseLevelRequirement": 0,
+   "mSimObjectWeaponTypes": [
+    "sym:0xddb48713",
+    "sym:0x78315950",
+    "sym:0x595b1e67",
+    "sym:0xf44a100a",
+    "sym:0x6b74e90f",
+    "sym:0x03821781",
+    "sym:0x4b76c284",
+    "sym:0x2ebb8304",
+    "sym:0xe01714d9",
+    "sym:0x621d8c38",
+    "sym:0x0c913705",
+    "sym:0x26216f39",
+    "sym:0xd3caab5c",
+    "sym:0x8f9fb310",
+    "sym:0xf11f78ec",
+    "sym:0x471abb53"
+   ]
+  },
+  {
+   "$uid": "3969318733470954423",
+   "$type": "UFG::GangMemberClass",
+   "mFightingClass": "eFIGHTING_CLASS_GRAPPLER",
+   "mSafehouseLevelRequirement": 3,
+   "mSimObjectWeaponTypes": [
+    "sym:0x78315950",
+    "sym:0xe01714d9"
+   ]
+  },
+  {
+   "$uid": "6201641440521514314",
+   "$type": "UFG::GangMemberClass",
+   "mFightingClass": "eFIGHTING_CLASS_STRIKER_QUICK",
+   "mSafehouseLevelRequirement": 0,
+   "mSimObjectWeaponTypes": [
+    "sym:0x595b1e67",
+    "sym:0x6b74e90f"
+   ]
+  },
+  {
+   "$uid": "7457282666662265047",
+   "$type": "UFG::GangMemberClass",
+   "mFightingClass": "eFIGHTING_CLASS_STRIKER",
+   "mSafehouseLevelRequirement": 0,
+   "mSimObjectWeaponTypes": [
+    "sym:0xe01714d9",
+    "sym:0xcd72a5dd"
+   ]
+  },
+  {
+   "$uid": "7516182360063194932",
+   "$type": "UFG::GangMemberClass",
+   "mFightingClass": "eFIGHTING_CLASS_STRIKER_BRAWLER",
+   "mSafehouseLevelRequirement": 2,
+   "mSimObjectWeaponTypes": [
+    "sym:0xddb48713",
+    "sym:0x03821781"
+   ]
+  },
+  {
+   "$uid": "10739614638954246431",
+   "$type": "UFG::GangMemberClass",
+   "mFightingClass": "eFIGHTING_CLASS_ELITE",
+   "mSafehouseLevelRequirement": 999,
+   "mSimObjectWeaponTypes": []
+  }
+ ],
+ "UFG::XPDefinitions": [
+  {
+   "$uid": "598901962653620370",
+   "$type": "UFG::XPDefinitions",
+   "mAuthoredXPLevels": [
+    0,
+    175,
+    1175,
+    3650,
+    8200,
+    16750,
+    31150,
+    50050,
+    78725,
+    115475,
+    161300,
+    213800,
+    271175,
+    336175,
+    409050,
+    490050,
+    579425,
+    677425,
+    784300,
+    902300,
+    1034050,
+    1180300,
+    1341800,
+    1519300,
+    1713550,
+    1925300,
+    2155300,
+    2404300,
+    2673050,
+    2962300,
+    3272800,
+    3605300,
+    3972800,
+    4376800,
+    4818800,
+    5300300,
+    5822800,
+    6387800,
+    6996800,
+    7651300,
+    8352800,
+    9102800,
+    9902800,
+    10754300,
+    11658800,
+    12617800,
+    13632800,
+    14705300,
+    15873300,
+    17177050
+   ],
+   "mAuthoredXPEarnedPerNPCLevel": [
+    25,
+    40,
+    65,
+    130,
+    165,
+    200,
+    235,
+    280,
+    310,
+    340,
+    355,
+    370,
+    380,
+    390,
+    395,
+    400,
+    405,
+    410,
+    415,
+    420,
+    430,
+    435,
+    445,
+    455,
+    470,
+    480,
+    490,
+    495,
+    505,
+    510,
+    525,
+    530,
+    535,
+    540,
+    550,
+    555,
+    565,
+    580,
+    595,
+    610,
+    625,
+    640,
+    655,
+    670,
+    685,
+    700,
+    715,
+    730,
+    745,
+    760
+   ],
+   "mAuthoredXPEarnedPerEnforcerLevel": [
+    125,
+    200,
+    325,
+    650,
+    825,
+    1000,
+    1175,
+    1400,
+    1550,
+    1700,
+    1775,
+    1850,
+    1900,
+    1950,
+    1975,
+    2000,
+    2025,
+    2050,
+    2075,
+    2100,
+    2150,
+    2175,
+    2225,
+    2275,
+    2350,
+    2400,
+    2450,
+    2475,
+    2525,
+    2550,
+    2625,
+    2650,
+    2675,
+    2700,
+    2750,
+    2775,
+    2825,
+    2900,
+    2975,
+    3050,
+    3125,
+    3200,
+    3275,
+    3350,
+    3425,
+    3500,
+    3575,
+    3650,
+    3725,
+    3800
+   ],
+   "mMinXPAfterTutorial": 0,
+   "mXPLevelCombatMeterUnlocks": [
+    {
+     "mXPLevelRequired": 5,
+     "mMaxFaceValue": 50.0,
+     "mCombatMeterMultiplier": 2.0
+    },
+    {
+     "mXPLevelRequired": 9,
+     "mMaxFaceValue": 75.0,
+     "mCombatMeterMultiplier": 3.0
+    },
+    {
+     "mXPLevelRequired": 13,
+     "mMaxFaceValue": 100.0,
+     "mCombatMeterMultiplier": 5.0
+    }
+   ],
+   "mXPLevelUnlockDescriptions": [
+    {
+     "mLevel": 5,
+     "mTitle": "$XP_UNLOCK_COMBAT_METER",
+     "mBody": "$XP_UNLOCK_COMBAT_METER_DESC"
+    },
+    {
+     "mLevel": 9,
+     "mTitle": "$XP_UNLOCK_COMBAT_METER_LVL2",
+     "mBody": "$XP_UNLOCK_COMBAT_METER_LVL2_DESC"
+    },
+    {
+     "mLevel": 13,
+     "mTitle": "$XP_UNLOCK_COMBAT_METER_LVL3",
+     "mBody": "$XP_UNLOCK_COMBAT_METER_LVL3_DESC"
+    }
+   ],
+   "mUpgradePointsPerXPLevel": [
+    0,
+    1,
+    2,
+    2,
+    3,
+    3,
+    3,
+    3,
+    3,
+    4,
+    4,
+    4,
+    4,
+    4,
+    5,
+    5,
+    5,
+    5,
+    5,
+    6,
+    6,
+    6,
+    6,
+    6,
+    7,
+    7,
+    7,
+    7,
+    7,
+    8,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "mNumXPEventsBetweenServerUpdates": 8,
+   "mXPSendToServerTimeIntervalInSeconds": 300,
+   "mXPLevelCapForBetaReleases": 50
+  }
+ ],
+ "UFG::Store": [
+  {
+   "$uid": "330971609030659674",
+   "$type": "UFG::Store",
+   "mDisplayName": "Counterfeiting Favor Pack Tutorial",
+   "mAllowedStoreItemType": "UFG::StoreContactBundle",
+   "mClientInitializeOnStartup": true
+  },
+  {
+   "$uid": "1333401478411759499",
+   "$type": "UFG::Store",
+   "mDisplayName": "Raid Pack Tutorial - Pack Store",
+   "mAllowedStoreItemType": "UFG::StoreContactBundle",
+   "mClientInitializeOnStartup": true
+  },
+  {
+   "$uid": "1339297555269163353",
+   "$type": "UFG::Store",
+   "mDisplayName": "Extortion Favor Pack Tutorial",
+   "mAllowedStoreItemType": "UFG::StoreContactBundle",
+   "mClientInitializeOnStartup": true
+  },
+  {
+   "$uid": "2541658861465094719",
+   "$type": "UFG::Store",
+   "mDisplayName": "Favour Pack Bundle Store",
+   "mAllowedStoreItemType": "UFG::StoreBundle",
+   "mClientInitializeOnStartup": true
+  },
+  {
+   "$uid": "2975199966773664597",
+   "$type": "UFG::Store",
+   "mDisplayName": "Production Pack Tutorial Bundle Store",
+   "mAllowedStoreItemType": "UFG::StoreBundle",
+   "mClientInitializeOnStartup": true
+  },
+  {
+   "$uid": "3503175499248592696",
+   "$type": "UFG::Store",
+   "mDisplayName": "Wardrobe Store",
+   "mAllowedStoreItemType": "UFG::StoreClothing",
+   "mClientInitializeOnStartup": true
+  },
+  {
+   "$uid": "4375719404868812979",
+   "$type": "UFG::Store",
+   "mDisplayName": "Gambling Favor Pack Tutorial",
+   "mAllowedStoreItemType": "UFG::StoreContactBundle",
+   "mClientInitializeOnStartup": true
+  },
+  {
+   "$uid": "5642784937043547648",
+   "$type": "UFG::Store",
+   "mDisplayName": "Health Store",
+   "mAllowedStoreItemType": "UFG::VendorItem",
+   "mClientInitializeOnStartup": true
+  },
+  {
+   "$uid": "6121745478303023351",
+   "$type": "UFG::Store",
+   "mDisplayName": "Level Up Pack Tutorial - Pack Store",
+   "mAllowedStoreItemType": "UFG::StoreContactBundle",
+   "mClientInitializeOnStartup": true
+  },
+  {
+   "$uid": "6802491388125254368",
+   "$type": "UFG::Store",
+   "mDisplayName": "Production Pack Tutorial - Pack Store",
+   "mAllowedStoreItemType": "UFG::StoreContactBundle",
+   "mClientInitializeOnStartup": true
+  },
+  {
+   "$uid": "13160186718612611233",
+   "$type": "UFG::Store",
+   "mDisplayName": "Outfit Store",
+   "mAllowedStoreItemType": "UFG::StoreOutfit",
+   "mClientInitializeOnStartup": true
+  },
+  {
+   "$uid": "14170981830216607711",
+   "$type": "UFG::Store",
+   "mDisplayName": "Bundle Store",
+   "mAllowedStoreItemType": "UFG::StoreBundle",
+   "mClientInitializeOnStartup": true
+  },
+  {
+   "$uid": "14286134624752669825",
+   "$type": "UFG::Store",
+   "mDisplayName": "Vehicle Store",
+   "mAllowedStoreItemType": "UFG::StoreVehicle",
+   "mClientInitializeOnStartup": true
+  },
+  {
+   "$uid": "14359634902600342516",
+   "$type": "UFG::Store",
+   "mDisplayName": "Gold Store",
+   "mAllowedStoreItemType": "UFG::StoreCleanMoneyBundle",
+   "mClientInitializeOnStartup": false
+  },
+  {
+   "$uid": "14396531704373406508",
+   "$type": "UFG::Store",
+   "mDisplayName": "Raid Pack Tutorial - Bundle Store",
+   "mAllowedStoreItemType": "UFG::StoreBundle",
+   "mClientInitializeOnStartup": true
+  },
+  {
+   "$uid": "15645208897816992095",
+   "$type": "UFG::Store",
+   "mDisplayName": "Level Up Pack Tutorial Store",
+   "mAllowedStoreItemType": "UFG::StoreBundle",
+   "mClientInitializeOnStartup": true
+  },
+  {
+   "$uid": "17679317271361684130",
+   "$type": "UFG::Store",
+   "mDisplayName": "Favor pack - Pack Store",
+   "mAllowedStoreItemType": "UFG::StoreContactBundle",
+   "mClientInitializeOnStartup": true
+  }
+ ],
+ "UFG::InformantType": [
+  {
+   "$uid": "172537205183938505",
+   "$type": "UFG::InformantType",
+   "mIsFTPEOnly": true,
+   "mLocationType": "INFORMANTLOCATION_WORLD_ONE_TIME",
+   "mDisplayName": "Refresh Rivals Contact",
+   "mCategories": [],
+   "mTypes": [],
+   "mFirstFavourType": {
+    "$handle": "17016877904106129100",
+    "$type": "UFG::FavourType"
+   },
+   "mPrice": {
+    "mAmount": 0.0,
+    "mCurrencyType": "PriceInGame_Dirty"
+   }
+  },
+  {
+   "$uid": "230034065396548664",
+   "$type": "UFG::InformantType",
+   "mIsFTPEOnly": false,
+   "mLocationType": "INFORMANTLOCATION_RIVAL",
+   "mDisplayName": "Enemy Corrupt Cop",
+   "mCategories": [],
+   "mTypes": [
+    {
+     "minRarity": "Common",
+     "maxRarity": "VeryRare",
+     "favourTag": {
+      "$handle": "5885980100914511495",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "VeryRare",
+     "favourTag": {
+      "$handle": "5371272415682414327",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "16633533207225170676",
+      "$type": "UFG::FavourTypeTag"
+     }
+    }
+   ],
+   "mFirstFavourType": null,
+   "mPrice": {
+    "mAmount": 0.0,
+    "mCurrencyType": "PriceInGame_Dirty"
+   }
+  },
+  {
+   "$uid": "1443147235834337903",
+   "$type": "UFG::InformantType",
+   "mIsFTPEOnly": false,
+   "mLocationType": "INFORMANTLOCATION_WORLD",
+   "mDisplayName": "Friendly Vagrant",
+   "mCategories": [],
+   "mTypes": [
+    {
+     "minRarity": "Common",
+     "maxRarity": "VeryRare",
+     "favourTag": {
+      "$handle": "5885980100914511495",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "5371272415682414327",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "16633533207225170676",
+      "$type": "UFG::FavourTypeTag"
+     }
+    }
+   ],
+   "mFirstFavourType": null,
+   "mPrice": {
+    "mAmount": 0.0,
+    "mCurrencyType": "PriceInGame_Dirty"
+   }
+  },
+  {
+   "$uid": "3343343311642022982",
+   "$type": "UFG::InformantType",
+   "mIsFTPEOnly": false,
+   "mLocationType": "INFORMANTLOCATION_RACKET",
+   "mDisplayName": "Chop Shop",
+   "mCategories": [],
+   "mTypes": [
+    {
+     "minRarity": "Common",
+     "maxRarity": "VeryRare",
+     "favourTag": {
+      "$handle": "5885980100914511495",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "4335492471176499407",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "2514935732996419300",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "VeryRare",
+     "favourTag": {
+      "$handle": "16633533207225170676",
+      "$type": "UFG::FavourTypeTag"
+     }
+    }
+   ],
+   "mFirstFavourType": null,
+   "mPrice": {
+    "mAmount": 0.0,
+    "mCurrencyType": "PriceInGame_Dirty"
+   }
+  },
+  {
+   "$uid": "3573245682230876105",
+   "$type": "UFG::InformantType",
+   "mIsFTPEOnly": true,
+   "mLocationType": "INFORMANTLOCATION_WORLD_ONE_TIME",
+   "mDisplayName": "Food Carts Racket Contact",
+   "mCategories": [
+    {
+     "$handle": "5144744025413713603",
+     "$type": "UFG::FavourCategoryTag"
+    }
+   ],
+   "mTypes": [],
+   "mFirstFavourType": {
+    "$handle": "12896260489142381472",
+    "$type": "UFG::FavourType"
+   },
+   "mPrice": {
+    "mAmount": 0.0,
+    "mCurrencyType": "PriceInGame_Dirty"
+   }
+  },
+  {
+   "$uid": "3855986045234891424",
+   "$type": "UFG::InformantType",
+   "mIsFTPEOnly": true,
+   "mLocationType": "INFORMANTLOCATION_WORLD_ONE_TIME",
+   "mDisplayName": "New Exports Contact",
+   "mCategories": [],
+   "mTypes": [],
+   "mFirstFavourType": {
+    "$handle": "13996261819205356958",
+    "$type": "UFG::FavourType"
+   },
+   "mPrice": {
+    "mAmount": 0.0,
+    "mCurrencyType": "PriceInGame_Dirty"
+   }
+  },
+  {
+   "$uid": "3890209040251004737",
+   "$type": "UFG::InformantType",
+   "mIsFTPEOnly": false,
+   "mLocationType": "INFORMANTLOCATION_RACKET",
+   "mDisplayName": "Smuggler",
+   "mCategories": [],
+   "mTypes": [
+    {
+     "minRarity": "Common",
+     "maxRarity": "VeryRare",
+     "favourTag": {
+      "$handle": "5885980100914511495",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "4335492471176499407",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "2514935732996419300",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "VeryRare",
+     "favourTag": {
+      "$handle": "16633533207225170676",
+      "$type": "UFG::FavourTypeTag"
+     }
+    }
+   ],
+   "mFirstFavourType": null,
+   "mPrice": {
+    "mAmount": 0.0,
+    "mCurrencyType": "PriceInGame_Dirty"
+   }
+  },
+  {
+   "$uid": "4509536354533812810",
+   "$type": "UFG::InformantType",
+   "mIsFTPEOnly": false,
+   "mLocationType": "INFORMANTLOCATION_RACKET",
+   "mDisplayName": "Plate Engraver",
+   "mCategories": [],
+   "mTypes": [
+    {
+     "minRarity": "Common",
+     "maxRarity": "VeryRare",
+     "favourTag": {
+      "$handle": "5885980100914511495",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "4335492471176499407",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "2514935732996419300",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "VeryRare",
+     "favourTag": {
+      "$handle": "16633533207225170676",
+      "$type": "UFG::FavourTypeTag"
+     }
+    }
+   ],
+   "mFirstFavourType": null,
+   "mPrice": {
+    "mAmount": 0.0,
+    "mCurrencyType": "PriceInGame_Dirty"
+   }
+  },
+  {
+   "$uid": "4831773695554441899",
+   "$type": "UFG::InformantType",
+   "mIsFTPEOnly": false,
+   "mLocationType": "INFORMANTLOCATION_RACKET",
+   "mDisplayName": "Dispatcher",
+   "mCategories": [],
+   "mTypes": [
+    {
+     "minRarity": "Common",
+     "maxRarity": "VeryRare",
+     "favourTag": {
+      "$handle": "5885980100914511495",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "4335492471176499407",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "2514935732996419300",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "VeryRare",
+     "favourTag": {
+      "$handle": "16633533207225170676",
+      "$type": "UFG::FavourTypeTag"
+     }
+    }
+   ],
+   "mFirstFavourType": null,
+   "mPrice": {
+    "mAmount": 0.0,
+    "mCurrencyType": "PriceInGame_Dirty"
+   }
+  },
+  {
+   "$uid": "4871174542108930736",
+   "$type": "UFG::InformantType",
+   "mIsFTPEOnly": false,
+   "mLocationType": "INFORMANTLOCATION_RACKET",
+   "mDisplayName": "Nightmarket Manager",
+   "mCategories": [],
+   "mTypes": [
+    {
+     "minRarity": "Common",
+     "maxRarity": "VeryRare",
+     "favourTag": {
+      "$handle": "5885980100914511495",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "4335492471176499407",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "2514935732996419300",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "VeryRare",
+     "favourTag": {
+      "$handle": "16633533207225170676",
+      "$type": "UFG::FavourTypeTag"
+     }
+    }
+   ],
+   "mFirstFavourType": null,
+   "mPrice": {
+    "mAmount": 0.0,
+    "mCurrencyType": "PriceInGame_Dirty"
+   }
+  },
+  {
+   "$uid": "5307198439264409361",
+   "$type": "UFG::InformantType",
+   "mIsFTPEOnly": false,
+   "mLocationType": "INFORMANTLOCATION_RACKET",
+   "mDisplayName": "Bookie",
+   "mCategories": [],
+   "mTypes": [
+    {
+     "minRarity": "Common",
+     "maxRarity": "VeryRare",
+     "favourTag": {
+      "$handle": "5885980100914511495",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "4335492471176499407",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "2514935732996419300",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "VeryRare",
+     "favourTag": {
+      "$handle": "16633533207225170676",
+      "$type": "UFG::FavourTypeTag"
+     }
+    }
+   ],
+   "mFirstFavourType": null,
+   "mPrice": {
+    "mAmount": 0.0,
+    "mCurrencyType": "PriceInGame_Dirty"
+   }
+  },
+  {
+   "$uid": "5327944665916385773",
+   "$type": "UFG::InformantType",
+   "mIsFTPEOnly": false,
+   "mLocationType": "INFORMANTLOCATION_RACKET",
+   "mDisplayName": "Betting Agent",
+   "mCategories": [],
+   "mTypes": [
+    {
+     "minRarity": "Common",
+     "maxRarity": "VeryRare",
+     "favourTag": {
+      "$handle": "5885980100914511495",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "4335492471176499407",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "2514935732996419300",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "VeryRare",
+     "favourTag": {
+      "$handle": "16633533207225170676",
+      "$type": "UFG::FavourTypeTag"
+     }
+    }
+   ],
+   "mFirstFavourType": null,
+   "mPrice": {
+    "mAmount": 0.0,
+    "mCurrencyType": "PriceInGame_Dirty"
+   }
+  },
+  {
+   "$uid": "5620285712886780012",
+   "$type": "UFG::InformantType",
+   "mIsFTPEOnly": false,
+   "mLocationType": "INFORMANTLOCATION_STAFF",
+   "mDisplayName": "Staff Member",
+   "mCategories": [],
+   "mTypes": [
+    {
+     "minRarity": "Common",
+     "maxRarity": "VeryRare",
+     "favourTag": {
+      "$handle": "5371272415682414327",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "14400075555707636623",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "16633533207225170676",
+      "$type": "UFG::FavourTypeTag"
+     }
+    }
+   ],
+   "mFirstFavourType": null,
+   "mPrice": {
+    "mAmount": 0.0,
+    "mCurrencyType": "PriceInGame_Clean"
+   }
+  },
+  {
+   "$uid": "5717975703048426610",
+   "$type": "UFG::InformantType",
+   "mIsFTPEOnly": false,
+   "mLocationType": "INFORMANTLOCATION_RIVAL",
+   "mDisplayName": "Enemy Thief",
+   "mCategories": [],
+   "mTypes": [
+    {
+     "minRarity": "Common",
+     "maxRarity": "VeryRare",
+     "favourTag": {
+      "$handle": "5885980100914511495",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "5371272415682414327",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "16633533207225170676",
+      "$type": "UFG::FavourTypeTag"
+     }
+    }
+   ],
+   "mFirstFavourType": null,
+   "mPrice": {
+    "mAmount": 0.0,
+    "mCurrencyType": "PriceInGame_Dirty"
+   }
+  },
+  {
+   "$uid": "6886277546151213066",
+   "$type": "UFG::InformantType",
+   "mIsFTPEOnly": true,
+   "mLocationType": "INFORMANTLOCATION_WORLD_ONE_TIME",
+   "mDisplayName": "UNCLE DAVID'S CONTACT",
+   "mCategories": [
+    {
+     "$handle": "5144744025413713603",
+     "$type": "UFG::FavourCategoryTag"
+    }
+   ],
+   "mTypes": [
+    {
+     "minRarity": "Common",
+     "maxRarity": "Epic",
+     "favourTag": {
+      "$handle": "2743712869468150803",
+      "$type": "UFG::FavourTypeTag"
+     }
+    }
+   ],
+   "mFirstFavourType": {
+    "$handle": "11616114845547638446",
+    "$type": "UFG::FavourType"
+   },
+   "mPrice": {
+    "mAmount": 0.0,
+    "mCurrencyType": "PriceInGame_Dirty"
+   }
+  },
+  {
+   "$uid": "8048028335202069193",
+   "$type": "UFG::InformantType",
+   "mIsFTPEOnly": false,
+   "mLocationType": "INFORMANTLOCATION_RIVAL",
+   "mDisplayName": "Enemy Vagrant",
+   "mCategories": [],
+   "mTypes": [
+    {
+     "minRarity": "Common",
+     "maxRarity": "VeryRare",
+     "favourTag": {
+      "$handle": "5885980100914511495",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "5371272415682414327",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "16633533207225170676",
+      "$type": "UFG::FavourTypeTag"
+     }
+    }
+   ],
+   "mFirstFavourType": null,
+   "mPrice": {
+    "mAmount": 0.0,
+    "mCurrencyType": "PriceInGame_Dirty"
+   }
+  },
+  {
+   "$uid": "8582940801478887333",
+   "$type": "UFG::InformantType",
+   "mIsFTPEOnly": true,
+   "mLocationType": "INFORMANTLOCATION_WORLD_ONE_TIME",
+   "mDisplayName": "Currency Racket Contact",
+   "mCategories": [
+    {
+     "$handle": "5144744025413713603",
+     "$type": "UFG::FavourCategoryTag"
+    }
+   ],
+   "mTypes": [],
+   "mFirstFavourType": {
+    "$handle": "14257983031622906238",
+    "$type": "UFG::FavourType"
+   },
+   "mPrice": {
+    "mAmount": 0.0,
+    "mCurrencyType": "PriceInGame_Dirty"
+   }
+  },
+  {
+   "$uid": "8593555165977983651",
+   "$type": "UFG::InformantType",
+   "mIsFTPEOnly": false,
+   "mLocationType": "INFORMANTLOCATION_RACKET",
+   "mDisplayName": "Persuasion Specialist",
+   "mCategories": [],
+   "mTypes": [
+    {
+     "minRarity": "Common",
+     "maxRarity": "VeryRare",
+     "favourTag": {
+      "$handle": "5885980100914511495",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "4335492471176499407",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "2514935732996419300",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "VeryRare",
+     "favourTag": {
+      "$handle": "16633533207225170676",
+      "$type": "UFG::FavourTypeTag"
+     }
+    }
+   ],
+   "mFirstFavourType": null,
+   "mPrice": {
+    "mAmount": 0.0,
+    "mCurrencyType": "PriceInGame_Dirty"
+   }
+  },
+  {
+   "$uid": "9630364867332697871",
+   "$type": "UFG::InformantType",
+   "mIsFTPEOnly": false,
+   "mLocationType": "INFORMANTLOCATION_RACKET",
+   "mDisplayName": "Overseer",
+   "mCategories": [],
+   "mTypes": [
+    {
+     "minRarity": "Common",
+     "maxRarity": "VeryRare",
+     "favourTag": {
+      "$handle": "5885980100914511495",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "4335492471176499407",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "2514935732996419300",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "VeryRare",
+     "favourTag": {
+      "$handle": "16633533207225170676",
+      "$type": "UFG::FavourTypeTag"
+     }
+    }
+   ],
+   "mFirstFavourType": null,
+   "mPrice": {
+    "mAmount": 0.0,
+    "mCurrencyType": "PriceInGame_Dirty"
+   }
+  },
+  {
+   "$uid": "9807454463733852554",
+   "$type": "UFG::InformantType",
+   "mIsFTPEOnly": false,
+   "mLocationType": "INFORMANTLOCATION_WORLD",
+   "mDisplayName": "Friendly Street Vendor",
+   "mCategories": [],
+   "mTypes": [
+    {
+     "minRarity": "Common",
+     "maxRarity": "VeryRare",
+     "favourTag": {
+      "$handle": "5885980100914511495",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "5371272415682414327",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "16633533207225170676",
+      "$type": "UFG::FavourTypeTag"
+     }
+    }
+   ],
+   "mFirstFavourType": null,
+   "mPrice": {
+    "mAmount": 0.0,
+    "mCurrencyType": "PriceInGame_Dirty"
+   }
+  },
+  {
+   "$uid": "10740203655539158235",
+   "$type": "UFG::InformantType",
+   "mIsFTPEOnly": false,
+   "mLocationType": "INFORMANTLOCATION_RACKET",
+   "mDisplayName": "Auto Shop",
+   "mCategories": [],
+   "mTypes": [
+    {
+     "minRarity": "Common",
+     "maxRarity": "VeryRare",
+     "favourTag": {
+      "$handle": "5885980100914511495",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "4335492471176499407",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "2514935732996419300",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "VeryRare",
+     "favourTag": {
+      "$handle": "16633533207225170676",
+      "$type": "UFG::FavourTypeTag"
+     }
+    }
+   ],
+   "mFirstFavourType": null,
+   "mPrice": {
+    "mAmount": 0.0,
+    "mCurrencyType": "PriceInGame_Dirty"
+   }
+  },
+  {
+   "$uid": "10901341428196600124",
+   "$type": "UFG::InformantType",
+   "mIsFTPEOnly": false,
+   "mLocationType": "INFORMANTLOCATION_RIVAL",
+   "mDisplayName": "Enemy Street Vendor",
+   "mCategories": [],
+   "mTypes": [
+    {
+     "minRarity": "Common",
+     "maxRarity": "VeryRare",
+     "favourTag": {
+      "$handle": "5885980100914511495",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "5371272415682414327",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "16633533207225170676",
+      "$type": "UFG::FavourTypeTag"
+     }
+    }
+   ],
+   "mFirstFavourType": null,
+   "mPrice": {
+    "mAmount": 0.0,
+    "mCurrencyType": "PriceInGame_Dirty"
+   }
+  },
+  {
+   "$uid": "11506116560062288789",
+   "$type": "UFG::InformantType",
+   "mIsFTPEOnly": false,
+   "mLocationType": "INFORMANTLOCATION_RACKET",
+   "mDisplayName": "Project Manager",
+   "mCategories": [],
+   "mTypes": [
+    {
+     "minRarity": "Common",
+     "maxRarity": "VeryRare",
+     "favourTag": {
+      "$handle": "5885980100914511495",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "4335492471176499407",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "2514935732996419300",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "VeryRare",
+     "favourTag": {
+      "$handle": "16633533207225170676",
+      "$type": "UFG::FavourTypeTag"
+     }
+    }
+   ],
+   "mFirstFavourType": null,
+   "mPrice": {
+    "mAmount": 0.0,
+    "mCurrencyType": "PriceInGame_Dirty"
+   }
+  },
+  {
+   "$uid": "13697035526422863815",
+   "$type": "UFG::InformantType",
+   "mIsFTPEOnly": false,
+   "mLocationType": "INFORMANTLOCATION_RACKET",
+   "mDisplayName": "Pork Bun Man",
+   "mCategories": [],
+   "mTypes": [
+    {
+     "minRarity": "Common",
+     "maxRarity": "VeryRare",
+     "favourTag": {
+      "$handle": "5885980100914511495",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "4335492471176499407",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "2514935732996419300",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "VeryRare",
+     "favourTag": {
+      "$handle": "16633533207225170676",
+      "$type": "UFG::FavourTypeTag"
+     }
+    }
+   ],
+   "mFirstFavourType": null,
+   "mPrice": {
+    "mAmount": 0.0,
+    "mCurrencyType": "PriceInGame_Dirty"
+   }
+  },
+  {
+   "$uid": "13768872563629559840",
+   "$type": "UFG::InformantType",
+   "mIsFTPEOnly": false,
+   "mLocationType": "INFORMANTLOCATION_WORLD",
+   "mDisplayName": "Friendly Corrupt Cop",
+   "mCategories": [],
+   "mTypes": [
+    {
+     "minRarity": "Common",
+     "maxRarity": "VeryRare",
+     "favourTag": {
+      "$handle": "5885980100914511495",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "5371272415682414327",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "16633533207225170676",
+      "$type": "UFG::FavourTypeTag"
+     }
+    }
+   ],
+   "mFirstFavourType": null,
+   "mPrice": {
+    "mAmount": 0.0,
+    "mCurrencyType": "PriceInGame_Dirty"
+   }
+  },
+  {
+   "$uid": "14604847086140499439",
+   "$type": "UFG::InformantType",
+   "mIsFTPEOnly": false,
+   "mLocationType": "INFORMANTLOCATION_WORLD",
+   "mDisplayName": "Friendly Thief",
+   "mCategories": [],
+   "mTypes": [
+    {
+     "minRarity": "Common",
+     "maxRarity": "VeryRare",
+     "favourTag": {
+      "$handle": "5885980100914511495",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "5371272415682414327",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "16633533207225170676",
+      "$type": "UFG::FavourTypeTag"
+     }
+    }
+   ],
+   "mFirstFavourType": null,
+   "mPrice": {
+    "mAmount": 0.0,
+    "mCurrencyType": "PriceInGame_Dirty"
+   }
+  },
+  {
+   "$uid": "14779651119629554556",
+   "$type": "UFG::InformantType",
+   "mIsFTPEOnly": false,
+   "mLocationType": "INFORMANTLOCATION_RACKET",
+   "mDisplayName": "Foreman",
+   "mCategories": [],
+   "mTypes": [
+    {
+     "minRarity": "Common",
+     "maxRarity": "VeryRare",
+     "favourTag": {
+      "$handle": "5885980100914511495",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "4335492471176499407",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "2514935732996419300",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "VeryRare",
+     "favourTag": {
+      "$handle": "16633533207225170676",
+      "$type": "UFG::FavourTypeTag"
+     }
+    }
+   ],
+   "mFirstFavourType": null,
+   "mPrice": {
+    "mAmount": 0.0,
+    "mCurrencyType": "PriceInGame_Dirty"
+   }
+  },
+  {
+   "$uid": "15428620263675776735",
+   "$type": "UFG::InformantType",
+   "mIsFTPEOnly": true,
+   "mLocationType": "INFORMANTLOCATION_WORLD_ONE_TIME",
+   "mDisplayName": "Cockfighting Racket Contact",
+   "mCategories": [
+    null
+   ],
+   "mTypes": [],
+   "mFirstFavourType": {
+    "$handle": "11389301685106561813",
+    "$type": "UFG::FavourType"
+   },
+   "mPrice": {
+    "mAmount": 0.0,
+    "mCurrencyType": "PriceInGame_Dirty"
+   }
+  },
+  {
+   "$uid": "16343020252162478729",
+   "$type": "UFG::InformantType",
+   "mIsFTPEOnly": false,
+   "mLocationType": "INFORMANTLOCATION_RACKET",
+   "mDisplayName": "Apothecary",
+   "mCategories": [],
+   "mTypes": [
+    {
+     "minRarity": "Common",
+     "maxRarity": "VeryRare",
+     "favourTag": {
+      "$handle": "5885980100914511495",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "4335492471176499407",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "2514935732996419300",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "VeryRare",
+     "favourTag": {
+      "$handle": "16633533207225170676",
+      "$type": "UFG::FavourTypeTag"
+     }
+    }
+   ],
+   "mFirstFavourType": null,
+   "mPrice": {
+    "mAmount": 0.0,
+    "mCurrencyType": "PriceInGame_Dirty"
+   }
+  },
+  {
+   "$uid": "16827429581541954578",
+   "$type": "UFG::InformantType",
+   "mIsFTPEOnly": true,
+   "mLocationType": "INFORMANTLOCATION_WORLD_ONE_TIME",
+   "mDisplayName": "UNCLE DAVID'S CONTACT",
+   "mCategories": [
+    {
+     "$handle": "5144744025413713603",
+     "$type": "UFG::FavourCategoryTag"
+    }
+   ],
+   "mTypes": [
+    {
+     "minRarity": "Common",
+     "maxRarity": "Epic",
+     "favourTag": {
+      "$handle": "1603730539722440663",
+      "$type": "UFG::FavourTypeTag"
+     }
+    }
+   ],
+   "mFirstFavourType": {
+    "$handle": "7228029630320087354",
+    "$type": "UFG::FavourType"
+   },
+   "mPrice": {
+    "mAmount": 0.0,
+    "mCurrencyType": "PriceInGame_Dirty"
+   }
+  },
+  {
+   "$uid": "17780602037209348574",
+   "$type": "UFG::InformantType",
+   "mIsFTPEOnly": false,
+   "mLocationType": "INFORMANTLOCATION_RACKET",
+   "mDisplayName": "Manager",
+   "mCategories": [],
+   "mTypes": [
+    {
+     "minRarity": "Common",
+     "maxRarity": "VeryRare",
+     "favourTag": {
+      "$handle": "5885980100914511495",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "4335492471176499407",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "2514935732996419300",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "VeryRare",
+     "favourTag": {
+      "$handle": "16633533207225170676",
+      "$type": "UFG::FavourTypeTag"
+     }
+    }
+   ],
+   "mFirstFavourType": null,
+   "mPrice": {
+    "mAmount": 0.0,
+    "mCurrencyType": "PriceInGame_Dirty"
+   }
+  },
+  {
+   "$uid": "18255188327195281870",
+   "$type": "UFG::InformantType",
+   "mIsFTPEOnly": false,
+   "mLocationType": "INFORMANTLOCATION_RACKET",
+   "mDisplayName": "Fishmonger",
+   "mCategories": [],
+   "mTypes": [
+    {
+     "minRarity": "Common",
+     "maxRarity": "VeryRare",
+     "favourTag": {
+      "$handle": "5885980100914511495",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "4335492471176499407",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "Rare",
+     "favourTag": {
+      "$handle": "2514935732996419300",
+      "$type": "UFG::FavourTypeTag"
+     }
+    },
+    {
+     "minRarity": "Common",
+     "maxRarity": "VeryRare",
+     "favourTag": {
+      "$handle": "16633533207225170676",
+      "$type": "UFG::FavourTypeTag"
+     }
+    }
+   ],
+   "mFirstFavourType": null,
+   "mPrice": {
+    "mAmount": 0.0,
+    "mCurrencyType": "PriceInGame_Dirty"
+   }
+  }
+ ],
+ "UFG::OperationType": [
+  {
+   "$uid": "999752098279033389",
+   "$type": "UFG::OperationType",
+   "mOperationTypeName": "Catch"
+  },
+  {
+   "$uid": "2751831883422413570",
+   "$type": "UFG::OperationType",
+   "mOperationTypeName": "Defeat"
+  },
+  {
+   "$uid": "7248541061705089675",
+   "$type": "UFG::OperationType",
+   "mOperationTypeName": "Photo"
+  },
+  {
+   "$uid": "9265075428558064518",
+   "$type": "UFG::OperationType",
+   "mOperationTypeName": "Deliver"
+  },
+  {
+   "$uid": "9915659117056696551",
+   "$type": "UFG::OperationType",
+   "mOperationTypeName": "Collect"
+  },
+  {
+   "$uid": "10092364645237936142",
+   "$type": "UFG::OperationType",
+   "mOperationTypeName": "Destroy"
+  },
+  {
+   "$uid": "16002500952313957002",
+   "$type": "UFG::OperationType",
+   "mOperationTypeName": "Hijack"
+  }
+ ],
+ "UFG::MetagameInfoWrapper": [
+  {
+   "$uid": "536594783634700321",
+   "$type": "UFG::MetagameInfoWrapper",
+   "mSafehouseUpgradeCosts": [
+    0,
+    2500,
+    15000,
+    50000,
+    200000,
+    1000000,
+    2600000,
+    5200000,
+    7800000,
+    13000000
+   ],
+   "mSafehouseUpgradeTimes": [
+    0,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7
+   ],
+   "mRacketBuildCosts": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "mRacketBuildTimes": [
+    0,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7
+   ],
+   "mRacketUpgradeCosts": [
+    0,
+    2500,
+    15000,
+    100000,
+    275000,
+    800000,
+    2000000,
+    4000000,
+    6500000,
+    10500000
+   ],
+   "mRacketUpgradeTimes": [
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7
+   ],
+   "mWarehouseUpgradeCosts": [
+    0,
+    4500,
+    12000,
+    60000,
+    250000,
+    675000,
+    1250000,
+    2350000,
+    4000000,
+    6000000
+   ],
+   "mWarehouseUpgradeTimes": [
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7
+   ],
+   "mTriadVaultUpgradeCosts": [
+    200000,
+    320000,
+    800000,
+    2400000,
+    9600000,
+    1600000,
+    2400000,
+    4800000,
+    8000000,
+    20000000
+   ],
+   "mOpponentIntelCosts": [
+    100,
+    250,
+    750,
+    1500,
+    3000,
+    5000,
+    7500,
+    12500,
+    17500,
+    25000
+   ],
+   "mTriadTempleUpgradeCosts": [
+    0,
+    1000,
+    2000,
+    3000
+   ],
+   "mTriadTempleUpgradeTimes": [
+    0,
+    7,
+    7,
+    7
+   ],
+   "mWarehouseStorageInfo": [
+    {
+     "mWarehouseCommodityType": {
+      "$handle": "3149661868324414249",
+      "$type": "UFG::CommodityType"
+     },
+     "mMaxStorage": [
+      3,
+      10,
+      25,
+      45,
+      60,
+      100,
+      210,
+      425,
+      500,
+      375
+     ]
+    },
+    {
+     "mWarehouseCommodityType": {
+      "$handle": "5591782374748088804",
+      "$type": "UFG::CommodityType"
+     },
+     "mMaxStorage": [
+      175,
+      250,
+      520,
+      900,
+      1300,
+      2050,
+      4500,
+      9500,
+      11000,
+      15000
+     ]
+    },
+    {
+     "mWarehouseCommodityType": {
+      "$handle": "12899405313262884080",
+      "$type": "UFG::CommodityType"
+     },
+     "mMaxStorage": [
+      5,
+      8,
+      15,
+      25,
+      30,
+      45,
+      100,
+      200,
+      250,
+      325
+     ]
+    },
+    {
+     "mWarehouseCommodityType": {
+      "$handle": "2887900354055350876",
+      "$type": "UFG::CommodityType"
+     },
+     "mMaxStorage": [
+      3,
+      10,
+      20,
+      40,
+      50,
+      80,
+      180,
+      350,
+      420,
+      500
+     ]
+    },
+    {
+     "mWarehouseCommodityType": {
+      "$handle": "2916177118768518687",
+      "$type": "UFG::CommodityType"
+     },
+     "mMaxStorage": [
+      30,
+      80,
+      175,
+      340,
+      450,
+      700,
+      1500,
+      3100,
+      3700,
+      5000
+     ]
+    },
+    {
+     "mWarehouseCommodityType": {
+      "$handle": "12416988788789754389",
+      "$type": "UFG::CommodityType"
+     },
+     "mMaxStorage": [
+      180,
+      400,
+      850,
+      1600,
+      2100,
+      3350,
+      7400,
+      15000,
+      18000,
+      23000
+     ]
+    },
+    {
+     "mWarehouseCommodityType": {
+      "$handle": "13986589783633428006",
+      "$type": "UFG::CommodityType"
+     },
+     "mMaxStorage": [
+      20,
+      80,
+      175,
+      335,
+      440,
+      750,
+      1500,
+      3200,
+      3600,
+      5000
+     ]
+    },
+    {
+     "mWarehouseCommodityType": {
+      "$handle": "15899949689628397201",
+      "$type": "UFG::CommodityType"
+     },
+     "mMaxStorage": [
+      15,
+      30,
+      60,
+      120,
+      185,
+      250,
+      525,
+      1150,
+      1350,
+      1600
+     ]
+    }
+   ],
+   "mTriadVaultStorageInfo": [
+    {
+     "mWarehouseCommodityType": {
+      "$handle": "5591782374748088804",
+      "$type": "UFG::CommodityType"
+     },
+     "mMaxStorage": [
+      700,
+      1200,
+      2100,
+      3000,
+      4000,
+      5500,
+      7000,
+      9000,
+      12000,
+      0
+     ]
+    },
+    {
+     "mWarehouseCommodityType": {
+      "$handle": "3149661868324414249",
+      "$type": "UFG::CommodityType"
+     },
+     "mMaxStorage": [
+      50,
+      100,
+      200,
+      300,
+      450,
+      600,
+      800,
+      1000,
+      1250
+     ]
+    },
+    {
+     "mWarehouseCommodityType": {
+      "$handle": "12899405313262884080",
+      "$type": "UFG::CommodityType"
+     },
+     "mMaxStorage": [
+      75,
+      100,
+      150,
+      230,
+      315,
+      420,
+      525,
+      650,
+      800,
+      0
+     ]
+    },
+    {
+     "mWarehouseCommodityType": {
+      "$handle": "12416988788789754389",
+      "$type": "UFG::CommodityType"
+     },
+     "mMaxStorage": [
+      9000,
+      18000,
+      30000,
+      50000,
+      84000,
+      125000,
+      170000,
+      220000,
+      270000,
+      0
+     ]
+    },
+    {
+     "mWarehouseCommodityType": {
+      "$handle": "15899949689628397201",
+      "$type": "UFG::CommodityType"
+     },
+     "mMaxStorage": [
+      10,
+      20,
+      30,
+      40,
+      50,
+      60,
+      70,
+      80,
+      90,
+      0
+     ]
+    },
+    {
+     "mWarehouseCommodityType": {
+      "$handle": "13986589783633428006",
+      "$type": "UFG::CommodityType"
+     },
+     "mMaxStorage": [
+      6000,
+      12000,
+      18000,
+      25000,
+      36000,
+      48000,
+      60000,
+      75000,
+      90000,
+      1050
+     ]
+    },
+    {
+     "mWarehouseCommodityType": {
+      "$handle": "2916177118768518687",
+      "$type": "UFG::CommodityType"
+     },
+     "mMaxStorage": [
+      100000,
+      175000,
+      280000,
+      450000,
+      660000,
+      900000,
+      1275000,
+      1700000,
+      2100000,
+      2500000
+     ]
+    },
+    {
+     "mWarehouseCommodityType": {
+      "$handle": "2887900354055350876",
+      "$type": "UFG::CommodityType"
+     },
+     "mMaxStorage": [
+      250,
+      400,
+      600,
+      1000,
+      1400,
+      2000,
+      2800,
+      3900,
+      5000,
+      0
+     ]
+    }
+   ],
+   "mRepeatableErrandCooldownHours": 96,
+   "mErrandRefreshHourUTC": 10,
+   "mSlotCooldownMinutes": 90,
+   "mShieldDurationHours": 10,
+   "mUpgradeRemovalCost": 2,
+   "mLaundryTimeHours": [
+    18,
+    18,
+    18,
+    18,
+    18,
+    18,
+    18,
+    18,
+    18,
+    18
+   ],
+   "mMaxLaunderedMoney": [
+    0,
+    20000,
+    22000,
+    23000,
+    24000,
+    25000,
+    26000,
+    27000,
+    28000,
+    30000
+   ],
+   "mGamblingBonusMultiplier": [
+    0.2,
+    0.2,
+    0.2,
+    0.2,
+    0.2,
+    0.2,
+    0.2,
+    0.2,
+    0.2,
+    0.2
+   ],
+   "mLaundryConversionRate": 1000,
+   "mRacketDestructionTime": 6,
+   "mStartingCleanMoney": 90,
+   "mStartingDirtyMoney": 600,
+   "mRarityCommonWeight": 80,
+   "mRarityRareWeight": 19,
+   "mRarityVeryRareWeight": 1,
+   "mRarityEpicWeight": 0,
+   "mFavourPackRarityCommonWeight": 74,
+   "mFavourPackRarityRareWeight": 20,
+   "mFavourPackRarityVeryRareWeight": 5,
+   "mFavourPackRarityEpicWeight": 1,
+   "mContactConversionCommonValue": 1,
+   "mContactConversionRareValue": 2,
+   "mContactConversionVeryRareValue": 5,
+   "mContactConversionEpicValue": 20,
+   "mRaidRewardGroup1Weight": 9,
+   "mRaidRewardGroup1Types": [
+    {
+     "$handle": "2041080915360381683",
+     "$type": "UFG::FavourTypeTag"
+    },
+    {
+     "$handle": "1992909778961203978",
+     "$type": "UFG::FavourTypeTag"
+    },
+    {
+     "$handle": "16633533207225170676",
+     "$type": "UFG::FavourTypeTag"
+    }
+   ],
+   "mRaidRewardGroup2Weight": 1,
+   "mRaidRewardGroup2Types": [
+    {
+     "$handle": "9272978691420803913",
+     "$type": "UFG::FavourTypeTag"
+    }
+   ],
+   "mFaceDeathPenaltyPercentage": 0.8,
+   "mFaceAmbushPercentage": 0.8,
+   "mRankInfo": [
+    {
+     "mUnlockName": "Turf unlocked",
+     "mUnlockDescription": "Get your turf.",
+     "mUnlockIcon": "Unlock1",
+     "mRankBossIcon": "SDTW_RankUp_NextUnlock0",
+     "mRankBossName": "Naz"
+    },
+    {
+     "mUnlockName": "Unlock Rackets",
+     "mUnlockDescription": "Rackets available in the racket building tree",
+     "mUnlockIcon": "Unlock2",
+     "mRankBossIcon": "SDTW_RankUp_NextUnlock1",
+     "mRankBossName": "Dog Eyes"
+    },
+    {
+     "mUnlockName": "Unlock Exports",
+     "mUnlockDescription": "Export is unlocked.",
+     "mUnlockIcon": "Unlock3",
+     "mRankBossIcon": "SDTW_RankUp_NextUnlock2",
+     "mRankBossName": "Two Chin Tsao"
+    },
+    {
+     "mUnlockName": "Loot drop rarity & rival contacts",
+     "mUnlockDescription": "Loot drop rarity & rival contacts",
+     "mUnlockIcon": "Unlock4",
+     "mRankBossIcon": "SDTW_RankUp_NextUnlock3",
+     "mRankBossName": "Winston"
+    },
+    {
+     "mUnlockName": "Automatic weapon loot drops and pack loot",
+     "mUnlockDescription": "Automatic weapon loot drops and pack loot",
+     "mUnlockIcon": "Unlock5",
+     "mRankBossIcon": "SDTW_RankUp_NextUnlock4",
+     "mRankBossName": "Ricky Wong"
+    },
+    {
+     "mUnlockName": "",
+     "mUnlockDescription": "",
+     "mUnlockIcon": "Unlock6",
+     "mRankBossIcon": "SDTW_RankUp_NextUnlock5",
+     "mRankBossName": "Pony Tail"
+    },
+    {
+     "mUnlockName": "",
+     "mUnlockDescription": "",
+     "mUnlockIcon": "Unlock7",
+     "mRankBossIcon": "SDTW_RankUp_NextUnlock6",
+     "mRankBossName": "Mr Tong"
+    },
+    {
+     "mUnlockName": "",
+     "mUnlockDescription": "",
+     "mUnlockIcon": "Unlock8",
+     "mRankBossIcon": "SDTW_RankUp_NextUnlock7",
+     "mRankBossName": "Big Smile Lee"
+    },
+    {
+     "mUnlockName": "",
+     "mUnlockDescription": "",
+     "mUnlockIcon": "Unlock9",
+     "mRankBossIcon": "SDTW_RankUp_NextUnlock8",
+     "mRankBossName": "Sonny"
+    },
+    {
+     "mUnlockName": "",
+     "mUnlockDescription": "",
+     "mUnlockIcon": "Unlock10",
+     "mRankBossIcon": "SDTW_RankUp_NextUnlock9",
+     "mRankBossName": "Uncle Po"
+    }
+   ]
+  }
+ ],
+ "UFG::RaidReward": [
+  {
+   "$uid": "1643941339484549983",
+   "$type": "UFG::RaidReward",
+   "mMaxSafeInRaid": 3,
+   "mFailurePenalty": 0.03,
+   "mSafeRewardPercentage": 0.1,
+   "mMinRacketCommodityRewardPercentage": 0.2,
+   "mTriadMarkWeight_First": 0.2,
+   "mTriadMarkWeight_Second": 0.4,
+   "mTriadMarkWeight_Third": 0.4,
+   "mRewardCutOnPoliceArrival": 1.0,
+   "mFaceRewardMultipliers": [
+    0.6,
+    0.37,
+    0.15,
+    0.12,
+    0.1,
+    0.07,
+    0.06,
+    0.04,
+    0.03,
+    0.02
+   ]
+  }
+ ]
+}

@@ -1,0 +1,45 @@
+store/%u64  [cb 140473a20]: mReturnCode:int, mMessage:string, data:object, mCortexUID:i64str, mCatalogExpirySeconds:int, mItemExpirySeconds:int, mDiscountExpirySeconds:int, mCortexUID:i64str, mCortexUID:i64str, mCurrency:int, mPrice:int, mFinalPrice:int, mDiscountPercent:int, mStock:int, mIsNew:bool, mFeatured:int, mFeatured2:int, mAvailableStart:?, mAvailableEnd:?, mImageURL:?, mFeaturedImageURLSmall:?, mFeaturedImageURLLarge:?, mCatalogExpirySeconds:int, mItemExpirySeconds:int, mDiscountExpirySeconds:int, mName:string
+storelink  [cb 14047e2f0]: https://triadwars.com/store:?, mReturnCode:int, mMessage:string, mStoreURL:string
+purchase/%u64/%u64  [cb 14046bed0]: mReturnCode:int, mMessage:string, data:<mDataBags>, CortexUID:i64str, ItemContext:array, FavourDefinitionUIDString:i64str, FavourActionSummary:?, FavourCortexUID:?, FavourTypeTagCortexUID:?, FavourCategoryCortexUID:?, Action:?, BundleItemUID:?, CouponID:i64str
+itemkey/unlock  [cb 14047a380]: mReturnCode:int, mMessage:string, StoreItemIDStr:i64str, mDataBags:?, ItemContext:?, StoreItemIDStr:?, StoreItemIDStr:?
+blackmarket/quotes  [cb 14046b3b0]: mReturnCode:int, mMessage:string, CommodityName:string, BuyPrice:float, DiscountedBuyPrice:float, SellPrice:float, BonusSellPrice:float, AmountInMarket:int, CommodityUID:i64str
+blackmarket/buy/%u64/%u64  [cb 14046af80]: mReturnCode:int, mMessage:string, mDataBags:?, CommodityName:string, CommodityUID:i64str, AmountPaid:int, AmountBought:?, AmountEarned:int, AmountSold:float
+favours/usefavour/%u64  [cb 14047fea0]: mReturnCode:int, mMessage:string, mDataBags:?, mFavourUsageResult:?, mUsedFavourUid:u64str, FavourActionSummary:?, FavourCortexUID:?, FavourTypeTagCortexUID:?, FavourCategoryCortexUID:?, Action:?, BundleItemUID:?
+favours/sellfavours  [cb 14047bd40]: mReturnCode:int, mMessage:string, FavourActionSummary:?, FavourCortexUID:?, FavourTypeTagCortexUID:?, FavourCategoryCortexUID:?, Action:?, BundleItemUID:?, mDataBags:?
+informants/buyfrominformanttype/%u64  [cb 14046b950]: mReturnCode:int, mMessage:string, FavourDefinitionUID:i64str, FavourActionSummary:?, FavourCortexUID:?, FavourTypeTagCortexUID:?, FavourCategoryCortexUID:?, Action:?, BundleItemUID:?, mDataBags:?
+informants/claimfrominformant/%i64  [cb 14046d0d0]: Favor collected successfully.:string, FavourActionSummary:?, FavourCortexUID:?, FavourTypeTagCortexUID:?, FavourCategoryCortexUID:?, Action:?, BundleItemUID:?, mReturnCode:int, mDataBags:?, mMessage:string, FavourDefinitionUID:i64str
+operation/endoperation/%s/%d/%d  [cb 140475d40]: mReturnCode:int, mMessage:string, mReward:?, mRewardType:int, mDataBags:?, FavourActionSummary:?, FavourCortexUID:?, FavourTypeTagCortexUID:?, FavourCategoryCortexUID:?, Action:?, BundleItemUID:?
+export/startmission/%u64  [cb 14046fdd0]: mReturnCode:int, mMessage:string, mDataBags:?
+export/endmission/%u64/%u  [cb 14046f9c0]: mReturnCode:int, mMessage:string, mDataBags:?, mReward:?, mFaceReward:int, mMoneyReward:int
+worldencounter/list  [cb 1404806e0]: mReturnCode:int, mMessage:string, WorldEncounters:array, SecondsElapsed:int, TotalSeconds:int, WorldEndcounterType:int
+worldencounter/endencounter/%s/%d  [cb 1404802e0]: mReturnCode:int, mMessage:string, mRewardType:int, mReward:u64str, mDataBags:?
+openworldcrimescene/%u/%u/%u/%u  [cb 14046a5e0]: mReturnCode:int, mMessage:string, mDataBags:?
+openworldcrimescene  [cb 140472b50]: mReturnCode:int, mMessage:string, CrimeScenes:array, OpenWorldCrimeSceneID:u64str, DeathX:int, DeathY:int, DeathZ:int, VictimPlayerDataIDString:u64str, Collected:bool
+openworldcrimescenecollection/%d64  [cb 14046df80]: mReturnCode:int, mMessage:string, mDataBags:?, CrimeSceneID:u64str, FaceCollected:int
+raidcrimescene/%u/%d  [cb 14046ab60]: mReturnCode:int, mMessage:string, mDataBags:?
+raidcrimescene/%u/%u64/%u/%d  [cb 14046ab60]: mReturnCode:int, mMessage:string, mDataBags:?
+raidcrimescene  [cb 140473260]: mReturnCode:int, mMessage:string, CrimeScenes:array, RaidCrimeSceneID:u64str, RacketTypeUIDString:i64str, RoomNumber:?, VictimPlayerDataIDString:u64str
+raidcrimescenecompletion/%d64/%s  [cb 14046e3a0]: mReturnCode:int, mMessage:string, mDataBags:?, CrimeSceneID:u64str, FaceCollected:int
+metagame/buyopponentintel/%d  [cb 14046c340]: mReturnCode:int, mMessage:string, mDataBags:?
+profile/playerdata/%d  [cb 1404774f0]: mReturnCode:int, mAccountID:u64str, mPlayerName:string, mXP:int, mXPLevel:int, mFace:u64str, mRaidAttempts:int, mRaidSuccesses:int, mRacketsCompleted:int, mTotalTurfPointsPossible:int, mTurfPoints:int, mRaidFaceEarned:u64str, mExportFaceEarned:u64str, mAvatarURL:string, mIsAI:bool, mUpgrades:array, mName:?, ENFORCER UPGRADES:?, mUnlocked:int, mTotal:int, mName:?, GANG UPGRADES:?, mUnlocked:int, mTotal:int, mWeaponResults:array, mName:string, mHits:int, mTotalShots:int, mKills:int
+triads/playertriad  [cb 140477f80]: mReturnCode:int, mMessage:string, mDataBags:?, mTriad:object, TriadID:?
+triads/joinablelist  [cb 140474940]: mReturnCode:int, mMessage:string, mDataBags:?, mTriads:array, TriadID:?
+triads/triadmembers/%u64/  [cb 140478430]: mReturnCode:int, mMessage:string, mDataBags:?, mTriadLeader:?, TriadID:u64str, PlayerDataID:u64str, AccountID:u64str, Name:string, Face:u64str, mTriadMembers:array, Name:string, TriadID:u64str, PlayerDataID:u64str, AccountID:u64str, Face:u64str
+triads/triadmembership/%u64/  [cb 140474530]: mReturnCode:int, mMessage:string, mDataBags:?
+triads/triadmembership/%u64/  [cb 140475910]: mReturnCode:int, mMessage:string, mDataBags:?
+triads/triadinvitation/%u64/%u64  [cb 140474110]: mReturnCode:int, mMessage:string, mDataBags:?
+triads/triadinvitation/  [cb 14047af30]: mReturnCode:int, mMessage:string, mDataBags:?, mTriadInvites:array, TriadInvitationID:u64str, TriadID:u64str, InvitedPlayer:u64str, RequestingPlayer:u64str
+triads/triadinvitation/%u64/  [cb 140469570]: mReturnCode:int, mMessage:string, mDataBags:?
+channel/notices/%u  [cb 140471230]: mReturnCode:int, mMessage:string, mNoticeID:int, mNoticeName:string, mNoticeDestination:string, mActiveDateTime:string, mExpireDateTime:string, mPriority:int, mLanguage:string, mImageLocation:string, mNoticeContent:string
+friendreferral  [cb 140470ad0]: mReturnCode:int, mMessage:string, data:?, URL:string
+friendreferral/infolink  [cb 140470800]: mReturnCode:int, mMessage:string, data:?, URL:string
+trial/reportprogress/%d  [cb 14047ed70]: mReturnCode:int, mMessage:string, mDataBags:?, mPlayerProgress:?, mRewardList:array, mGameRewardTunerName:string, mReward:?, FavourDefinitionUIDString:i64str
+trialinstance/optin/%u64/%s  [cb 140476800]: mReturnCode:int, HappyCatTrial:?, false:object, removeslotcooldowns:?
+trialsscreenvisits  [cb 14047ed70]: mReturnCode:int, mMessage:string, mDataBags:?, mPlayerProgress:?, mRewardList:array, mGameRewardTunerName:string, mReward:?, FavourDefinitionUIDString:i64str
+playerdata/equipenforcerupgrade/%u/%u64  [cb 140469e40]: mReturnCode:int, mMessage:string, mDataBags:?, FavourActionSummary:?, FavourCortexUID:?, FavourTypeTagCortexUID:?, FavourCategoryCortexUID:?, Action:?, BundleItemUID:?
+playerdata/sellenforcerupgrade/%u64  [cb 14047b760]: mReturnCode:int, mMessage:string, mDataBags:?
+enforcer/sellinventoryitem/%d64  [cb 14047c220]: mReturnCode:int, mMessage:string, mDataBags:?
+playerdata/gameplaystate  [cb 140472920]: mGameplayState:string
+storeaccess  [cb 14047e0c0]: mHasAccess:bool
+accountinfo  [cb 140469950]: mReturnCode:int, mMessage:string, AvatarUrl:string, SEAvatarUrl:string, FacebookLinked:bool, FacebookAvatarUrl:string, FacebookLink:string, SteamLinked:bool, SteamAvatarUrl:string, SteamLink:string, GravatarUrl:string, GravatarLink:string, Email:string
+twitterstatus  [cb 14047f180]: mReturnCode:int, mMessage:string, mText:string, mStatusUrl:string, mTwitterUrl:string, mUserName:string, mTwitterUserName:string, mProfileImageUrl:string
