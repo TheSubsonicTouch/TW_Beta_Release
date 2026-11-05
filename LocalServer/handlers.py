@@ -906,7 +906,7 @@ def _profile(player, is_ai):
         mAccountID=pdb["AccountID"], mPlayerName=pdb["Name"], mXP=xp, mXPLevel=level,
         mFace=pdb.get("Face", "0"), mRaidAttempts=0, mRaidSuccesses=0, mRacketsCompleted=0,
         mTotalTurfPointsPossible=0, mTurfPoints=0, mRaidFaceEarned="0",
-        mExportFaceEarned=str(state.export_bag(player).get("Face", 0)),
+        mExportFaceEarned=str(player.get("ExportBag", {}).get("Face", 0)),
         mAvatarURL=pdb.get("AvatarUrl", ""), mIsAI=is_ai, mUpgrades=[], mWeaponResults=[],
     )
 

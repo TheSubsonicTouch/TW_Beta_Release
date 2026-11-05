@@ -249,8 +249,11 @@ bool DeleteGameFile(const std::string &path) {
 std::vector<std::string> ProfileFiles() {
     const std::string dir = GameDir();
     if (dir.empty()) return {};
+    // LocalServer's own file first: that is the one state.py loads, and the wardrobe reads
+    // the first that exists. A leftover state.json in the game folder is the older layout
+    // and is edited too, but it is not the profile the game is using.
     std::vector<std::string> out;
-    for (const char *rel : { "state.json", "LocalServer/state.json" }) {
+    for (const char *rel : { "LocalServer/state.json", "state.json" }) {
         HANDLE h = CreateFileW(ToWide(dir + rel).c_str(), GENERIC_READ,
                                FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING,
                                FILE_ATTRIBUTE_NORMAL, nullptr);
