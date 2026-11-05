@@ -35,8 +35,9 @@ TriadWars.exe and Play-TriadWars.bat in it.
                  trousers under the Swat top - plus 32 named looks and an undo
    SKY           "Sky variant" holds one of the game's own skies; "Sky override"
                  with a colour paints the sky in it, on screen, in any weather
-   SPAWN         "Models found" says how many models the list holds, and
-                 "Rescan models" reads the game folder again
+   SPAWN         the list starts with 39 rival triads (18K, Sun On Yee, Water
+                 Street, Dog Boys, the elite enforcers) - picking one makes it
+                 hostile; "Rescan models" reads the game folder again
    PROPS         the game's own objects - vehicles, weapons and every prop the
                  scan finds - with a crate drawn where the next one lands
 

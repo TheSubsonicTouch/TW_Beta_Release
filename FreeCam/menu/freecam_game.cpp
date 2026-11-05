@@ -1627,9 +1627,13 @@ void HandleHotkeys() {
         } else {
             tw::game::SpawnSetModel((tw::game::SpawnModelIndex() + 1) % static_cast<int>(models.size()));
             const std::string &name = models[tw::game::SpawnModelIndex()];
-            Hud("N", tw::game::SpawnShortName(name).c_str());
-            TW_Log("FreeCam: NPC model %d of %d: %s", tw::game::SpawnModelIndex() + 1,
-                   static_cast<int>(models.size()), name.c_str());
+            // A rival crew says so in the corner line as well as in the side it spawns on.
+            const std::string shown = tw::game::SpawnShortName(name) +
+                                      (tw::game::SpawnModelIsEnemy(name) ? " (hostile)" : "");
+            Hud("N", shown.c_str());
+            TW_Log("FreeCam: NPC model %d of %d: %s (%s)", tw::game::SpawnModelIndex() + 1,
+                   static_cast<int>(models.size()), name.c_str(),
+                   tw::game::SpawnHostile() ? "hostile" : "friendly");
         }
     }
 
@@ -1962,7 +1966,7 @@ DWORD WINAPI Loop(LPVOID) {
 
     // The 1 ms timer is raised in StartFlying and lowered in StopFlying: a thread that is
     // only alive so the menu can spawn something must not hold the system timer down.
-    TW_Log("FreeCam: camera thread up (build 33: props and objects spawn from the menu with a crate where they land - G spawns one, T walks the list - while the wardrobe, noclip's copies and the export payouts of build 32 stay as they were)");
+    TW_Log("FreeCam: camera thread up (build 34: the model list starts with the rival triads - 18K, Sun On Yee, Water Street, Dog Boys, the cult and the elite enforcers - picking one turns the side hostile, and the props and wardrobe of builds 33 and 32 stay as they were)");
 
     for (;;) {
         if (g_quit) break;

@@ -1480,6 +1480,22 @@ void buildMenu() {
         return std::string("NPC models: a scan is already running");
     };
     hooks.pedModelSummary = []() { return pedModelSummaryText(); };
+    // Picking a rival crew out of the list switches the side to hostile, because that is
+    // what the name means and a friendly triad is a bystander in a nice jacket. One
+    // direction only: picking a civilian leaves a hostile side alone, so setting it on
+    // purpose is not undone by walking the list.
+    hooks.pedPicked = [](const std::string& model) {
+        if (!tw::game::SpawnModelIsEnemy(model)) return "Spawn Ped: " + model;
+        tw::game::SpawnSetHostile(true);
+        return "Rival crew: " + tw::game::SpawnShortName(model) +
+               " - hostile, Enter on Spawn Ped puts it in the street";
+    };
+    hooks.pedEnemySummary = []() {
+        char buf[64];
+        std::snprintf(buf, sizeof buf, "%d rival crews, hostile by default",
+                      tw::game::SpawnEnemyModelCount());
+        return std::string(buf);
+    };
 
     // Props: the same spawner, aimed at the game's objects. The list is whatever the
     // prop side of the scan knows - the vehicles and weapons the executable names, plus

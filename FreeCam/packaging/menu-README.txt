@@ -104,6 +104,31 @@ game carries on from its own camera and not from where you flew to.
 WHAT CHANGED IN THIS BUILD
 --------------------------
 
+  - Build 34. The rival triads are in the model list.
+
+    - "Ped model (list)" now starts with 43 names instead of the four the executable
+      names by itself. After police, the player, the taxi driver and ThumbnailMan come
+      39 rival crews: 18K, Sun On Yee, Water Street, the Dog Boys, the cult and the
+      Brawl-in-the-Street crew, one of each fighting style per family (brawler, grappler,
+      quick, striker), then the elite tier and the named rivals - the nine SDTW gang
+      members, ThugElite, RivalEnforcer01, BouncerBoss01, 80sTriad, CultLeader and
+      DockWorkerThug.
+    - Picking a rival crew turns "Hostile NPC" on, because a triad that arrives friendly
+      is a bystander with a nice jacket. It goes one way only: picking a civilian does not
+      switch a side you set on purpose back off, and the toggle is still yours afterwards.
+      The status line says "Rival crew: <name> - hostile". The N key walks the same list
+      and follows the same rule, with "(hostile)" in the corner line when it lands on one.
+    - A new "Rival crews" line under "Models found" says how many are in the list, so you
+      can see they made it in without walking the whole list.
+    - The names are data, in menu/freecam_spawn_models.h, and they are built-ins: a rescan
+      adds what the game files name but can never drop them, and they are in the list on a
+      fresh install before any scan has run. The suffixed encounter variants (_amb, _easy,
+      _hard, _pistol, _NIS) are deliberately left out so the list stays walkable; a name
+      you want by hand still goes in FreeCam.npc.txt or in the Spawn Ped field.
+    - The build stamps 1.0.0.34 and the tests grew a table check: every name is a
+      character property set, none is listed twice, the four originals are still first,
+      and each crew has its four fighting styles. 305 C checks and 657 menu checks pass.
+
   - Build 33. A prop spawner, and a package with nothing in it but the DLL.
 
     - A new PROPS section spawns the game's own objects, not just people: vehicles,
@@ -700,6 +725,24 @@ Spawning props and objects:
   - A prop the game does not know is reported in the status line and the log rather than
     retried, and a prop that ever faults switches off the prop spawner only - the NPC
     spawner keeps working, and R clears both.
+
+Spawning rival triads:
+
+  - Open SPAWN, step down to "Ped model (list)" and use Left/Right. After the four models
+    the executable names itself, the list is the rival crews: 18K, Sun On Yee, Water
+    Street, the Dog Boys, the cult and Brawl in the Street, one brawler, grappler, quick
+    and striker each, then the elite enforcers and the named bosses.
+  - Picking one switches "Hostile NPC" on for you and the status line says "Rival crew".
+    Press Enter on "Spawn Ped" (or B with the menu closed) and it lands three metres in
+    front of you on the other side of the fight. Flip the toggle back off if you would
+    rather have it standing there peacefully - the choice is yours from then on, and
+    picking a civilian never switches a side you set back off.
+  - "Rival crews" under "Models found" counts them (39 in this build). These are built-in
+    names, so they are there before any scan and survive a rescan; the scan and
+    FreeCam.npc.txt add to them rather than replacing them.
+  - If a crew name is one this build does not carry, the spawn says "this build does not
+    know '<name>'" and nothing is created. Tell me which one and I will take it out of
+    the built-in list.
 
 Spawning NPCs:
 

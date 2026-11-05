@@ -35,6 +35,7 @@ extern "C" {
 #include "../src/freecam.h"
 }
 #include "freecam_game.h"  // FreeCamEnsureThread: the spawn runs on that thread
+#include "freecam_spawn_models.h"   // the built-in model list, rivals included
 #include "game_hooks.h"   // EnsureThreadAllocator
 #include "win/spawn_guard.h"   // the menu's crash-guarded trampoline + its VEH backstop
 
@@ -201,15 +202,10 @@ bool SetFaction(void *object, int id) {
 
 // --- the model list -------------------------------------------------------
 
-// The character property sets the executable names by itself. The rest of the game's
-// prefabs live in data bundles and cannot be listed from here; FreeCam.npc.txt is how to
-// add the ones found by hand.
-const char *const kBuiltInModels[] = {
-    "object-physical-character-police",
-    "object-physical-character-player",
-    "object-physical-character-taxi_driver_faceaction",
-    "object-physical-character-ThumbnailMan",
-};
+// The names the list starts with live in freecam_spawn_models.h, next to the flag that
+// says which of them are rival crews. The rest of the game's prefabs live in data
+// bundles and cannot be listed from here; FreeCam.npc.txt is how to add the ones found
+// by hand.
 
 std::string ExeFolder() {
     wchar_t path[MAX_PATH];
@@ -254,7 +250,7 @@ std::vector<std::string> MergeModels(const std::vector<std::string> &scanned) {
         if (name.size() < 8) return;
         if (std::find(out.begin(), out.end(), name) == out.end()) out.push_back(name);
     };
-    for (const char *name : kBuiltInModels) add(name);
+    for (const SpawnModelName &model : kSpawnModels) add(model.name);
     for (const std::string &name : ReadNpcFile()) add(name);
     for (const std::string &name : scanned) add(name);
     return out;
@@ -320,7 +316,7 @@ std::vector<std::string> LoadProps() { return MergeProps({}); }
 
 std::vector<std::string> LoadModels() {
     const std::vector<std::string> models = MergeModels({});
-    if (models.size() > sizeof(kBuiltInModels) / sizeof(kBuiltInModels[0]))
+    if (models.size() > static_cast<std::size_t>(kSpawnModelCount))
         TW_Log("Spawn: %d model(s) from the built-ins and FreeCam.npc.txt",
                static_cast<int>(models.size()));
     return models;
@@ -928,6 +924,23 @@ std::string SpawnShortName(const std::string &model) {
     return model;
 }
 
+// Which of the built-in names are rival crews. The menu asks this about the name it is
+// about to spawn: a triad that arrives friendly is a bystander with a nice jacket.
+bool SpawnModelIsEnemy(const std::string &model) {
+    for (const SpawnModelName &known : kSpawnModels)
+        if (model == known.name) return known.enemy;
+    return false;
+}
+
+// How many rival crews the built-in table holds, for the menu's own line. Counted rather
+// than written down, so the row cannot drift away from the list above it.
+int SpawnEnemyModelCount() {
+    int count = 0;
+    for (const SpawnModelName &known : kSpawnModels)
+        if (known.enemy) ++count;
+    return count;
+}
+
 std::vector<std::string> SpawnModels() { return Models(); }
 
 int SpawnModelsRevision() { return g_modelsRev; }
@@ -1067,11 +1080,16 @@ void SpawnSelectByName(const std::string &model) {
 }
 
 void SpawnSetModel(int index) {
-    const int count = static_cast<int>(Models().size());
+    const auto models = Models();
+    const int count = static_cast<int>(models.size());
     if (count <= 0) return;
     if (index < 0) index = 0;
     if (index >= count) index = count - 1;
     g_model = index;
+    // N walks the same list the menu offers, so the same rule applies to it: landing on a
+    // rival crew means the next spawn is hostile. One direction only - H is still the
+    // switch, and walking on to a civilian does not undo a side chosen on purpose.
+    if (SpawnModelIsEnemy(models[index])) g_hostile = true;
 }
 
 int SpawnModelIndex() { return g_model; }

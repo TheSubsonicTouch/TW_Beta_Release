@@ -64,6 +64,12 @@ bool SpawnScanRunning();
 int SpawnModelCount();
 int SpawnScannedModelCount();
 
+// The rival crews: true for a name the built-in table marks as an enemy, and how many of
+// those the list starts with. The menu uses the first to switch the side to Hostile when
+// one is picked, and the second for the line that says they are there.
+bool SpawnModelIsEnemy(const std::string& model);
+int SpawnEnemyModelCount();
+
 // Goes up every time the model list is replaced, so the menu can rebuild its selector.
 int SpawnModelsRevision();
 

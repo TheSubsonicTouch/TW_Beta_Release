@@ -40,6 +40,7 @@ cp freecam_menu.rc freecam_menu.manifest "$OUT/src/"
 mkdir -p "$OUT/src/assets"
 cp assets/triadmenu_bg.png assets/triadmenu_dragon.png "$OUT/src/assets/"
 cp freecam_game.h freecam_game.cpp freecam_spawn.h freecam_spawn.cpp \
+   freecam_spawn_models.h \
    freecam_noclip.h freecam_noclip.cpp freecam_weather.h freecam_weather.cpp \
    freecam_sky.h freecam_sky.cpp \
    freecam_hologram.h freecam_hologram.cpp \

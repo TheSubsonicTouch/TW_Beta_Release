@@ -7,6 +7,7 @@
 // the camera maths is.
 //
 // Built and run by run_tests.py; any C++17 compiler will do.
+#include "../menu/freecam_spawn_models.h"
 #include "../menu/freecam_unlock_rules.h"
 #include "../menu/patched/menu_core.h"
 
@@ -216,6 +217,8 @@ tw::DebugHooks fullHooks(int* toggles, int* picks, int* levels,
         return std::string("NPC models: scanning the game folder");
     };
     hooks.pedModelSummary = [] { return std::string("57 known, 53 from the game files"); };
+    hooks.pedEnemySummary = [] { return std::string("39 rival crews, hostile by default"); };
+    hooks.pedPicked = [](const std::string& name) { return "Picked: " + name; };
 
     // The wardrobe: three pieces per slot short of the real table, but the same shape -
     // names in the pickers, a status line, and every action reporting what it did.
@@ -297,6 +300,11 @@ void testStructure() {
     check(hasLabel(menu, "Models found"), "and says how many models it holds");
     check(hasLabelText(menu, "Models found", "57 known, 53 from the game files"),
           "with the count from the scanner");
+    // The rival crews: the models a player opens this list for are in it, and the row
+    // under the count says so without having to walk the whole list.
+    check(hasLabel(menu, "Rival crews"), "the rival-crew line is under the count");
+    check(hasLabelText(menu, "Rival crews", "39 rival crews, hostile by default"),
+          "with the count from the spawner's own table");
 
     // Every camera mode the keys reach has an entry, and every entry names its key: a
     // feature that only exists on the keyboard is a feature the menu does not have.
@@ -378,8 +386,9 @@ void testCursorSkipsHeaders() {
     }
     check(total == static_cast<std::size_t>(usable + titles + infos),
           "the list is the usable entries, the section titles and the info rows");
-    check(infos == 6,
-          "Keyframes, Spawner, Models found, Props found, Sky and Worn now are the read-only lines");
+    check(infos == 7,
+          "Keyframes, Spawner, Models found, Rival crews, Props found, Sky and Worn now are "
+          "the read-only lines");
     // APPEARANCE is not in this one: the style object is attached by its own test, and a
     // build with no style has nothing to put in a section about it.
     check(titles == 8, "CAMERA, SPAWN, PROPS, PATH, WORLD, SKY, WARDROBE, PROGRESSION");
@@ -565,6 +574,29 @@ void testSpawnPed() {
               "object-physical-character-police",
           "walking the list backwards fills it in too");
 
+    // Picking goes through pedPicked when the build has one. That hook is where a rival
+    // crew turns the side to hostile, so the row has to report what the hook said rather
+    // than guess at the name again.
+    selectLabel(menu, "Ped model (list)");
+    menu.handleKey(tw::Key::Right);
+    check(menu.status() == "Picked: object-physical-character-player",
+          "a picked model is announced by the hook");
+
+    // A build with no such hook behaves the way it did before there was one: the row says
+    // which name it just put in the field and nothing else.
+    {
+        tw::Menu plain;
+        tw::DebugHooks hooks;
+        hooks.pedNames = { "object-physical-character-police",
+                           "object-physical-character-player" };
+        tw::buildDebugMenu(plain, hooks);
+        plain.setVisible(true);
+        selectLabel(plain, "Ped model (list)");
+        plain.handleKey(tw::Key::Right);
+        check(plain.status() == "Spawn Ped: object-physical-character-player",
+              "with no hook the pick is only the name");
+    }
+
     // Left/Right on the entry itself must not edit the text - the arrows are the caret's
     // while a name is being typed.
     selectLabel(menu, "Spawn Ped");
@@ -581,6 +613,101 @@ void testSpawnPed() {
     tw::buildDebugMenu(bare, none);
     check(hasLabel(bare, "Spawn Ped"), "without a spawner the row is still there");
     check(hasHeader(bare, "SPAWN"), "and so is the section");
+}
+
+// The names the model list starts with. A typo here is not caught by the compiler and not
+// caught by the menu tests either - it shows up in game as "this build does not know ..."
+// on the pick - so the table is checked for the things that are true of it on paper: every
+// name is a character property set, none is twice, the four the executable names are still
+// first, and the rival crews, all four fighting styles of each family, are in there.
+void testEnemyModels() {
+    using tw::game::kSpawnModelCount;
+    using tw::game::kSpawnModels;
+
+    const std::string prefix = "object-physical-character-";
+    std::vector<std::string> names;
+    for (int i = 0; i < kSpawnModelCount; ++i) names.push_back(kSpawnModels[i].name);
+
+    check(kSpawnModelCount > 30, "the built-in list is more than the four the executable names");
+
+    for (const std::string& name : names) {
+        check(name.compare(0, prefix.size(), prefix) == 0,
+              "a built-in model is a character property set: " + name);
+        // SpawnShortName drops the prefix and the preview caption holds 56 characters, so
+        // the part that is left has to fit inside it.
+        check(name.size() - prefix.size() < 56,
+              "the name fits the preview's caption: " + name);
+        check(name.find("stats-") == std::string::npos,
+              "an attack parameter set is not a character: " + name);
+    }
+
+    std::vector<std::string> sorted = names;
+    std::sort(sorted.begin(), sorted.end());
+    check(std::adjacent_find(sorted.begin(), sorted.end()) == sorted.end(),
+          "no model is in the list twice");
+
+    // The four the list has always started with, in that order: the name field starts on
+    // police, so a build that has scanned nothing still spawns something it knows.
+    check(names.size() > 4 && names[0] == "object-physical-character-police",
+          "the list still starts on police");
+    check(names.size() > 4 && names[1] == "object-physical-character-player",
+          "then the player model");
+    check(names.size() > 4 && names[2] == "object-physical-character-taxi_driver_faceaction",
+          "then the taxi driver");
+    check(names.size() > 4 && names[3] == "object-physical-character-ThumbnailMan",
+          "then ThumbnailMan");
+
+    int enemies = 0;
+    for (int i = 0; i < kSpawnModelCount; ++i)
+        if (kSpawnModels[i].enemy) ++enemies;
+    check(enemies >= 30, "the list carries the rival crews, not just the four models");
+    check(enemies == kSpawnModelCount - 4, "and the four the executable names are the only ones "
+                                           "that are not");
+    check(kSpawnModelCount > 4 && !kSpawnModels[0].enemy && !kSpawnModels[1].enemy &&
+              !kSpawnModels[2].enemy && !kSpawnModels[3].enemy,
+          "the four known models are not marked as rivals");
+    {
+        bool restAreRivals = true;
+        for (int i = 4; i < kSpawnModelCount; ++i)
+            if (!kSpawnModels[i].enemy) restAreRivals = false;
+        check(restAreRivals, "everything after the four is a rival crew");
+    }
+
+    // Each family the game ships a crew for, and the four fighting styles each crew has
+    // (the cult spells them in capitals, so the styles are only pinned down for the other
+    // five).
+    const char* families[] = { "Thug_18k_", "Thug_Soy_", "Thug_Wsg_",
+                               "Thug_Dbs_", "Thug_Cult_", "Thug_BsL_" };
+    for (const char* family : families) {
+        int inFamily = 0;
+        for (const std::string& name : names)
+            if (name.find(family) != std::string::npos) ++inFamily;
+        check(inFamily >= 4, std::string("the crew has its fighting styles: ") + family);
+    }
+    const auto endsWith = [&names](const std::string& suffix) {
+        for (const std::string& name : names)
+            if (name.size() > suffix.size() &&
+                name.compare(name.size() - suffix.size(), suffix.size(), suffix) == 0)
+                return true;
+        return false;
+    };
+    const char* styles[] = { "brawler", "grap", "quick", "striker" };
+    const char* lowerFamilies[] = { "Thug_18k_", "Thug_Soy_", "Thug_Wsg_",
+                                    "Thug_Dbs_", "Thug_BsL_" };
+    for (const char* family : lowerFamilies)
+        for (const char* style : styles)
+            check(endsWith(std::string(family) + style),
+                  std::string("the crew has a ") + family + style);
+
+    // The named rivals and the elite tier: an encounter's enforcer or boss is the one a
+    // player goes looking for by name.
+    const char* named[] = { "RivalEnforcer01", "BouncerBoss01", "ThugElite", "80sTriad",
+                            "CultLeader", "SDTWGangMembers-Thug_elite" };
+    for (const char* model : named) {
+        const std::string wanted = prefix + model;
+        check(std::find(names.begin(), names.end(), wanted) != names.end(),
+              std::string("the named rival is in the list: ") + model);
+    }
 }
 
 void testPlayerFree() {
@@ -1716,6 +1843,7 @@ int main() {
     testCursorSkipsHeaders();
     testActions();
     testSpawnPed();
+    testEnemyModels();
     testPlayerFree();
     testNoclip();
     testSparseHooks();

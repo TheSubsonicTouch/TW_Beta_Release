@@ -695,8 +695,12 @@ void buildDebugMenu(Menu& menu, const DebugHooks& hooks) {
         // refills the choices as soon as there are any. A selector that appears late would
         // be a row that is missing exactly while someone is looking for it.
         MenuItem list = makeSelector("Ped model (list)", hooks.pedNames,
-                                     [&menu](const std::string& name) {
+                                     [&menu, picked = hooks.pedPicked](const std::string& name) {
                                          menu.setInputText("Spawn Ped", name);
+                                         // The spawner may have more to say about a name than
+                                         // "this is it" - a rival crew switches the side to
+                                         // hostile, and the line says so.
+                                         if (picked) return picked(name);
                                          return "Spawn Ped: " + name;
                                      });
         list.applyOnChange = true;
@@ -720,6 +724,16 @@ void buildDebugMenu(Menu& menu, const DebugHooks& hooks) {
         count.kind = ItemKind::Info;
         count.text = hooks.pedModelSummary();
         menu.addItem(count);
+    }
+
+    // The rival crews get their own line: they are the reason the list is worth opening,
+    // and a count is the only way to tell at a glance that they made it in.
+    if (hooks.pedEnemySummary) {
+        MenuItem enemies;
+        enemies.label = "Rival crews";
+        enemies.kind = ItemKind::Info;
+        enemies.text = hooks.pedEnemySummary();
+        menu.addItem(enemies);
     }
 
     if (hooks.setSpawnHostile) {

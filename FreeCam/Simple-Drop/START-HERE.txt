@@ -23,6 +23,9 @@ Everything in this folder goes into the folder that has TriadWars.exe in it.
    V                 noclip (fly the character itself, through walls)
    F10               panic: camera back, everything off
 
+   SPAWN's model list starts with the rival triads - 18K, Sun On Yee, Water Street,
+   the Dog Boys and the elite enforcers. Pick one and it spawns hostile.
+
    The menu has a PROPS section with the game's own objects - vehicles, weapons,
    and every prop the game files name - and draws a crate where the next one will
    land. GRAB/SPAWN rows say which key does the same thing.

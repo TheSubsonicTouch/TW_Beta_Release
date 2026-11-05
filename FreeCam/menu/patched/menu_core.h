@@ -334,6 +334,13 @@ struct DebugHooks {
     // one row starts it again and another says how many models there are now.
     std::function<std::string()> rescanPedModels;
     std::function<std::string()> pedModelSummary;
+    // Picking a name from the list fills the field in, and this is the last word on what
+    // that means - the rival crews are marked as such and arrive hostile. No hook, and the
+    // pick is only the name.
+    std::function<std::string(const std::string&)> pedPicked;
+    // A line under the model count: how many of the list are rival crews. Kept apart from
+    // pedModelSummary so a build with no enemies still says how many models it has.
+    std::function<std::string()> pedEnemySummary;
 
     // Props and objects. The same spawner as the NPC one with a different list: every
     // object-* property set the game has that is not a character - vehicles, weapons, and
