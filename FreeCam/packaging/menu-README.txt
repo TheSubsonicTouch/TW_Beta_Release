@@ -104,6 +104,38 @@ game carries on from its own camera and not from where you flew to.
 WHAT CHANGED IN THIS BUILD
 --------------------------
 
+  - Build 33. A prop spawner, and a package with nothing in it but the DLL.
+
+    - A new PROPS section spawns the game's own objects, not just people: vehicles,
+      weapons and every prop the game files name, through the same three calls the NPC
+      spawner uses (the name is hashed, the hash is looked up, the game builds the object
+      at a matrix). G spawns the selected prop three metres ahead and T walks the list,
+      exactly as B and N do for characters.
+    - The prop list has three sources, in this order: the vehicles and weapons the
+      executable itself names (15 of them, from "object-physical-vehicle-etalon01" to
+      "object-physical-weapon-melee-tireiron"), anything in FreeCam.props.txt next to the
+      exe, and everything the game-file scan finds. The scan that fills the NPC list also
+      collects the objects, so both lists come out of one walk of the folder and cannot
+      disagree about what is installed. A prop the game does not know fails with a message
+      and a log line - never a crash.
+    - The preview draws a crate on the spot the prop will land on, at the same distance
+      and with the same label as the NPC figure, because a prop has no silhouette the game
+      hands us: the box shows the footprint and the height, the label says which object it
+      is. "Preview the prop" switches the figure between the two, so both spawn keys can be
+      aimed before anything is created.
+    - Props have their own fault switch: if one ever faults, the prop spawner switches
+      itself off and the NPC spawner keeps working; R clears both.
+    - The prop scan writes FreeCam.props.txt, so the list survives a restart and can be
+      trimmed by hand - the same deal as FreeCam.npc.txt.
+    - packaging/menu-build32-preview.png still shows the menu as build 32 laid it out; the
+      four PROPS rows sit under SPAWN, between "Reset spawner (R)" and the PATH section.
+
+  - Build 33 also adds the simplest package yet: TriadWars-Simple-Drop.zip holds a folder
+    with nothing but dinput8.dll and a one-page START-HERE.txt. Drag the two files into a
+    fresh game folder - the one with TriadWars.exe and Play-TriadWars.bat - and the menu
+    is installed; delete the DLL to undo it. TriadWars-DropIn-Ready.zip is unchanged and
+    still carries the long README for troubleshooting.
+
   - Build 32. A wardrobe section, and the rest of the "make the game have more to do" pass.
 
     - The wardrobe is the answer to "the Deus Ex trousers with the Swat top". The client
@@ -648,6 +680,26 @@ CONTROLS
 
 The mouse is natural: push it forward and you look up, pull it back and you look down.
 Moving it right turns right.
+
+Spawning props and objects:
+
+  - The PROPS section is the same spawner aimed at the game's objects: vehicles, weapons,
+    and every prop the game files name. Pick one from "Prop model (list)" and press "Spawn
+    prop (G)", or use the keys - G spawns the selected prop three metres ahead, T walks the
+    list. The prop goes through exactly the same call as an NPC (hash, name lookup, the
+    game's own SpawnAtXform), so it is a real object in the world rather than something
+    drawn on the screen.
+  - Where it will land is drawn: with "Preview the prop" on, the preview is a crate on the
+    spawn spot - the footprint, the height and an arrow up - labelled with the object's
+    name. It uses the same "Preview distance" slider as the NPC figure, so moving the
+    slider moves both.
+  - The list starts from the fifteen vehicles and weapons the executable names, then
+    FreeCam.props.txt next to the exe, then everything the game-file scan finds. "Props
+    found" says how many there are and how many came out of the files; "Rescan props"
+    reads the folder again (it is the same walk the NPC scan does).
+  - A prop the game does not know is reported in the status line and the log rather than
+    retried, and a prop that ever faults switches off the prop spawner only - the NPC
+    spawner keeps working, and R clears both.
 
 Spawning NPCs:
 
