@@ -144,6 +144,44 @@ def main():
             names.append(errand["name"])
         return "%d jobs in one sitting, last %r" % (done, names[-1])
 
+    def export_jobs_follow_an_export():
+        # "Complete an Export" / "Complete 3 Exports" read the client's own counter, which
+        # only moves when an export is handed in. With nothing delivered they stay off the
+        # board, and they are never a prerequisite, so the rest of the ladder is unaffected.
+        assert not state.export_chain_live(player), "a fresh profile has no exports"
+        pool = state.errand_pool(player, state.errands(player))
+        on_board = {e["uid"] for e in pool} & state.ERRAND_UNSUPPORTED
+        assert not on_board, [state.ERRANDS_BY_UID[u]["name"] for u in on_board]
+        blocked = [e["name"] for e in state.ERRANDS
+                   if state.errand_available(state.errands(player), e, state.xp_level(player),
+                                             state.safehouse_level(player))
+                   and e["enabled"] and e["uid"] not in state.ERRAND_UNSUPPORTED
+                   and not all(link in state.errands(player)["Completed"]
+                               or link in state.ERRAND_UNSUPPORTED
+                               for link in e.get("links") or [])]
+        assert not blocked, blocked
+        # One delivered export, and the two jobs are ordinary board entries - once the
+        # story job each of them links to has been done, which is the game's own chain.
+        bag = state.errands(player)
+        saved = dict(bag["Completed"])
+        for uid in state.ERRAND_UNSUPPORTED:
+            for link in state.ERRANDS_BY_UID[uid].get("links") or []:
+                bag["Completed"][link] = {"Times": 1, "Last": 0}
+        player["ExportBag"] = {"Attempted": 1, "Completed": 1, "Face": 75, "Paid": [0], "Started": []}
+        assert state.export_chain_live(player)
+        # "Complete 3 Exports" asks for a safehouse the player who can export already has.
+        safehouse = player["TurfBag"]["Turf"]["Safehouse"]
+        racket_level = safehouse.get("RacketLevel", 1)
+        safehouse["RacketLevel"] = state.ERRAND_SAFEHOUSE_CAP
+        pool = state.errand_pool(player, bag)
+        now = {e["uid"] for e in pool} & state.ERRAND_UNSUPPORTED
+        assert now, "the export jobs stayed off the board after an export"
+        assert pool[-1]["uid"] in state.ERRAND_UNSUPPORTED, "the export job is not last"
+        del player["ExportBag"]
+        safehouse["RacketLevel"] = racket_level
+        bag["Completed"] = saved
+        return "%d export job(s) offered once one has been delivered" % len(now)
+
     def restart_keeps_progress():
         handlers.STATE.save()
         reloaded = state.State(os.path.join(workdir, "state.json"))
@@ -163,6 +201,7 @@ def main():
     check("tier rewards", tier_rewards)
     check("board never runs dry", board_never_runs_dry)
     check("restart", restart_keeps_progress)
+    check("export jobs after an export", export_jobs_follow_an_export)
     print("%d check(s) failed" % len(failures) if failures else "all checks passed")
     return 1 if failures else 0
 

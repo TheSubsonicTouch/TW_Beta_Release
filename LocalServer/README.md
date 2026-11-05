@@ -458,11 +458,17 @@ it.
 What the server cannot do is put an export on the map. Which exports exist, where they
 start and what they carry is client data, and the client's own gate on offering one is
 Face rank - *"Your face rank isn't high enough to do export missions"* - which the
-menu's unlock now clears. `tools/storyline.py` still lists `Complete an Export` and
-`Complete 3 Exports` as skipped: those two jobs test the client's own `ExportsCompleted`
-counter, which this server never sees, so they are on the board (the unlock puts them
-there) but their condition is met by the game, not by us. `state.ERRAND_UNSUPPORTED` is
-what keeps them from hiding the 49 jobs behind them.
+menu's unlock now clears.
+
+`Complete an Export` and `Complete 3 Exports` test the client's own `ExportsCompleted`
+counter, so the server can neither tick nor see them. They are held back until there is
+evidence the counter runs on this installation, which is one delivered export:
+`state.export_chain_live` reads `ExportBag.Completed`, and from the first export that
+reaches `export/endmission` the two jobs are offered like any other job (on an unlocked
+profile they are on the board from the start, last in the queue). They are never treated
+as a prerequisite - `state.ERRAND_UNSUPPORTED` is what keeps them from hiding the 49 jobs
+behind them - so the ladder does not wait for a counter the server cannot see.
+`tools/test_jobs.py` checks both halves.
 
 ### Unlocking everything (`UnlockBag.All`)
 

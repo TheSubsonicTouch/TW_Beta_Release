@@ -351,15 +351,32 @@ ERRAND_SAFEHOUSE_CAP = len(METAGAME.get("mSafehouseUpgradeCosts") or []) or 10
 # (UFG::MetagameInfoWrapper.mRepeatableErrandCooldownHours, 96 hours).
 ERRAND_REPEATABLE_COOLDOWN = int(METAGAME.get("mRepeatableErrandCooldownHours") or 0) * 3600
 
-# Stats this build cannot produce. The server does not run the export chain, so the two
-# errands that ask for completed exports can never be finished - and 49 other jobs list
-# "Complete 3 Exports" as a prerequisite, so that one hole used to hide most of the ladder.
-# Those jobs are skipped as board entries and skipped as prerequisites. Everything else the
-# client counts itself (kills, raids, rackets, crimes scenes, operations, purchases).
+# Stats the client counts and the server cannot. "Complete an Export" and "Complete 3
+# Exports" read the client's own ExportsCompleted counter, which only moves when an export
+# mission is handed in - so until one has been, there is nothing on the board that could
+# ever be ticked (see export_chain_live). They are never treated as a prerequisite, either
+# way: 49 other jobs list "Complete 3 Exports" as one, and waiting for a counter the server
+# cannot see would hide most of the ladder. Everything else the client counts itself
+# (kills, raids, rackets, crimes scenes, operations, purchases).
 ERRAND_UNSUPPORTED_STATS = {"ExportsCompleted"}
 ERRAND_UNSUPPORTED = {e["uid"] for e in ERRANDS
                       if any((c or {}).get("stat") in ERRAND_UNSUPPORTED_STATS
                              for c in e.get("conditions") or [])}
+
+
+def export_chain_live(player):
+    """True once an export has actually been delivered on this profile.
+
+    The two export jobs are the only ones whose objective the server cannot see, so they
+    are held back until there is evidence that the client's ExportsCompleted counter runs
+    on this installation - which is one delivered export (handlers.export_end records it in
+    ExportBag.Completed). From then on they are offered like any other job.
+    """
+    bag = player.get("ExportBag") or {}
+    try:
+        return int(bag.get("Completed", 0) or 0) > 0
+    except (TypeError, ValueError):
+        return False
 
 # 29 errands are switched off in the game data (mEnabled = false): the combat-tutorial
 # variants ("Sweep Kicks", "Roundhouse Kicks", ...), the commodity collectors and a few
@@ -526,7 +543,7 @@ def errand_requirement(errand, field):
 
 
 def errand_available(bag, errand, level, safehouse, now=None, bonus=False, ignore_gates=False,
-                     everything=False):
+                     everything=False, export_jobs=False):
     """Can this errand be put on the board?
 
     `bonus` allows the errands the game data switches off (see ERRAND_BONUS_JOBS); those
@@ -534,10 +551,11 @@ def errand_available(bag, errand, level, safehouse, now=None, bonus=False, ignor
     drops the level/safehouse requirement - the client checks the objective itself, so a
     job whose gate is out of reach is still playable; the board only falls back to that
     when nothing else is left (see errand_pool). `everything` is the unlocked profile
-    (see unlocked): every job, no gate, no chain and no cooldown.
+    (see unlocked): every job, no gate, no chain and no cooldown. `export_jobs` lets the two
+    export-chain jobs through once one has been delivered (see export_chain_live).
     """
     enabled = bool(errand.get("enabled"))
-    if errand["uid"] in ERRAND_UNSUPPORTED and not everything:
+    if errand["uid"] in ERRAND_UNSUPPORTED and not (everything or export_jobs):
         return False
     if not enabled and not (bonus and ERRAND_BONUS_JOBS) and not everything:
         return False
@@ -578,29 +596,35 @@ def errand_pool(player, bag, exclude=(), now=None, bonus=True):
     if unlocked(player):
         pool = [e for e in ERRANDS if e["uid"] not in exclude
                 and errand_available(bag, e, level, safehouse, now, everything=True)]
-        # The export jobs (ERRAND_UNSUPPORTED) go last: they are on the board like any
-        # other job, but the client cannot finish them here, so they only turn up once
-        # nothing else is left rather than taking a slot on the first day.
+        # The export jobs (ERRAND_UNSUPPORTED) go last: on an unlocked profile they are on
+        # the board like any other job, but they need export missions running before they
+        # can be ticked, so they never take the first card.
         pool.sort(key=lambda e: (e["uid"] in ERRAND_UNSUPPORTED, -e["priority"], e["name"]))
         return pool
+    export_jobs = export_chain_live(player)
     pool = [e for e in ERRANDS
             if e["uid"] not in exclude and e["enabled"]
-            and errand_available(bag, e, level, safehouse, now)]
+            and errand_available(bag, e, level, safehouse, now, export_jobs=export_jobs)]
     if not pool and bonus:
         pool = [e for e in ERRANDS
                 if e["uid"] not in exclude and not e["enabled"]
-                and errand_available(bag, e, level, safehouse, now, bonus=True)]
+                and errand_available(bag, e, level, safehouse, now, bonus=True,
+                                     export_jobs=export_jobs)]
     if not pool and bonus:
         # Everything the level and safehouse open is done or on cooldown. Rather than hand
         # back an empty Jobs screen, offer the jobs whose prerequisites are met anyway,
         # easiest requirement first - the client evaluates the objective from its own stat
         # counters, so they can be played and finished.
         pool = [e for e in ERRANDS if e["uid"] not in exclude
-                and errand_available(bag, e, level, safehouse, now, bonus=True, ignore_gates=True)]
+                and errand_available(bag, e, level, safehouse, now, bonus=True, ignore_gates=True,
+                                     export_jobs=export_jobs)]
         pool.sort(key=lambda e: (errand_requirement(e, "xpLevel"),
                                  errand_requirement(e, "safehouseLevel"), -e["priority"], e["name"]))
         return pool
-    pool.sort(key=lambda e: (-e["priority"], e["name"]))
+    # The export jobs come last on purpose: they can only be finished once the client is
+    # running export missions again, and they should not take a card from a job that can
+    # be played today.
+    pool.sort(key=lambda e: (e["uid"] in ERRAND_UNSUPPORTED, -e["priority"], e["name"]))
     return pool
 
 
