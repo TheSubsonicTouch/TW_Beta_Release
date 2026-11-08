@@ -179,6 +179,8 @@ volatile LONG g_accessorAnswers = 0; // of those, the ones answered with our pos
 POINT    g_lookOrigin = {};
 bool     g_looking = false;
 float    g_speed = 30.0f;
+volatile LONG g_projectionStatus = 0; // 0 off, 1 written, 2 unsupported, 3 unavailable
+volatile LONG g_fovTenths = 600;  // published to the menu
 float    g_flightClock = 0.0f;     // seconds of flight, the keyframe clock
 
 // the path is kept across switching free cam off and on again
@@ -1124,6 +1126,62 @@ void RestoreMatrices() {
     WriteRaw(g_cam.savedWorld, g_cam.savedView);
 }
 
+// Only touch the two focal-scale elements of a verified perspective projection.
+// Keep the latest game-written pair and restore only if our pair is still there.
+struct ProjectionOverride {
+    uint8_t* address = nullptr;
+    float originalX = 0, originalY = 0, writtenX = 0, writtenY = 0;
+    bool owned = false;
+} g_projection;
+
+void RestoreProjection() {
+    __try {
+        if (g_projection.owned && CameraStillThere() && g_cam.obj &&
+            g_projection.address == g_cam.obj + g_cam.projOff &&
+            Writable(g_projection.address, sizeof(fc_mat))) {
+            float* p = reinterpret_cast<float*>(g_projection.address);
+            if (fabsf(p[0] - g_projection.writtenX) < 0.0001f &&
+                fabsf(p[5] - g_projection.writtenY) < 0.0001f) {
+                p[0] = g_projection.originalX; p[5] = g_projection.originalY;
+            }
+        }
+    } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    g_projection = ProjectionOverride{};
+    InterlockedExchange(&g_projectionStatus, 0);
+}
+
+void WriteProjectionFov(float fov) {
+    if (!g_cam.obj) return;
+    uint8_t* address = g_cam.obj + g_cam.projOff;
+    __try {
+        if (!Readable(address, sizeof(fc_mat)) || !Writable(address, sizeof(fc_mat))) {
+            InterlockedExchange(&g_projectionStatus, 3); return;
+        }
+        fc_mat m; std::memcpy(&m, address, sizeof m);
+        const float x = m.m[0], y = m.m[5];
+        if (!fc_projection_fov(&m, fov)) {
+            InterlockedExchange(&g_projectionStatus, 2);
+            static bool warned = false;
+            if (!warned) { TW_Log("FreeCam FOV: camera projection was not a verified perspective matrix; no write made"); warned = true; }
+            return;
+        }
+        if (!g_projection.owned || g_projection.address != address ||
+            fabsf(x - g_projection.writtenX) > 0.0001f ||
+            fabsf(y - g_projection.writtenY) > 0.0001f) {
+            g_projection.address = address;
+            g_projection.originalX = x; g_projection.originalY = y;
+        }
+        float* p = reinterpret_cast<float*>(address);
+        p[0] = m.m[0]; p[5] = m.m[5];
+        g_projection.writtenX = m.m[0]; g_projection.writtenY = m.m[5];
+        g_projection.owned = true;
+        InterlockedExchange(&g_projectionStatus, 1);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        g_projection = ProjectionOverride{};
+        InterlockedExchange(&g_projectionStatus, 3);
+    }
+}
+
 // The game swaps cameras when the player gets into a car or a cutscene starts. The
 // proxy table shows it at once: a different object starts being asked about often.
 bool FollowCameraSwitch() {
@@ -1139,6 +1197,7 @@ bool FollowCameraSwitch() {
         if (!TakeCandidate(p.obj, p.viewPtr, p.calls, player, havePlayer, &next,
                            "the camera the renderer switched to", false))
             continue;
+        RestoreProjection();
         g_cam = next;      // the pose in g_state carries straight over
         TW_Log("FreeCam: the game switched cameras; carrying on from %.1f %.1f %.1f",
                g_state.pos[0], g_state.pos[1], g_state.pos[2]);
@@ -1574,6 +1633,15 @@ void ApplyMenuAction(int action, int arg, std::string *why) {
         *why = buf;
         return;
     }
+    case kFreeCamSetFov: {
+        if (arg < 20) arg = 20;
+        if (arg > 120) arg = 120;
+        if (fc_playing(&g_state)) { *why = "FOV: stop playback before editing"; return; }
+        g_state.fov = static_cast<float>(arg);
+        InterlockedExchange(&g_fovTenths, arg * 10);
+        char buf[64]; std::snprintf(buf, sizeof buf, "Free camera FOV: %d degrees", arg);
+        *why = buf; return;
+    }
     case kFreeCamSetFlySpeed: {
         FreeCamSetSpeed(static_cast<float>(arg));
         char buf[64];
@@ -1825,6 +1893,7 @@ bool StartFlying() {
         std::memcpy(g_savedPath, g_state.path, sizeof(fc_keyframe) * (size_t)g_savedPathCount);
     }
     fc_init(&g_state, &cfg);
+    g_state.fov = static_cast<float>(InterlockedCompareExchange(&g_fovTenths, 0, 0)) / 10.0f;
     if (g_savedPathCount > 0) {
         g_state.path_count = g_savedPathCount;
         std::memcpy(g_state.path, g_savedPath, sizeof(fc_keyframe) * (size_t)g_savedPathCount);
@@ -1860,6 +1929,7 @@ bool StartFlying() {
 }
 
 void StopFlying() {
+    RestoreProjection();
     InputBlockSetActive(false);      // the controls are the player's again
     g_playerFree = 0;                // and the next flight starts with the player held
     fc_play_stop(&g_state);
@@ -1966,7 +2036,7 @@ DWORD WINAPI Loop(LPVOID) {
 
     // The 1 ms timer is raised in StartFlying and lowered in StopFlying: a thread that is
     // only alive so the menu can spawn something must not hold the system timer down.
-    TW_Log("FreeCam: camera thread up (build 34: the model list starts with the rival triads - 18K, Sun On Yee, Water Street, Dog Boys, the cult and the elite enforcers - picking one turns the side hostile, and the props and wardrobe of builds 33 and 32 stay as they were)");
+    TW_Log("FreeCam: camera thread up (build 35: experimental camera FOV and FOV keyframes, custom menu colours)");
 
     for (;;) {
         if (g_quit) break;
@@ -2094,6 +2164,8 @@ DWORD WINAPI Loop(LPVOID) {
         if (!CameraStillThere()) {
             if (++lost < 30) { Sleep(1); continue; }
             TW_Log("FreeCam: the camera object is gone from %p, resolving again", g_cam.obj);
+            g_projection = ProjectionOverride{}; // stale object: never restore into reused memory
+            InterlockedExchange(&g_projectionStatus, 3);
             g_cam.obj = nullptr;
             lost = 0;
             continue;
@@ -2175,6 +2247,8 @@ DWORD WINAPI Loop(LPVOID) {
         }
 
         if (got) {
+            WriteProjectionFov(g_state.fov);
+            InterlockedExchange(&g_fovTenths, static_cast<LONG>(g_state.fov * 10.0f + 0.5f));
             fc_mat view;
             fc_mat_from_pose(&view, g_state.pos, g_state.yaw, g_state.pitch, g_cam.viewSign);
 
@@ -2320,6 +2394,15 @@ bool FreeCamFollowing() { return g_live != 0 && fc_following(&g_state) != 0; }
 bool FreeCamLookingAt() { return g_live != 0 && fc_looking_at(&g_state) != 0; }
 bool FreeCamPlaying() { return g_live != 0 && fc_playing(&g_state) != 0; }
 int FreeCamKeyframeCount() { return g_state.path_count; }
+const char* FreeCamFovStatus() {
+    switch (InterlockedCompareExchange(&g_projectionStatus, 0, 0)) {
+    case 1: return "projection written (test in game)";
+    case 2: return "unsupported projection";
+    case 3: return "projection unavailable";
+    default: return "free camera off / searching";
+    }
+}
+float FreeCamFov() { return static_cast<float>(InterlockedCompareExchange(&g_fovTenths, 0, 0)) / 10.0f; }
 
 int FreeCamPlaySpeedCount() { return fc_play_speed_count(); }
 float FreeCamPlaySpeedAt(int index) { return fc_play_speed_at(index); }

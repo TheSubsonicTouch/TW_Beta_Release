@@ -935,11 +935,11 @@ static void test_keyframes(void)
     CHECK(st.active, "free cam is flying for the rest of this test");
 
     /* three poses two seconds apart, going 10 units along x each time */
-    st.pos[0] = 0.0f;  st.yaw = 0.0f;
+    st.pos[0] = 0.0f;  st.yaw = 0.0f; st.fov = 40.0f;
     CHECK(fc_key_add(&st, 100.0f) == 1, "first keyframe");
-    st.pos[0] = 10.0f; st.yaw = 0.2f;
+    st.pos[0] = 10.0f; st.yaw = 0.2f; st.fov = 80.0f;
     CHECK(fc_key_add(&st, 102.0f) == 2, "second keyframe");
-    st.pos[0] = 20.0f; st.yaw = 0.4f;
+    st.pos[0] = 20.0f; st.yaw = 0.4f; st.fov = 100.0f;
     CHECK(fc_key_add(&st, 104.0f) == 3, "third keyframe");
     CHECK(NEAR(st.path[1].time, 2.0f, 1e-4) && NEAR(st.path[2].time, 4.0f, 1e-4),
           "the times are relative to the first keyframe");
@@ -953,6 +953,8 @@ static void test_keyframes(void)
     CHECK(NEAR(st.pos[0], 2.5f, 1e-3), "a quarter of the way through the first leg (%f)", st.pos[0]);
     CHECK(fc_play_step(&st, 0.5f, &out), "still playing");
     CHECK(NEAR(st.pos[0], 5.0f, 1e-3), "halfway through the first leg (%f)", st.pos[0]);
+    CHECK(NEAR(st.fov, 60.0f, 1e-3), "FOV interpolates with the path");
+    CHECK(NEAR(fc_play_fov(&st, -1), 40.0f, 1e-3) && NEAR(fc_play_fov(&st, 100), 100.0f, 1e-3), "FOV clamps at endpoints");
     CHECK(NEAR(st.yaw, 0.1f, 1e-3), "and the angle is interpolated too (%f)", st.yaw);
 
     /* run to the end */
@@ -960,6 +962,7 @@ static void test_keyframes(void)
         int i, guard = 0;
         while (fc_playing(&st) && guard++ < 1000) fc_play_step(&st, 0.1f, &out);
         CHECK(!fc_playing(&st), "the playback stops at the end");
+        CHECK(NEAR(st.fov, 100.0f, 1e-3), "playback lands on last FOV");
         CHECK(NEAR(st.pos[0], 20.0f, 1e-3) && NEAR(st.yaw, 0.4f, 1e-3),
               "and leaves the camera on the last keyframe");
         (void)i;
@@ -977,6 +980,17 @@ static void test_keyframes(void)
 }
 
 /* A path that crosses +-180 degrees has to turn the short way, not spin all the way. */
+static void test_projection_fov(void)
+{
+    fc_mat m = {{0}}; m.m[0] = 1.0f; m.m[5] = 2.0f; m.m[10] = 1.01f; m.m[11] = 1.0f; m.m[14] = -0.1f;
+    CHECK(fc_projection_fov(&m, 90.0f), "perspective accepts FOV");
+    CHECK(NEAR(m.m[5], 1.0f, 1e-5) && NEAR(m.m[0], 0.5f, 1e-5), "FOV preserves aspect");
+    CHECK(NEAR(m.m[10], 1.01f, 1e-5) && NEAR(m.m[14], -0.1f, 1e-5), "depth unchanged");
+    CHECK(!fc_projection_fov(&m, 180.0f), "out of range rejected");
+    fc_mat_identity(&m);
+    CHECK(!fc_projection_fov(&m, 60.0f), "non-perspective rejected");
+}
+
 static void test_keyframe_yaw_wrap(void)
 {
     fc_config cfg;
@@ -1430,6 +1444,7 @@ int main(void)
     test_playback_path();
     test_play_speed();
     test_keyframes();
+    test_projection_fov();
     test_keyframe_yaw_wrap();
     test_restore();
     test_safety();

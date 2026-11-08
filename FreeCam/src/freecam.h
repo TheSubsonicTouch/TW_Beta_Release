@@ -35,6 +35,7 @@ typedef struct {
 typedef struct {
     float pos[3];
     float yaw, pitch;
+    float fov;                 /* vertical FOV in degrees */
     float time;
 } fc_keyframe;
 
@@ -63,6 +64,7 @@ typedef struct {
     int    active;               /* free cam on */
     int    have_pose;
     int    caps;                 /* last Caps Lock state (edge detection) */
+    float  fov;                  /* vertical FOV in degrees */
     float  yaw, pitch;           /* radians; yaw 0 looks along -Z */
     float  pos[3];               /* camera (or player) position we are driving */
     float  anchor[3];            /* where the target was when free cam was switched on */
@@ -267,6 +269,9 @@ int  fc_play_step(fc_state *st, float dt, fc_mat *out);
  * unusable (two keys in one instant, or out of order) is played with its keys spaced
  * evenly, so it always plays rather than finishing in a millisecond. Returns 1 when it
  * wrote the pose, 0 when there is no path to play. */
+float fc_play_fov(const fc_state *st, float clock);
+/* Set a vertical FOV on a verified perspective matrix, preserving aspect ratio. */
+int fc_projection_fov(fc_mat *m, float degrees);
 int  fc_play_pose(const fc_state *st, float clock, float pos[3], float *yaw, float *pitch);
 
 /* How fast the path plays back: 1.0 is the speed it was flown at, 0.5 takes twice as

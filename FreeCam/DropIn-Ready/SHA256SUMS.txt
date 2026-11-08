@@ -3,5 +3,5 @@ Check one with:  certutil -hashfile dinput8.dll SHA256
 or in PowerShell: Get-FileHash -Algorithm SHA256 <file>
 
 3d3b282c46d40be2c15bdbf0bbdc9708c16774a34de0dc5042772d48d9d6c956  START-HERE.txt
-1d1d98634d0989a24a1e9299d7f0631579aeea6397cbf99673138b27244e49ed  dinput8.dll
-d36fb54e884dbf91827c5093cdbe7ec3eeda4d4ee56799702cfec0ab3f9889c4  README.txt
+7d3c687ca2e9bd4b613848befb1b60369fa975ef2965f985767addf4dda452c6  dinput8.dll
+957cb8ec72397e390210ecd22bd0d01edf25b4ea7f3e103be9b6668ccb788d14  README.txt

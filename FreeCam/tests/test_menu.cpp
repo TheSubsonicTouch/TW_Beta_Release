@@ -1632,6 +1632,16 @@ void testMenuStyle() {
     check(!edited.load("hello"), "and neither does a line with no keys in it");
     check(edited.themeIndex() == 3, "and neither one disturbs what was there");
 
+    {
+        tw::Menu fovMenu; tw::DebugHooks fovHooks; float requested = 0;
+        fovHooks.fov = [] { return 70.0f; };
+        fovHooks.setFov = [&requested](float v) { requested = v; return std::string("FOV set"); };
+        fovMenu.setVisible(true); tw::buildDebugMenu(fovMenu, fovHooks);
+        check(hasLabel(fovMenu, "Free camera FOV (degrees)"), "FOV slider is visible");
+        selectLabel(fovMenu, "Free camera FOV (degrees)"); fovMenu.handleKey(tw::Key::Right);
+        check(requested == 71.0f, "FOV slider sends degrees to camera");
+    }
+
     // The rows: they write the style, and the style is the only copy.
     tw::MenuStyle live;
     int toggles = 0, picks = 0, levels = 0;
@@ -1674,6 +1684,17 @@ void testMenuStyle() {
     menu.handleKey(tw::Key::Right);
     check(live.scale() > 1.0f, "the text size slider moves the style");
 
+    selectLabel(menu, "Accent red");
+    float beforeRed = live.colours().accent[0];
+    menu.handleKey(tw::Key::Right);
+    check(live.colours().accent[0] > beforeRed, "accent slider changes rendered accent");
+    selectLabel(menu, "Panel blue");
+    menu.handleKey(tw::Key::Right);
+    tw::MenuStyle customReload;
+    check(customReload.load(live.save()), "custom colours load");
+    check(customReload.colours().accent[0] == live.colours().accent[0] &&
+          customReload.colours().panel[2] == live.colours().panel[2], "custom colours persist");
+
     // Reset puts the object back and moves both pickers with it, so the rows cannot end up
     // describing a look that is no longer being drawn.
     selectLabel(menu, "Reset appearance");
@@ -1682,6 +1703,9 @@ void testMenuStyle() {
     check(menu.item("Colours")->optionIndex == 0, "the colours picker follows the reset");
     check(menu.item("Background")->optionIndex == 0, "and so does the background picker");
     check(menu.status() == "Appearance: back to the shipped look", "and says so");
+    check(menu.item("Background contrast")->value == live.backgroundAlpha(), "reset refreshes contrast display");
+    check(menu.item("Text size")->value == live.scale(), "reset refreshes size display");
+    check(menu.item("Accent red")->value == live.colours().accent[0], "reset refreshes colour display");
 
     // A build with no style object simply has no appearance section - the menu is still
     // fully usable, it just cannot be restyled.

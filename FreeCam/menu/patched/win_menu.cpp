@@ -1603,6 +1603,12 @@ void buildMenu() {
         return std::string(buf);
     };
     hooks.flySpeed = []() { return tw::game::FreeCamSpeed(); };
+    hooks.setFov = [](float degrees) {
+        if (tw::game::FreeCamPlaying()) return std::string("FOV: stop playback before editing");
+        tw::game::FreeCamRequestAction(tw::game::kFreeCamSetFov, static_cast<int>(degrees + 0.5f));
+        return std::string("Free camera FOV: queued");
+    };
+    hooks.fov = []() { return tw::game::FreeCamFov(); };
 
     // The path: record, play, stop and forget, plus the speed ladder the arrows walk. The
     // labels are built from the core's own ladder, so the menu cannot offer a speed the
@@ -1645,7 +1651,14 @@ void buildMenu() {
         g_menu.setToggled("Freeze camera (O)", tw::game::FreeCamFrozen());
         g_menu.setToggled("Follow player (P)", tw::game::FreeCamFollowing());
         g_menu.setToggled("Look at player (P)", tw::game::FreeCamLookingAt());
-        g_menu.setToggled("Play path (J)", tw::game::FreeCamPlaying());
+        g_menu.setInfo("FOV projection", tw::game::FreeCamFovStatus());
+        const bool playingFov = tw::game::FreeCamPlaying();
+        static bool wasPlayingFov = false;
+        if (playingFov || wasPlayingFov) {
+            if (auto* row = g_menu.item("Free camera FOV (degrees)")) row->value = tw::game::FreeCamFov();
+        }
+        wasPlayingFov = playingFov;
+        g_menu.setToggled("Play path (J)", playingFov);
         g_menu.setOptionIndex("Playback speed",
                               static_cast<std::size_t>(tw::game::FreeCamPlaySpeedIndex()));
         {

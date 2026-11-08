@@ -98,6 +98,7 @@ enum FreeCamAction {
     kFreeCamClearPath,
     kFreeCamSetPlaySpeed,     // arg: index into FreeCamPlaySpeedAt
     kFreeCamSetFlySpeed,      // arg: metres per second
+    kFreeCamSetFov,           // arg: vertical degrees
     kFreeCamActionCount
 };
 void FreeCamRequestAction(int action, int arg = 0);          // any thread
@@ -110,6 +111,8 @@ bool FreeCamFollowing();
 bool FreeCamLookingAt();
 bool FreeCamPlaying();
 int  FreeCamKeyframeCount();
+float FreeCamFov();
+const char* FreeCamFovStatus();
 
 // The playback-speed ladder, and which rung the camera is on.
 int   FreeCamPlaySpeedCount();

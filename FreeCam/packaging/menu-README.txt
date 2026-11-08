@@ -104,6 +104,16 @@ game carries on from its own camera and not from where you flew to.
 WHAT CHANGED IN THIS BUILD
 --------------------------
 
+  - Build 35 (experimental FOV): CAMERA > Free camera FOV (degrees) sets the
+    vertical field of view from 20 to 120 degrees while the free camera is on.
+    Set a value before each L keyframe; J interpolates FOV with the recorded
+    path. Stop playback before changing the slider. When free camera is turned
+    off, the code attempts to restore the game's projection if still owned.
+    The game may replace or ignore the projection: this has not been tested in
+    game. If it does not change, check TW_MenuLog.txt for FreeCam FOV messages.
+    APPEARANCE offers colour presets, accent and panel RGB sliders, background
+    artwork, contrast and text size. Changes save to the menu style file.
+
   - Build 34. The rival triads are in the model list.
 
     - "Ped model (list)" now starts with 43 names instead of the four the executable

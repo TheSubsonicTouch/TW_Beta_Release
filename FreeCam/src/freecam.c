@@ -755,6 +755,7 @@ void fc_init(fc_state *st, const fc_config *cfg)
     st->cfg = copy;
     st->pitch = 0.0f;
     st->play_speed = 1.0f;
+    st->fov = 60.0f;
     fc_mat_identity(&st->saved);
 }
 
@@ -1043,6 +1044,7 @@ int fc_key_add(fc_state *st, float now)
     copy3(k->pos, st->pos);
     k->yaw = st->yaw;
     k->pitch = st->pitch;
+    k->fov = st->fov;
     k->time = t;
     return st->path_count;
 }
@@ -1176,6 +1178,37 @@ static float play_times(const fc_state *st, float *t)
     return n >= 2 ? t[n - 1] : 0.0f;
 }
 
+float fc_play_fov(const fc_state *st, float clock)
+{
+    float t[FC_MAX_KEYS]; int i, n;
+    if (!st || (n = st->path_count) < 2 || n > FC_MAX_KEYS) return st ? st->fov : 60.0f;
+    play_times(st, t);
+    if (!(clock > t[0])) return st->path[0].fov;
+    for (i = 1; i < n; ++i) {
+        if (clock < t[i]) {
+            float u = (clock - t[i - 1]) / (t[i] - t[i - 1]);
+            return st->path[i - 1].fov + u * (st->path[i].fov - st->path[i - 1].fov);
+        }
+    }
+    return st->path[n - 1].fov;
+}
+
+int fc_projection_fov(fc_mat *m, float degrees)
+{
+    float y, ratio;
+    if (!m || !finitef_(degrees) || degrees < 20.0f || degrees > 120.0f ||
+        !fc_mat_is_projection(m) || fabsf(m->m[15]) > 0.001f ||
+        (fabsf(fabsf(m->m[11]) - 1.0f) > 0.01f &&
+         fabsf(fabsf(m->m[14]) - 1.0f) > 0.01f) ||
+        m->m[0] < 0.05f || m->m[0] > 20.0f || m->m[5] < 0.05f || m->m[5] > 20.0f)
+        return 0;
+    y = 1.0f / tanf(degrees * 0.008726646259971648f);
+    ratio = y / m->m[5];
+    m->m[0] *= ratio;
+    m->m[5] = y;
+    return 1;
+}
+
 int fc_play_pose(const fc_state *st, float clock, float pos[3], float *yaw, float *pitch)
 {
     float t[FC_MAX_KEYS], yawu[FC_MAX_KEYS];
@@ -1267,10 +1300,12 @@ int fc_play_step(fc_state *st, float dt, fc_mat *out)
         copy3(st->pos, last->pos);
         st->yaw = last->yaw;
         st->pitch = last->pitch;
+        st->fov = last->fov;
         st->playing = 0;
         st->play_time = 0.0f;
     } else {
         fc_play_pose(st, st->play_time, st->pos, &st->yaw, &st->pitch);
+        st->fov = fc_play_fov(st, st->play_time);
     }
 
     /* the pose being played is the camera's pose now, so turning it off, following the

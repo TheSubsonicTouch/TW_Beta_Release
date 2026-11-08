@@ -196,6 +196,19 @@ void MenuStyle::setThemeIndex(int i) {
     if (i < 0) i = 0;
     if (i >= MenuThemeCount()) i = MenuThemeCount() - 1;
     theme_ = i;
+    custom_ = false;
+}
+
+float MenuStyle::colourChannel(int group, int channel) const {
+    if (channel < 0 || channel > 2 || group < 0 || group > 1) return 0.0f;
+    const MenuColours& c = colours();
+    return group == 0 ? c.accent[channel] : c.panel[channel];
+}
+
+void MenuStyle::setColourChannel(int group, int channel, float value) {
+    if (channel < 0 || channel > 2 || group < 0 || group > 1) return;
+    if (!custom_) { customColours_ = MenuThemeAt(theme_); custom_ = true; }
+    (group == 0 ? customColours_.accent : customColours_.panel)[channel] = clampf(value, 0.0f, 1.0f);
 }
 
 void MenuStyle::setBackground(int i) {
@@ -211,7 +224,7 @@ void MenuStyle::setScale(float s) { scale_ = clampf(s, kMinScale, kMaxScale); }
 bool MenuStyle::reset() {
     const MenuStyle defaults;
     const bool changed = theme_ != defaults.theme_ || background_ != defaults.background_ ||
-                         alpha_ != defaults.alpha_ || scale_ != defaults.scale_;
+                         alpha_ != defaults.alpha_ || scale_ != defaults.scale_ || custom_;
     *this = defaults;
     return changed;
 }
@@ -220,7 +233,16 @@ std::string MenuStyle::save() const {
     char buf[128];
     std::snprintf(buf, sizeof buf, "theme=%d;bg=%d;alpha=%.2f;scale=%.2f", theme_,
                   background_, static_cast<double>(alpha_), static_cast<double>(scale_));
-    return buf;
+    std::string result(buf);
+    if (custom_) {
+        char extra[160];
+        std::snprintf(extra, sizeof extra, ";ar=%.3f;ag=%.3f;ab=%.3f;pr=%.3f;pg=%.3f;pb=%.3f",
+                      (double)customColours_.accent[0], (double)customColours_.accent[1],
+                      (double)customColours_.accent[2], (double)customColours_.panel[0],
+                      (double)customColours_.panel[1], (double)customColours_.panel[2]);
+        result += extra;
+    }
+    return result;
 }
 
 // A fixed, tolerant reader rather than anything clever: four keys, any order, unknown keys
@@ -230,6 +252,7 @@ bool MenuStyle::load(const std::string& text) {
     if (text.empty()) return false;
     MenuStyle parsed;
     bool any = false;
+    float channels[6] = {}; bool have[6] = {};
     std::size_t at = 0;
     while (at < text.size()) {
         std::size_t end = text.find(';', at);
@@ -249,8 +272,15 @@ bool MenuStyle::load(const std::string& text) {
         else if (key == "bg") { parsed.setBackground(static_cast<int>(number)); any = true; }
         else if (key == "alpha") { parsed.setBackgroundAlpha(static_cast<float>(number)); any = true; }
         else if (key == "scale") { parsed.setScale(static_cast<float>(number)); any = true; }
+        else {
+            const char* names[] = {"ar", "ag", "ab", "pr", "pg", "pb"};
+            for (int i = 0; i < 6; ++i) if (key == names[i]) {
+                channels[i] = static_cast<float>(number); have[i] = true; any = true; break;
+            }
+        }
     }
     if (!any) return false;
+    for (int i = 0; i < 6; ++i) if (have[i]) parsed.setColourChannel(i / 3, i % 3, channels[i]);
     *this = parsed;
     return true;
 }
@@ -622,6 +652,19 @@ void buildDebugMenu(Menu& menu, const DebugHooks& hooks) {
         fly.value = hooks.flySpeed ? hooks.flySpeed() : 30.0f;
         fly.onChange = [&menu, fn = hooks.setFlySpeed](float v) { menu.setStatus(fn(v)); };
         menu.addItem(fly);
+    }
+
+    if (hooks.setFov) {
+        MenuItem fov;
+        fov.label = "Free camera FOV (degrees)";
+        fov.kind = ItemKind::Slider;
+        fov.minValue = 20.0f; fov.maxValue = 120.0f; fov.step = 1.0f;
+        fov.value = hooks.fov ? hooks.fov() : 60.0f;
+        fov.onChange = [&menu, fn = hooks.setFov](float v) { menu.setStatus(fn(v)); };
+        menu.addItem(fov);
+        MenuItem fovStatus; fovStatus.label = "FOV projection";
+        fovStatus.kind = ItemKind::Info; fovStatus.text = "free camera off / searching";
+        menu.addItem(fovStatus);
     }
 
     // ---- Spawn -----------------------------------------------------------
@@ -1302,6 +1345,9 @@ void buildDebugMenu(Menu& menu, const DebugHooks& hooks) {
                                               for (int i = 0; i < MenuThemeCount(); ++i) {
                                                   if (name == MenuThemeNames()[i]) {
                                                       style->setThemeIndex(i);
+                                                      const char* labels[] = {"Accent red", "Accent green", "Accent blue", "Panel red", "Panel green", "Panel blue"};
+                                                      for (int n = 0; n < 6; ++n)
+                                                          if (auto* row = menu.item(labels[n])) row->value = style->colourChannel(n / 3, n % 3);
                                                       return "Colours: " + name;
                                                   }
                                               }
@@ -1329,6 +1375,24 @@ void buildDebugMenu(Menu& menu, const DebugHooks& hooks) {
             bg.optionIndex = static_cast<std::size_t>(style->background());
             bg.applyOnChange = true;
             menu.addItem(bg);
+        }
+
+        // RGB controls affect the actual rendered accent and solid panel immediately.
+        const char* colourLabels[] = {"Accent red", "Accent green", "Accent blue",
+                                      "Panel red", "Panel green", "Panel blue"};
+        for (int n = 0; n < 6; ++n) {
+            MenuItem channel;
+            channel.label = colourLabels[n];
+            channel.kind = ItemKind::Slider;
+            channel.minValue = 0.0f; channel.maxValue = 1.0f; channel.step = 0.05f;
+            channel.value = style->colourChannel(n / 3, n % 3);
+            const std::string label = channel.label;
+            channel.onChange = [style, &menu, n, label](float v) {
+                style->setColourChannel(n / 3, n % 3, v);
+                char buf[80]; std::snprintf(buf, sizeof buf, "%s: %.0f%%", label.c_str(), (double)(v * 100));
+                menu.setStatus(buf);
+            };
+            menu.addItem(channel);
         }
 
         {
@@ -1377,6 +1441,11 @@ void buildDebugMenu(Menu& menu, const DebugHooks& hooks) {
                 const bool changed = style->reset();
                 menu.setOptionIndex("Colours", static_cast<std::size_t>(style->themeIndex()));
                 menu.setOptionIndex("Background", static_cast<std::size_t>(style->background()));
+                const char* labels[] = {"Accent red", "Accent green", "Accent blue", "Panel red", "Panel green", "Panel blue"};
+                for (int n = 0; n < 6; ++n)
+                    if (auto* row = menu.item(labels[n])) row->value = style->colourChannel(n / 3, n % 3);
+                if (auto* row = menu.item("Background contrast")) row->value = style->backgroundAlpha();
+                if (auto* row = menu.item("Text size")) row->value = style->scale();
                 menu.setStatus(changed ? "Appearance: back to the shipped look"
                                        : "Appearance: already the shipped look");
             };

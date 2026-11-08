@@ -79,7 +79,9 @@ public:
 
     int themeIndex() const { return theme_; }
     void setThemeIndex(int i);
-    const MenuColours& colours() const { return MenuThemeAt(theme_); }
+    const MenuColours& colours() const { return custom_ ? customColours_ : MenuThemeAt(theme_); }
+    float colourChannel(int group, int channel) const;
+    void setColourChannel(int group, int channel, float value);
 
     // 0 is the dragon stretched to cover the window, 1 the same picture tiled, 2 the small
     // pattern tiled, 3 nothing (the flat panel, which is what the text is readable against).
@@ -109,6 +111,8 @@ public:
 
 private:
     int theme_ = 0;
+    bool custom_ = false;
+    MenuColours customColours_{};
     int background_ = 0;      // the dragon, which is what this build ships with
     float alpha_ = 0.55f;
     float scale_ = 1.0f;
@@ -275,6 +279,8 @@ struct DebugHooks {
     std::function<bool()> lookingAtPlayer;
     std::function<std::string(float)> setFlySpeed;
     std::function<float()> flySpeed;
+    std::function<std::string(float)> setFov;
+    std::function<float()> fov;
 
     // The recorded path. "Record" takes the camera's current pose, "play" flies the path
     // back over the time it was recorded, and "clear" forgets it. The speeds are the same
