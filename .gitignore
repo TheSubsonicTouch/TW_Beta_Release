@@ -22,3 +22,6 @@ TriadWars.exe.orig
 
 # twre.py's disassembly cache, rebuilt on demand
 LocalServer/tools/re_cache.pkl
+
+# Local appearance backup: user profile data, not a distributable asset
+LocalServer/player-model-backup.json
